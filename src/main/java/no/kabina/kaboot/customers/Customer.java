@@ -20,7 +20,7 @@ public class Customer {
 
     @OneToMany
     @JoinColumn(name = "customer_id")
-    private Set<TaxiOrder> items = new HashSet<TaxiOrder>();
+    private Set<TaxiOrder> items = new HashSet<>();
 
     protected Customer() { }
 

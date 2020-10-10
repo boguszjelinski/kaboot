@@ -6,7 +6,7 @@ import java.util.List;
 
 public interface RouteRepository extends JpaRepository<Route, Long> {
 
-    List<Route> findByCabId(int cab_id);
+    List<Route> findByCabIdAndStatus(int cabId, Route.RouteStatus status);
 
     Route findById(long id);
 }

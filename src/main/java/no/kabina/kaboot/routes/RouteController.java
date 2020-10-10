@@ -16,14 +16,8 @@ public class RouteController {
         this.repository = repository;
     }
 
-    /*@GetMapping("/orders/{id}")
-    public String one(@PathVariable int id) {
-        TaxiOrder taxiOrder = repository.findById(id);
-        return taxiOrder.toString();
-    }*/
-
     @GetMapping(path="/routes", produces = MediaType.APPLICATION_JSON_VALUE)
     public List<Route> getValidRouteByCab(@PathVariable int cabId) {
-        return repository.findByCabId(cabId);
+        return repository.findByCabIdAndStatus(cabId, Route.RouteStatus.ASSIGNED);
     }
 }

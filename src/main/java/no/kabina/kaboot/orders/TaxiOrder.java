@@ -4,6 +4,7 @@ import no.kabina.kaboot.cabs.Cab;
 import no.kabina.kaboot.customers.Customer;
 import no.kabina.kaboot.routes.Route;
 import no.kabina.kaboot.routes.Task;
+import org.hibernate.criterion.Order;
 
 import javax.persistence.Entity;
 import javax.persistence.FetchType;
@@ -31,12 +32,13 @@ public class TaxiOrder{
 
     protected TaxiOrder() {}
 
-    public TaxiOrder(int fromStand, int toStand, int maxWait, int maxLoss, boolean shared) {
+    public TaxiOrder(int fromStand, int toStand, int maxWait, int maxLoss, boolean shared, OrderStatus status) {
         this.fromStand = fromStand;
         this.toStand = toStand;
         this.maxWait = maxWait;
         this.maxLoss = maxLoss;
         this.shared = shared;
+        this.status = status;
     }
     // asigned cab
     @ManyToOne(optional = true, fetch = FetchType.LAZY)
@@ -98,5 +100,9 @@ public class TaxiOrder{
         REFUSED,   // no cab available, cab broke down at any stage
         PICKEDUP,
         COMPLETE
+    }
+
+    public void setCustomer(Customer cust) {
+        this.customer = cust;
     }
 }

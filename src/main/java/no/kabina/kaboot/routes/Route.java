@@ -1,7 +1,6 @@
 package no.kabina.kaboot.routes;
 
 import no.kabina.kaboot.cabs.Cab;
-import no.kabina.kaboot.customers.Customer;
 import no.kabina.kaboot.orders.TaxiOrder;
 
 import javax.persistence.Entity;
@@ -36,11 +35,11 @@ public class Route {
 
     @OneToMany
     @JoinColumn(name = "route_id")
-    private Set<Task> items = new HashSet<Task>();
+    private Set<Task> items = new HashSet<>();
 
     @OneToMany // many customers that can ride within one route (pool)
     @JoinColumn(name = "route_id")
-    private Set<TaxiOrder> orders = new HashSet<TaxiOrder>();
+    private Set<TaxiOrder> orders = new HashSet<>();
 
     public enum RouteStatus {
         ASSIGNED,  // not confirmed, initial status

@@ -27,7 +27,7 @@ public class Cab {
 
   @OneToMany
   @JoinColumn(name = "cab_id")
-  private Set<TaxiOrder> items = new HashSet<TaxiOrder>();
+  private Set<TaxiOrder> items = new HashSet<>();
 
   public Long getId() {
     return id;
