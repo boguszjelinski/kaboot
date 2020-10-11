@@ -21,13 +21,13 @@ public class Task { // a leg of a route
     private Long id;
 
     private int stand; // go to
+    private int place; // place in line; ID of the next would be better, but we don't have this id while creating 'entities' in JPA
 
+    protected Task() { }
 
-    private int order; // place in line; ID of the next would be better, but we don't have this id while creating 'entities' in JPA
-
-    public Task(int stand, int order) {
+    public Task(int stand, int place) {
         this.stand = stand;
-        this.order = order;
+        this.place = place;
     }
 
     @OneToMany
@@ -46,7 +46,7 @@ public class Task { // a leg of a route
         return stand;
     }
 
-    public int getOrder() {
-        return order;
+    public int getPlace() {
+        return place;
     }
 }

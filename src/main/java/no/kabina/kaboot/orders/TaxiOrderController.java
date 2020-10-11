@@ -1,5 +1,6 @@
 package no.kabina.kaboot.orders;
 
+import no.kabina.kaboot.utils.AuthUtils;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -40,24 +41,6 @@ public class TaxiOrderController {
     public TaxiOrder newTaxiOrder(@RequestBody TaxiOrderPOJO newTaxiOrder, Authentication auth) {
         TaxiOrder order = new TaxiOrder(newTaxiOrder.fromStand, newTaxiOrder.toStand,
                         newTaxiOrder.maxWait, newTaxiOrder.maxLoss, newTaxiOrder.shared, TaxiOrder.OrderStatus.RECEIVED);
-        return service.saveTaxiOrder(order, getUserId(auth, "ROLE_CUSTOMER"));
-    }
-
-    public Long getUserId(Authentication authentication, String mustBeRole) {
-        String usrName = authentication.getName();
-        if (mustBeRole == null || usrName == null) {
-            return -1L;
-        }
-        for (GrantedAuthority authority : authentication.getAuthorities()) {
-            if (mustBeRole.equals(authority.getAuthority())) { // maybe irrelevant - we have SecurityConfig for this
-                switch (mustBeRole) {
-                    case "ROLE_CUSTOMER":
-                        return Long.parseLong(usrName.substring("cust".length()));
-                    case "ROLE_CAB":
-                        return Long.parseLong(usrName.substring("cab".length()));
-                }
-            }
-        }
-        return -1L;
+        return service.saveTaxiOrder(order, AuthUtils.getUserId(auth, "ROLE_CUSTOMER"));
     }
 }

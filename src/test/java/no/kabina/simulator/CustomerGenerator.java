@@ -47,7 +47,7 @@ public class CustomerGenerator {
                         }
                     };
                     executor.execute(thread);
-                    end = true; // just one cab is enough
+                    //end = true; // just one cab is enough
                 }
             }
             TimeUnit.MINUTES.sleep(1);
@@ -58,7 +58,7 @@ public class CustomerGenerator {
     private static void live(Demand d) {
         /*
             1. request a cab
-            2. get assignment - do you like it ?
+            2. loop/wait for an assignment - do you like it ?
             3. wait for a cab
             4. take a trip
             5. mark the end
@@ -100,6 +100,7 @@ public class CustomerGenerator {
                 }
                 System.out.print(d.id + ", ");
             }
+            con.disconnect();
         } catch (Exception e) {
             System.out.println("Exception: " + e.getMessage() + "; "+ e.getCause() + "; " + e.getStackTrace().toString());
         }

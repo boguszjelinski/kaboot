@@ -3,14 +3,7 @@ package no.kabina.kaboot.routes;
 import no.kabina.kaboot.cabs.Cab;
 import no.kabina.kaboot.orders.TaxiOrder;
 
-import javax.persistence.Entity;
-import javax.persistence.JoinColumn;
-import javax.persistence.OneToMany;
-import javax.persistence.GeneratedValue;
-import javax.persistence.GenerationType;
-import javax.persistence.Id;
-import javax.persistence.FetchType;
-import javax.persistence.ManyToOne;
+import javax.persistence.*;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -33,9 +26,9 @@ public class Route {
     @JoinColumn(name="cab_id", nullable=true)
     private Cab cab;
 
-    @OneToMany
-    @JoinColumn(name = "route_id")
-    private Set<Task> items = new HashSet<>();
+    @OneToMany(mappedBy = "route", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+  //  @JoinColumn(name = "route_id")
+    private Set<Task> tasks = new HashSet<>();
 
     @OneToMany // many customers that can ride within one route (pool)
     @JoinColumn(name = "route_id")
@@ -56,4 +49,6 @@ public class Route {
     public RouteStatus getStatus() {
         return status;
     }
+    public void setTasks(Set<Task> tasks) { this.tasks = tasks; }
+    public Set<Task> getTasks() { return tasks; }
 }
