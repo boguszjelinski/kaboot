@@ -41,16 +41,18 @@ public class CustomerGenerator {
             for (int i=0; i< demand.length && !end; i++) {
                 if (demand[i].at == t) { 
                     final Demand d = demand[i];
+                    System.out.print(d.id + ", ");
                     Runnable thread = new Runnable() {
                         public void run() {
                             live(d);
                         }
                     };
                     executor.execute(thread);
+                    
                     //end = true; // just one cab is enough
                 }
             }
-            TimeUnit.MINUTES.sleep(1);
+            TimeUnit.SECONDS.sleep(10);
         }
         executor.shutdown();
     }
@@ -63,7 +65,18 @@ public class CustomerGenerator {
             4. take a trip
             5. mark the end
         */ 
+        long start = System.currentTimeMillis();
         requestCab(d);
+        try {
+            for (int i=1; i<100; i++) {
+                if (System.currentTimeMillis() > start + 1000) {
+                    return;
+                }
+                Thread.sleep(10);
+            }
+        } catch (InterruptedException e) {
+            System.out.println("Eeee...");
+        }
     }
 
     private static void requestCab(Demand d) {
@@ -98,7 +111,7 @@ public class CustomerGenerator {
                 while ((responseLine = br.readLine()) != null) {
                     response.append(responseLine.trim());
                 }
-                System.out.print(d.id + ", ");
+               
             }
             con.disconnect();
         } catch (Exception e) {
