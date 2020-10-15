@@ -2,16 +2,17 @@
     Project: Kabina/Kaboot
     Date: 2020
 */
-import com.google.gson.Gson;
+// javac -cp ../lib/gson-2.8.6.jar CabGenerator.java
+// cd src; java -cp ../lib/gson-2.8.6.jar;. CabGenerator
 
 import java.io.*;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.Base64;
+//import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.gson.Gson;
 
 public class CabGenerator {
     final static int maxTime = 120; // minutes
@@ -20,25 +21,26 @@ public class CabGenerator {
     long end = System.currentTimeMillis();
      //(end - start) / 1000d // " seconds"
 
+    private static class CabRunnable implements Runnable {
+        private int cab_id;
+        public CabRunnable(int id) { this.cab_id = id; }
+        public void run() {
+            live(cab_id);
+        }
+    }
+
     public static void main(String[] args) throws InterruptedException {
 
-        ExecutorService executor= Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
-        boolean end = false;
         // generating cabs
-        for (int c = 0; c < maxCabs && !end; c++) {
+        for (int c = 0; c < maxCabs; c++) {
             final int id = c;
-            Runnable thread = new Runnable() {
-                public void run() {
-                    live(id);
-                }
-            };
-            executor.execute(thread);
-            end = true; // just one cab is enough
+            (new Thread(new CabRunnable(id))).start();
+            break;
         }
-        executor.shutdown();
     }
 
     private static void live(int cab_id) {
+        System.out.println("live");
         /*
             1. check if any valid route
             2. if not - wait 30sec
@@ -47,7 +49,13 @@ public class CabGenerator {
             5. report stoping at stands (Kaboot must notify customers)
             6. report 'cab is free'
         */
+        try {
+            Thread.sleep(1000);
+        } catch (InterruptedException e) {}
 
+        System.out.println("Blah");
+        Route[] r = getRoute(cab_id);
+        System.out.println("First task stand: " + r[0].getTasks().get(0).getStand());
     }
 
    /* private static void requestCab(Demand d) {
@@ -82,7 +90,8 @@ public class CabGenerator {
         }
     }*/
 
-    private Route getRoute(int cab_id) {
+
+    private static Route[] getRoute(int cab_id) {
         String user = "cab" + cab_id;
         StringBuilder result = new StringBuilder();
         HttpURLConnection con = null;
@@ -96,8 +105,10 @@ public class CabGenerator {
             while ((line = reader.readLine()) != null) {
                 result.append(line);
             }
+            
             Gson g = new Gson();
-            Route r = g.fromJson(result.toString(), Route.class);
+            Route[] r = g.fromJson(result.toString(), Route[].class);
+            //Route r = covertFromJsonToObject(result.toString(), Route.class);
             return r;
         } catch( Exception e) {
             e.printStackTrace();
@@ -120,6 +131,7 @@ public class CabGenerator {
         public Route(List<Task> tasks) { this.tasks = tasks;}
         public List<Task> getTasks() { return tasks; }
         public void setTasks(List<Task> tasks) { this.tasks = tasks; }
+
     }
 
     private class Task {
@@ -133,4 +145,9 @@ public class CabGenerator {
         public int getPlace() { return place; }
         public void setPlace(int order) { this.place = place; }
     }
+
+    // static public <T> T covertFromJsonToObject(String json, Class<T> var) throws IOException{
+    //     ObjectMapper mapper = new ObjectMapper();
+    //     return mapper.readValue(json, var);//Convert Json into object of Specific Type
+    // }
 }

@@ -6,8 +6,6 @@ import java.io.*;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.Base64;
 import java.nio.file.Files;
@@ -15,6 +13,10 @@ import java.nio.file.Path;
 
 public class CustomerGenerator {
     final static String DEMAND_FILE = "C:\\Users\\dell\\TAXI\\GIT\\simulations\\taxi_demand.txt";
+    final static int MAX_WAIT_FOR_RESPONSE = 3; // minutes; might be random in taxi_demand.txt
+    final static int MAX_WAIT_FOR_CAB = 10; // minutes; might be random in taxi_demand.txt
+    final static int MAX_POOL_LOSS = 30; // %; might be random in taxi_demand.txt
+
     static long demandCount=0;
     static Demand[] demand;
     static int maxTime = 0;
@@ -30,31 +32,28 @@ public class CustomerGenerator {
         }
     }
 
+    private static class CustomerRunnable implements Runnable {
+        private Demand demand;
+        public CustomerRunnable(Demand d) { this.demand = d; }
+        public void run() {
+            live(demand);
+        }
+    }
+
     public static void main(String[] args) throws InterruptedException {
         readDemand();
-
-        ExecutorService executor= Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
-        boolean end = false;
-        for (int t = 0; t < maxTime && !end; t++) { // time axis
+        for (int t = 0; t < maxTime; t++) { // time axis
             System.out.print("\nTIME: " + t + ", IDs: ");
             // filter out demand for this time point
-            for (int i=0; i< demand.length && !end; i++) {
+            for (int i=0; i< demand.length; i++) {
                 if (demand[i].at == t) { 
                     final Demand d = demand[i];
                     System.out.print(d.id + ", ");
-                    Runnable thread = new Runnable() {
-                        public void run() {
-                            live(d);
-                        }
-                    };
-                    executor.execute(thread);
-                    
-                    //end = true; // just one cab is enough
+                    (new Thread(new CustomerRunnable(d))).start();
                 }
             }
             TimeUnit.SECONDS.sleep(10);
         }
-        executor.shutdown();
     }
 
     private static void live(Demand d) {
@@ -65,17 +64,41 @@ public class CustomerGenerator {
             4. take a trip
             5. mark the end
         */ 
-        long start = System.currentTimeMillis();
         requestCab(d);
-        try {
-            for (int i=1; i<100; i++) {
-                if (System.currentTimeMillis() > start + 1000) {
-                    return;
-                }
-                Thread.sleep(10);
+        // just give kaboot a while to think about it
+        Assignment a = null; // pool ? cab? ETA ?
+        for (int t=0; t<MAX_WAIT_FOR_RESPONSE; t++) {
+            try { Thread.sleep(60*1000); } catch (InterruptedException e) {} // one minute
+            a = waitForAssignment(d);
+            if (a != null)  { 
+                break;
             }
-        } catch (InterruptedException e) {
-            System.out.println("Eeee...");
+        }
+        if (a == null) { // Kaboot has not answered, too busy
+            // complain
+            return;
+        }
+        if (a.time > d.at + MAX_WAIT_FOR_CAB) {
+            // complain
+            return;
+        }
+        acceptAssignment(a);
+        boolean isCabAtStand = false;
+        for (int t=0; t<MAX_WAIT_FOR_CAB; t++) {
+            try { Thread.sleep(60*1000); } catch (InterruptedException e) {} // one minute
+            isCabAtStand = isCabWaiting(a);
+            if (isCabAtStand) {
+                break;
+            }
+        }
+        if (!isCabAtStand) {
+            // complain
+            return;
+        }
+        // take a trip
+        for (int t=0; t<     ; t++) {
+            try { Thread.sleep(60*1000); } catch (InterruptedException e) {} // one minute
+            ...
         }
     }
 
