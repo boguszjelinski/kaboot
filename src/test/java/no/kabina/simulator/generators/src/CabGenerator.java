@@ -3,7 +3,7 @@
     Date: 2020
 */
 // javac -cp ../lib/gson-2.8.6.jar CabGenerator.java
-// cd src; java -cp ../lib/gson-2.8.6.jar;. CabGenerator
+// java -cp ../lib/gson-2.8.6.jar;. CabGenerator
 
 import java.io.*;
 import java.net.HttpURLConnection;

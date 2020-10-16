@@ -2,20 +2,27 @@
     Project: Kabina/Kaboot
     Date: 2020
 */
-import java.io.*;
+import java.io.BufferedReader;
+import java.io.FileReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
-import java.util.concurrent.TimeUnit;
-import java.util.Base64;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Base64;
+import java.util.concurrent.TimeUnit;
 
 public class CustomerGenerator {
-    final static String DEMAND_FILE = "C:\\Users\\dell\\TAXI\\GIT\\simulations\\taxi_demand.txt";
+    //final static String DEMAND_FILE = "C:\\Users\\dell\\TAXI\\GIT\\simulations\\taxi_demand.txt";
+    final static String DEMAND_FILE = "/home/m91127/GITHUB/taxidispatcher/taxi_demand.txt";
     final static int MAX_WAIT_FOR_RESPONSE = 3; // minutes; might be random in taxi_demand.txt
     final static int MAX_WAIT_FOR_CAB = 10; // minutes; might be random in taxi_demand.txt
     final static int MAX_POOL_LOSS = 30; // %; might be random in taxi_demand.txt
+    final static int MAX_TRIP_LOSS = 3; // minutes; just not be a jerk!
+    final static int MAX_TRIP_LEN = 100; // cab driver is a human, can choose a wrong way :)
 
     static long demandCount=0;
     static Demand[] demand;
@@ -63,7 +70,8 @@ public class CustomerGenerator {
             3. wait for a cab
             4. take a trip
             5. mark the end
-        */ 
+        */
+        // send to dispatcher that we need a cab
         requestCab(d);
         // just give kaboot a while to think about it
         Assignment a = null; // pool ? cab? ETA ?
@@ -96,9 +104,21 @@ public class CustomerGenerator {
             return;
         }
         // take a trip
-        for (int t=0; t<     ; t++) {
+        int duration=0;
+        for (; duration<MAX_TRIP_LEN; duration++) {
             try { Thread.sleep(60*1000); } catch (InterruptedException e) {} // one minute
-            ...
+            if (tripCompleted(a)) {
+                break;
+            }
+        }
+        if (a.ispool) {
+            if (duration > (int) (abs(d.from - d.to) * MAX_POOL_LOSS)) {
+                // complain
+            }
+        } else { // not a carpool
+            if (duration > (int) (abs(d.from - d.to) + MAX_TRIP_LOSS)) {
+                // complain
+            }
         }
     }
 
@@ -169,5 +189,9 @@ public class CustomerGenerator {
 		    reader.close();
 		}
 		catch (IOException e) {}
+    }
+
+    private class Assignment {
+
     }
 }
