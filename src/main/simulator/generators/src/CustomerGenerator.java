@@ -2,11 +2,9 @@
     Project: Kabina/Kaboot
     Date: 2020
 */
-import java.io.BufferedReader;
-import java.io.FileReader;
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.OutputStream;
+import com.google.gson.Gson;
+
+//import java.io.*;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
@@ -14,6 +12,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Base64;
 import java.util.concurrent.TimeUnit;
+import java.util.logging.Logger;
+import static java.lang.StrictMath.abs;
 
 public class CustomerGenerator {
     //final static String DEMAND_FILE = "C:\\Users\\dell\\TAXI\\GIT\\simulations\\taxi_demand.txt";
@@ -30,6 +30,11 @@ public class CustomerGenerator {
 
     private static class Demand {
         public int id, from, to, time, at;
+        public int eta; // set when assigned
+        public boolean inPool;
+        public int cab_id;
+        public OrderStatus status;
+
         public Demand (int id, int from, int to, int time, int at) {
             this.id = id;
             this.from = from;
@@ -37,6 +42,18 @@ public class CustomerGenerator {
             this.at = at;
             this.time = time;
         }
+        public enum OrderStatus {
+            RECEIVED,  // sent by customer
+            ASSIGNED,  // assigned to a cab, a proposal sent to customer with time-of-arrival
+            ACCEPTED,  // plan accepted by customer, waiting for the cab
+            CANCELLED, // cancelled before assignment
+            REJECTED,  // proposal rejected by customer
+            ABANDONED, // cancelled after assignment but before 'PICKEDUP'
+            REFUSED,   // no cab available, cab broke down at any stage
+            PICKEDUP,
+            COMPLETE
+        }
+        public void setStatus (OrderStatus stat) { this.status = stat; }
     }
 
     private static class CustomerRunnable implements Runnable {
@@ -49,6 +66,9 @@ public class CustomerGenerator {
 
     public static void main(String[] args) throws InterruptedException {
         readDemand();
+        Logger log = getLogger();
+        log.info("Start");
+
         for (int t = 0; t < maxTime; t++) { // time axis
             System.out.print("\nTIME: " + t + ", IDs: ");
             // filter out demand for this time point
@@ -72,46 +92,55 @@ public class CustomerGenerator {
             5. mark the end
         */
         // send to dispatcher that we need a cab
-        requestCab(d);
+        // order id returned
+        Demand order = saveOrder("POST", d); // order = d; but now ith has entity id
         // just give kaboot a while to think about it
-        Assignment a = null; // pool ? cab? ETA ?
+         // pool ? cab? ETA ?
         for (int t=0; t<MAX_WAIT_FOR_RESPONSE; t++) {
             try { Thread.sleep(60*1000); } catch (InterruptedException e) {} // one minute
-            a = waitForAssignment(d);
-            if (a != null)  { 
+            order = getEntity("orders/", d.id, order.id);
+            if (order.status == Demand.OrderStatus.ASSIGNED && order.cab_id != -1)  {
                 break;
             }
         }
-        if (a == null) { // Kaboot has not answered, too busy
+        if (order.status != Demand.OrderStatus.ASSIGNED || order.cab_id == -1) { // Kaboot has not answered, too busy
             // complain
             return;
         }
-        if (a.time > d.at + MAX_WAIT_FOR_CAB) {
+        if (order.eta > d.at + MAX_WAIT_FOR_CAB) {
             // complain
             return;
         }
-        acceptAssignment(a);
-        boolean isCabAtStand = false;
+        order.status = Demand.OrderStatus.ACCEPTED;
+        order = saveOrder("PUT", order); // PUT = update
+
+        boolean arrived = false;
         for (int t=0; t<MAX_WAIT_FOR_CAB; t++) {
             try { Thread.sleep(60*1000); } catch (InterruptedException e) {} // one minute
-            isCabAtStand = isCabWaiting(a);
-            if (isCabAtStand) {
+            Cab cab = getEntity("cabs/", d.id, order.cab_id);
+            if (cab.location == d.from) {
+                arrived = true;
                 break;
             }
         }
-        if (!isCabAtStand) {
+        if (!arrived) {
             // complain
             return;
         }
+        // authenticate to the cab - open the door?
+        order.status = Demand.OrderStatus.PICKEDUP;
+        order = saveOrder("PUT", order); // PUT = update
         // take a trip
         int duration=0;
         for (; duration<MAX_TRIP_LEN; duration++) {
             try { Thread.sleep(60*1000); } catch (InterruptedException e) {} // one minute
-            if (tripCompleted(a)) {
+            order = getEntity("orders/", d.id, order.id);
+            if (order.status == Demand.OrderStatus.COMPLETE && order.cab_id != -1)  {
                 break;
             }
         }
-        if (a.ispool) {
+        // POOL CHECK
+        if (order.inPool) {
             if (duration > (int) (abs(d.from - d.to) * MAX_POOL_LOSS)) {
                 // complain
             }
@@ -122,22 +151,19 @@ public class CustomerGenerator {
         }
     }
 
-    private static void requestCab(Demand d) {
+    private static Demand saveOrder(String method, Demand d) {
         try {
             String user = "cust" + d.id;
             String password = user;
             URL url = new URL("http://localhost:8080/orders");
             HttpURLConnection con = (HttpURLConnection) url.openConnection();
-            con.setRequestMethod("POST");
+            con.setRequestMethod(method);
             con.setRequestProperty("Content-Type", "application/json; utf-8");
             con.setRequestProperty("Accept", "application/json");
             con.setDoOutput(true);
             // Basic auth
             String auth = user + ":" + password;
-            //System.out.println("AUTH: " + auth);
-            //byte[] encodedAuth = Base64.encodeBase64(auth.getBytes(StandardCharsets.UTF_8));
             String encodedAuth = Base64.getEncoder().encodeToString(auth.getBytes(StandardCharsets.UTF_8));
-
             String authHeaderValue = "Basic " + encodedAuth;
             con.setRequestProperty("Authorization", authHeaderValue);
 
@@ -147,6 +173,7 @@ public class CustomerGenerator {
                 byte[] input = jsonInputString.getBytes("utf-8");
                 os.write(input, 0, input.length);
             }
+            Demand ret=null;
             try (BufferedReader br = new BufferedReader(
                     new InputStreamReader(con.getInputStream(), "utf-8"))) {
                 StringBuilder response = new StringBuilder();
@@ -154,12 +181,78 @@ public class CustomerGenerator {
                 while ((responseLine = br.readLine()) != null) {
                     response.append(responseLine.trim());
                 }
-               
+                Gson g = new Gson();
+                ret = g.fromJson(response.toString(), Demand.class);
             }
             con.disconnect();
+            return ret;
         } catch (Exception e) {
             System.out.println("Exception: " + e.getMessage() + "; "+ e.getCause() + "; " + e.getStackTrace().toString());
+            return null;
         }
+    }
+
+    private static Demand getAssignment(Demand d) {
+        String user = "cust" + d.id;
+        StringBuilder result = new StringBuilder();
+        HttpURLConnection con = null;
+        Demand dem = null;
+        try {
+            // taxi_order will be updated with eta, cab_id and task_id when assigned
+            URL url = new URL("http://localhost:8080/orders/" + d.id); // assumption that one customer has one order
+            con = (HttpURLConnection) url.openConnection();
+            setAuthentication(con, user, user);
+            InputStream in = new BufferedInputStream(con.getInputStream());
+            BufferedReader reader = new BufferedReader(new InputStreamReader(in));
+            String line;
+            while ((line = reader.readLine()) != null) {
+                result.append(line);
+            }
+            Gson g = new Gson();
+            dem = g.fromJson(result.toString(), Demand.class);
+            //Route r = covertFromJsonToObject(result.toString(), Route.class);
+        } catch( Exception e) {
+            e.printStackTrace();
+        }
+        finally {
+            con.disconnect();
+            return dem;
+        }
+    }
+
+    private static <T> T getEntity(String entityUrl, int user_id, int id) {
+        String user = "cust" + user_id;
+        StringBuilder result = new StringBuilder();
+        HttpURLConnection con = null;
+        Class<T> dem = null;
+        try {
+            // taxi_order will be updated with eta, cab_id and task_id when assigned
+            URL url = new URL("http://localhost:8080/" + entityUrl + id); // assumption that one customer has one order
+            con = (HttpURLConnection) url.openConnection();
+            setAuthentication(con, user, user);
+            InputStream in = new BufferedInputStream(con.getInputStream());
+            BufferedReader reader = new BufferedReader(new InputStreamReader(in));
+            String line;
+            while ((line = reader.readLine()) != null) {
+                result.append(line);
+            }
+            Gson g = new Gson();
+            dem = g.fromJson(result.toString(), dem.getClass());
+            //Route r = covertFromJsonToObject(result.toString(), Route.class);
+        } catch( Exception e) {
+            e.printStackTrace();
+        }
+        finally {
+            con.disconnect();
+            return (T)dem;
+        }
+    }
+
+    private static void setAuthentication(HttpURLConnection con, String user, String passwd) {
+        String auth = user + ":" + passwd;
+        String encodedAuth = Base64.getEncoder().encodeToString(auth.getBytes(StandardCharsets.UTF_8));
+        String authHeaderValue = "Basic " + encodedAuth;
+        con.setRequestProperty("Authorization", authHeaderValue);
     }
 
     private static void readDemand() {
@@ -191,7 +284,24 @@ public class CustomerGenerator {
 		catch (IOException e) {}
     }
 
-    private class Assignment {
+    private class Cab {
+        public int id;
+        public int location;
+    }
 
+    private Logger getLogger() {
+        Logger logger = Logger.getLogger("my");
+        FileHandler fh;
+        try {
+            fh = new FileHandler("customer.log");
+            logger.addHandler(fh);
+            SimpleFormatter formatter = new SimpleFormatter();
+            fh.setFormatter(formatter);
+        } catch (SecurityException e) {
+            e.printStackTrace();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        return logger;
     }
 }

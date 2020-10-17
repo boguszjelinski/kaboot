@@ -29,6 +29,8 @@ public class TaxiOrder{
     protected int maxWait; // how long can I wait for a cab
     protected int maxLoss; // [%] how long can I lose while in pool
     protected boolean shared; // can be in a pool ?
+    protected int eta; // set when assigned
+    protected boolean inPool; // was actually in pool
 
     protected TaxiOrder() {}
 
@@ -40,6 +42,7 @@ public class TaxiOrder{
         this.shared = shared;
         this.status = status;
     }
+
     // asigned cab
     @ManyToOne(optional = true, fetch = FetchType.LAZY)
     @JoinColumn(name="cab_id", nullable=true)
@@ -104,5 +107,21 @@ public class TaxiOrder{
 
     public void setCustomer(Customer cust) {
         this.customer = cust;
+    }
+
+    public int getEta() {
+        return eta;
+    }
+
+    public void setEta(int eta) {
+        this.eta = eta;
+    }
+
+    public boolean isInPool() {
+        return inPool;
+    }
+
+    public void setInPool(boolean inPool) {
+        this.inPool = inPool;
     }
 }

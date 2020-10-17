@@ -17,12 +17,14 @@ public class Cab {
   @GeneratedValue(strategy = GenerationType.AUTO)
   private Long id;
 
-  private int location; // not used now
+  private int location; // updated while in route
+  private CabStatus status;
 
   protected Cab() { }
 
-  public Cab(int loc) {
+  public Cab(int loc, CabStatus status) {
     this.location = loc;
+    this.status = status;
   }
 
   @OneToMany
@@ -35,5 +37,15 @@ public class Cab {
 
   public int getLocation() {
     return location;
+  }
+
+  public CabStatus getStatus() {
+    return status;
+  }
+
+  public enum CabStatus {
+    ASSIGNED,
+    FREE,
+    CHARGING, // out of order, ...
   }
 }

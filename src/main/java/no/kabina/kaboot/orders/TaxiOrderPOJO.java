@@ -2,7 +2,7 @@ package no.kabina.kaboot.orders;
 
 public class TaxiOrderPOJO { // because SonarLint complained
 
-    protected TaxiOrderPOJO.OrderStatus status;
+    protected TaxiOrder.OrderStatus status;
     protected int fromStand;
     protected int toStand;
     protected int maxWait; // how long can I wait for a cab
@@ -37,17 +37,5 @@ public class TaxiOrderPOJO { // because SonarLint complained
 
     public boolean isShared() {
         return shared;
-    }
-
-    public enum OrderStatus {
-        RECEIVED,  // sent by customer
-        ASSIGNED,  // assigned to a cab, a proposal sent to customer with time-of-arrival
-        ACCEPTED,  // plan accepted by customer, waiting for the cab
-        CANCELLED, // cancelled before assignment
-        REJECTED,  // proposal rejected by customer
-        ABANDONED, // cancelled after assignment but before 'PICKEDUP'
-        REFUSED,   // no cab available, cab broke down at any stage
-        PICKEDUP,
-        COMPLETE
     }
 }
