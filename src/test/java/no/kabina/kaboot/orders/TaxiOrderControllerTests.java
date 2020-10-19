@@ -1,10 +1,11 @@
-package no.kabina.kaboot.cabs;
+package no.kabina.kaboot.orders;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+import java.nio.charset.StandardCharsets;
+import java.util.Base64;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -16,45 +17,45 @@ import org.springframework.http.MediaType;
 import org.springframework.test.context.junit4.SpringRunner;
 import org.springframework.test.web.servlet.MockMvc;
 
-import java.nio.charset.StandardCharsets;
-import java.util.Base64;
-
 @RunWith(SpringRunner.class)
-@WebMvcTest(CabController.class)
-public class CabControllerTests {
+@WebMvcTest(TaxiOrderController.class)
+public class TaxiOrderControllerTests {
 
     @Autowired
     private MockMvc mvc;
 
     @MockBean
-    private CabRepository cabRepo;
+    private TaxiOrderRepository repository;
+
+    @MockBean
+    private TaxiOrderService service;
 
     private String token;
 
     @Before
     public void createMock() {
-        String auth = "cab0:cab0";
+        String auth = "cust0:cust0";
         String encodedAuth = Base64.getEncoder().encodeToString(auth.getBytes(StandardCharsets.UTF_8));
         token = "Basic " + encodedAuth;
     }
 
     @Test
-    public void whenNonExistingEntityForUpdate_thenReturns200() throws Exception {
-        String body = "{\"location\":1, \"status\": \"ASSIGNED\"}";
-        mvc.perform(put("/cabs/{id}", 0L) // cab0
+    public void whenInsert_thenReturns200() throws Exception {
+        String body = "{\"fromStand\":1, \"toStand\": 2, \"maxWait\":10, \"maxLoss\": 10, \"shared\": true}";
+        mvc.perform(post("/orders", 0L) // cab0
                 .header("Authorization", token)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(body))
                 .andExpect(status().isOk());
-        //          .andExpect(content().string(containsString("{\"medsignering\":true,\"redirect\":\"redirectUrl\"}")));
     }
 
     @Test
-    public void whenGetNonExistingCab_thenReturns200() throws Exception {
-        mvc.perform(get("/cabs/1", 1L) // cab1 by cab0
+    public void whenGetNonExistingOrder_thenReturns200() throws Exception {
+        mvc.perform(get("/orders/0", 0L) // cab0
             .header("Authorization", token)
             .contentType(MediaType.APPLICATION_JSON))
             .andExpect(status().isOk());
     }
+
 
 }

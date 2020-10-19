@@ -1,10 +1,11 @@
-package no.kabina.kaboot.cabs;
-
-import com.fasterxml.jackson.databind.ObjectMapper;
+package no.kabina.kaboot.routes;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+import java.nio.charset.StandardCharsets;
+import java.util.Base64;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -16,18 +17,18 @@ import org.springframework.http.MediaType;
 import org.springframework.test.context.junit4.SpringRunner;
 import org.springframework.test.web.servlet.MockMvc;
 
-import java.nio.charset.StandardCharsets;
-import java.util.Base64;
-
 @RunWith(SpringRunner.class)
-@WebMvcTest(CabController.class)
-public class CabControllerTests {
+@WebMvcTest(RouteController.class)
+public class RouteControllerTests {
 
     @Autowired
     private MockMvc mvc;
 
     @MockBean
-    private CabRepository cabRepo;
+    private RouteRepository routeRepo;
+
+    @MockBean
+    private TaskRepository taskRepo;
 
     private String token;
 
@@ -39,22 +40,10 @@ public class CabControllerTests {
     }
 
     @Test
-    public void whenNonExistingEntityForUpdate_thenReturns200() throws Exception {
-        String body = "{\"location\":1, \"status\": \"ASSIGNED\"}";
-        mvc.perform(put("/cabs/{id}", 0L) // cab0
-                .header("Authorization", token)
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(body))
-                .andExpect(status().isOk());
-        //          .andExpect(content().string(containsString("{\"medsignering\":true,\"redirect\":\"redirectUrl\"}")));
-    }
-
-    @Test
     public void whenGetNonExistingCab_thenReturns200() throws Exception {
-        mvc.perform(get("/cabs/1", 1L) // cab1 by cab0
+        mvc.perform(get("/routes")
             .header("Authorization", token)
             .contentType(MediaType.APPLICATION_JSON))
             .andExpect(status().isOk());
     }
-
 }

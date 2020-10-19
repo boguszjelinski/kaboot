@@ -109,7 +109,6 @@ public class CabGenerator {
             while ((line = reader.readLine()) != null) {
                 result.append(line);
             }
-            
             Gson g = new Gson();
             Route[] r = g.fromJson(result.toString(), Route[].class);
             //Route r = covertFromJsonToObject(result.toString(), Route.class);
