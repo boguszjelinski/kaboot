@@ -13,10 +13,13 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 @Configuration
 @EnableWebSecurity
 public class SecurityConfig extends WebSecurityConfigurerAdapter {
+
     @Override
     protected void configure(HttpSecurity http) throws Exception {
         http.csrf().disable()
             .authorizeRequests()
+            .antMatchers("/cabs").hasRole("CAB")
+            .antMatchers("/cabs").hasRole("CUSTOMER")
             .antMatchers("/orders").hasRole("CUSTOMER")
             .antMatchers("/routes").hasRole("CAB")
             .antMatchers("/info").hasRole("ADMIN")

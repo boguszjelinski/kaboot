@@ -235,4 +235,20 @@ public class CabGenerator {
     //     ObjectMapper mapper = new ObjectMapper();
     //     return mapper.readValue(json, var);//Convert Json into object of Specific Type
     // }
+
+    private Logger getLogger() {
+        Logger logger = Logger.getLogger("my");
+        FileHandler fh;
+        try {
+            fh = new FileHandler("customer.log");
+            logger.addHandler(fh);
+            SimpleFormatter formatter = new SimpleFormatter();
+            fh.setFormatter(formatter);
+        } catch (SecurityException e) {
+            e.printStackTrace();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        return logger;
+    }
 }

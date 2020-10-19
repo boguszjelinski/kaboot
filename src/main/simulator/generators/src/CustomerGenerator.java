@@ -28,34 +28,6 @@ public class CustomerGenerator {
     static Demand[] demand;
     static int maxTime = 0;
 
-    private static class Demand {
-        public int id, from, to, time, at;
-        public int eta; // set when assigned
-        public boolean inPool;
-        public int cab_id;
-        public OrderStatus status;
-
-        public Demand (int id, int from, int to, int time, int at) {
-            this.id = id;
-            this.from = from;
-            this.to = to;
-            this.at = at;
-            this.time = time;
-        }
-        public enum OrderStatus {
-            RECEIVED,  // sent by customer
-            ASSIGNED,  // assigned to a cab, a proposal sent to customer with time-of-arrival
-            ACCEPTED,  // plan accepted by customer, waiting for the cab
-            CANCELLED, // cancelled before assignment
-            REJECTED,  // proposal rejected by customer
-            ABANDONED, // cancelled after assignment but before 'PICKEDUP'
-            REFUSED,   // no cab available, cab broke down at any stage
-            PICKEDUP,
-            COMPLETE
-        }
-        public void setStatus (OrderStatus stat) { this.status = stat; }
-    }
-
     private static class CustomerRunnable implements Runnable {
         private Demand demand;
         public CustomerRunnable(Demand d) { this.demand = d; }
@@ -97,7 +69,7 @@ public class CustomerGenerator {
         // just give kaboot a while to think about it
          // pool ? cab? ETA ?
         for (int t=0; t<MAX_WAIT_FOR_RESPONSE; t++) {
-            try { Thread.sleep(60*1000); } catch (InterruptedException e) {} // one minute
+            waitSecs(60);
             order = getEntity("orders/", d.id, order.id);
             if (order.status == Demand.OrderStatus.ASSIGNED && order.cab_id != -1)  {
                 break;
@@ -116,7 +88,7 @@ public class CustomerGenerator {
 
         boolean arrived = false;
         for (int t=0; t<MAX_WAIT_FOR_CAB; t++) {
-            try { Thread.sleep(60*1000); } catch (InterruptedException e) {} // one minute
+            waitSecs(60);
             Cab cab = getEntity("cabs/", d.id, order.cab_id);
             if (cab.location == d.from) {
                 arrived = true;
@@ -133,7 +105,7 @@ public class CustomerGenerator {
         // take a trip
         int duration=0;
         for (; duration<MAX_TRIP_LEN; duration++) {
-            try { Thread.sleep(60*1000); } catch (InterruptedException e) {} // one minute
+            waitSecs(60);
             order = getEntity("orders/", d.id, order.id);
             if (order.status == Demand.OrderStatus.COMPLETE && order.cab_id != -1)  {
                 break;
@@ -288,6 +260,33 @@ public class CustomerGenerator {
         public int id;
         public int location;
     }
+    private static class Demand {
+        public int id, from, to, time, at;
+        public int eta; // set when assigned
+        public boolean inPool;
+        public int cab_id;
+        public OrderStatus status;
+
+        public Demand (int id, int from, int to, int time, int at) {
+            this.id = id;
+            this.from = from;
+            this.to = to;
+            this.at = at;
+            this.time = time;
+        }
+        public enum OrderStatus {
+            RECEIVED,  // sent by customer
+            ASSIGNED,  // assigned to a cab, a proposal sent to customer with time-of-arrival
+            ACCEPTED,  // plan accepted by customer, waiting for the cab
+            CANCELLED, // cancelled before assignment
+            REJECTED,  // proposal rejected by customer
+            ABANDONED, // cancelled after assignment but before 'PICKEDUP'
+            REFUSED,   // no cab available, cab broke down at any stage
+            PICKEDUP,
+            COMPLETE
+        }
+        public void setStatus (OrderStatus stat) { this.status = stat; }
+    }
 
     private Logger getLogger() {
         Logger logger = Logger.getLogger("my");
@@ -303,5 +302,9 @@ public class CustomerGenerator {
             e.printStackTrace();
         }
         return logger;
+    }
+
+    private waitSecs(int secs) {
+        try { Thread.sleep(secs*1000); } catch (InterruptedException e) {} // one minute
     }
 }

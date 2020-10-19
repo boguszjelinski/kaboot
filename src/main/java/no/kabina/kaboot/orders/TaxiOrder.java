@@ -72,6 +72,9 @@ public class TaxiOrder{
     public Long getId() {
         return id;
     }
+    public void setId(Long id) {
+        this.id = id;
+    }
 
     public int getFromStand() {
         return fromStand;
@@ -123,5 +126,9 @@ public class TaxiOrder{
 
     public void setInPool(boolean inPool) {
         this.inPool = inPool;
+    }
+
+    public Customer getCustomer() {
+        return customer;
     }
 }
