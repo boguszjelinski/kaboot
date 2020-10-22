@@ -10,6 +10,9 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.logging.Logger;
+import java.util.logging.FileHandler;
+import java.util.logging.SimpleFormatter;
 import java.util.Base64;
 //import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.gson.Gson;
@@ -61,21 +64,21 @@ public class CabGenerator {
             if (r!= null && r.length > 0) { // this cab has been assigned a task
                 // go to first task - virtual walk, just wait this amount of time
                 Task task = r[0].getTasks().get(0);
-                waitMins(abs(cab.location - task.fromStand)); // cab is moving
+                waitMins(Math.abs(cab.location - task.fromStand)); // cab is moving
                 cab.location = task.fromStand;
-                cab.status = Cab.CabStatus.ASSIGNED;
+                cab.status = CabStatus.ASSIGNED;
                 // inform that cab is at the stand -> update Cab entity, 'complete' previous Task
                 saveCab("PUT", cab);
                 waitMins(1); // wait 1min
-                int tasksNumb = r[0].getTasks().length;
+                int tasksNumb = r[0].getTasks().size();
                 for (int i=0; i < tasksNumb; i++) {
                     // go from where you are to task.stand
-                    Task tsk = r[0].getTasks()[i];
-                    waitMins(abs(tsk.fromStand - tsk.toStand)); // cab is moving
+                    Task tsk = r[0].getTasks().get(i);
+                    waitMins(Math.abs(tsk.fromStand - tsk.toStand)); // cab is moving
                     cab.location = task.toStand;
                     // inform sheduler / customer
                     if (i == tasksNumb - 1) {
-                        cab.status = Cab.CabStatus.FREE;
+                        cab.status = CabStatus.FREE;
                     }
                     saveCab("PUT", cab); // such call should 'complete' tasks; at the last task -> 'complete' route and 'free' that cab
                     waitMins(1); // wait 1min
@@ -87,11 +90,11 @@ public class CabGenerator {
 //        System.out.println("First task stand: " + r[0].getTasks().get(0).getStand());
     }
 
-    private waitSecs(int secs) {
+    private static void waitSecs(int secs) {
         try { Thread.sleep(secs*1000); } catch (InterruptedException e) {} // one minute
     }
 
-    private waitMins(int mins) {
+    private static void waitMins(int mins) {
         try { Thread.sleep(mins*60*1000); } catch (InterruptedException e) {} // one minute
     }
 
@@ -140,7 +143,7 @@ public class CabGenerator {
             con.setRequestProperty("Accept", "application/json");
             con.setDoOutput(true);
             // Basic auth
-            setAuthentication(con, user, passwd);
+            setAuthentication(con, user, password);
 
             String jsonInputString = "{\"location\":" + cab.location + ", \"status\": \""+ cab.status +"\"}";
             //System.out.println("JSON: " + jsonInputString);
@@ -223,11 +226,12 @@ public class CabGenerator {
         public int location;
         public CabStatus status;
 
-        public enum CabStatus {
-            ASSIGNED,
-            FREE,
-            CHARGING, // out of order, ...
-        }
+    }
+
+    private static enum CabStatus {
+        ASSIGNED,
+        FREE,
+        CHARGING, // out of order, ...
     }
 
     // static public <T> T covertFromJsonToObject(String json, Class<T> var) throws IOException{

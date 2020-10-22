@@ -4,7 +4,13 @@
 */
 import com.google.gson.Gson;
 
-//import java.io.*;
+import java.io.OutputStream;
+import java.io.BufferedReader;
+import java.io.FileReader;
+import java.io.InputStream;
+import java.io.BufferedInputStream;
+import java.io.InputStreamReader;
+import java.io.IOException;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
@@ -12,7 +18,9 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Base64;
 import java.util.concurrent.TimeUnit;
+import java.util.logging.FileHandler;
 import java.util.logging.Logger;
+import java.util.logging.SimpleFormatter;
 import static java.lang.StrictMath.abs;
 
 public class CustomerGenerator {
@@ -288,7 +296,7 @@ public class CustomerGenerator {
         public void setStatus (OrderStatus stat) { this.status = stat; }
     }
 
-    private Logger getLogger() {
+    private static Logger getLogger() {
         Logger logger = Logger.getLogger("my");
         FileHandler fh;
         try {
@@ -304,7 +312,7 @@ public class CustomerGenerator {
         return logger;
     }
 
-    private waitSecs(int secs) {
+    private static void waitSecs(int secs) {
         try { Thread.sleep(secs*1000); } catch (InterruptedException e) {} // one minute
     }
 }
