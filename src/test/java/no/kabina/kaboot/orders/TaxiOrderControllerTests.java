@@ -42,7 +42,7 @@ public class TaxiOrderControllerTests {
     @Test
     public void whenInsert_thenReturns200() throws Exception {
         String body = "{\"fromStand\":1, \"toStand\": 2, \"maxWait\":10, \"maxLoss\": 10, \"shared\": true}";
-        mvc.perform(post("/orders", 0L) // cab0
+        mvc.perform(post("/orders") // cab0
                 .header("Authorization", token)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(body))
@@ -56,6 +56,4 @@ public class TaxiOrderControllerTests {
             .contentType(MediaType.APPLICATION_JSON))
             .andExpect(status().isOk());
     }
-
-
 }
