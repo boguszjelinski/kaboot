@@ -13,7 +13,7 @@ import javax.persistence.OneToMany;
 import no.kabina.kaboot.orders.TaxiOrder;
 
 @Entity
-public class Task { // a leg of a route
+public class Leg { // a leg of a route
   @Id
   @GeneratedValue(strategy = GenerationType.AUTO)
   private Long id;
@@ -23,9 +23,9 @@ public class Task { // a leg of a route
   private int place; // place in line; ID of the next would be better, but we don't have this id while creating 'entities' in JPA
   private Route.RouteStatus status;
 
-  protected Task() { }
+  protected Leg() { }
 
-  public Task(int fromStand, int toStand, int place, Route.RouteStatus status) {
+  public Leg(int fromStand, int toStand, int place, Route.RouteStatus status) {
       this.fromStand = fromStand;
       this.toStand = toStand;
       this.place = place;
@@ -58,5 +58,13 @@ public class Task { // a leg of a route
 
   public Route.RouteStatus getStatus() {
     return status;
+  }
+
+  public void setStatus(Route.RouteStatus status) {
+    this.status = status;
+  }
+
+  public void setRoute(Route route) {
+    this.route = route;
   }
 }

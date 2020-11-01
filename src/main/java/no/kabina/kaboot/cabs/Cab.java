@@ -46,6 +46,10 @@ public class Cab {
     return status;
   }
 
+  public void setStatus(CabStatus stat) {
+    this.status = stat;
+  }
+
   public enum CabStatus {
     ASSIGNED,
     FREE,

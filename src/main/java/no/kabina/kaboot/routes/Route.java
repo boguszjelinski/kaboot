@@ -35,13 +35,14 @@ public class Route {
 
   @OneToMany(mappedBy = "route", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
   //  @JoinColumn(name = "route_id")
-  private Set<Task> tasks = new HashSet<>();
+  private Set<Leg> legs = new HashSet<>();
 
   @OneToMany // many customers that can ride within one route (pool)
   @JoinColumn(name = "route_id")
   private Set<TaxiOrder> orders = new HashSet<>();
 
   public enum RouteStatus {
+        PLANNED,   // proposed by Pool
         ASSIGNED,  // not confirmed, initial status
         ACCEPTED,  // plan accepted by customer, waiting for the cab
         REJECTED,  // proposal rejected by customer(s)
@@ -57,11 +58,19 @@ public class Route {
     return status;
   }
 
-  public void setTasks(Set<Task> tasks) {
-    this.tasks = tasks;
+  public void setStatus(RouteStatus stat) {
+    this.status = stat;
   }
 
-  public Set<Task> getTasks() {
-    return tasks;
+  public void setTasks(Set<Leg> legs) {
+    this.legs = legs;
+  }
+
+  public Set<Leg> getTasks() {
+    return legs;
+  }
+
+  public void setCab(Cab c) {
+    this.cab = c;
   }
 }

@@ -4,7 +4,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;
 
-public interface TaskRepository extends JpaRepository<Task, Long> {
+public interface TaskRepository extends JpaRepository<Leg, Long> {
 
-    List<Task> findByRouteId(Long routeId);
+    List<Leg> findByRouteId(Long routeId);
 }
