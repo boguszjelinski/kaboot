@@ -12,7 +12,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 public class CabController {
 
-  private final CabRepository repository;
+  private CabRepository repository;
 
   public CabController(CabRepository repository) {
     this.repository = repository;
