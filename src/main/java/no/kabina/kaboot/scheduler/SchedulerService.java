@@ -1,31 +1,45 @@
 package no.kabina.kaboot.scheduler;
 
+import java.util.List;
 import java.util.UUID;
 
 import no.kabina.kaboot.cabs.Cab;
 import no.kabina.kaboot.cabs.CabRepository;
 import no.kabina.kaboot.orders.TaxiOrder;
 import no.kabina.kaboot.orders.TaxiOrderRepository;
+import no.kabina.kaboot.routes.Leg;
+import no.kabina.kaboot.routes.Route;
 import no.kabina.kaboot.routes.RouteRepository;
+import no.kabina.kaboot.routes.TaskRepository;
 import org.jobrunr.jobs.annotations.Job;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
 @Component
 public class SchedulerService {
 
-  Logger logger = LoggerFactory.getLogger(SchedulerService.class);
+  private Logger logger = LoggerFactory.getLogger(SchedulerService.class);
 
-  TaxiOrderRepository taxiOrderRepository;
-  CabRepository cabRepository;
-  RouteRepository routeRepository;
+  private TaxiOrderRepository taxiOrderRepository;
+  private CabRepository cabRepository;
+  private RouteRepository routeRepository;
+  private TaskRepository taskRepository;
+
+
+  public static int kpi_max_model_size = 0;
+  public static int kpi_total_LCM_used = 0;
+  public static int kpi_max_LCM_time = 0;
+
+  public final int MAX_NON_LCM = 0; // how big can a solver model be; 0 = no solver at all
 
   public SchedulerService(TaxiOrderRepository taxiOrderRepository, CabRepository cabRepository,
-                          RouteRepository routeRepository) {
+                          RouteRepository routeRepository, TaskRepository taskRepository) {
     this.taxiOrderRepository = taxiOrderRepository;
     this.cabRepository = cabRepository;
     this.routeRepository = routeRepository;
+    this.taskRepository = taskRepository;
   }
 
   @Job(name = "Taxi scheduler", retries = 2)
@@ -33,48 +47,58 @@ public class SchedulerService {
     UUID uuid = UUID.randomUUID();
 
     // create demand for the solver
-    TaxiOrder[] tempDemand = null;
-    taxiOrderRepository.findByStatus(TaxiOrder.OrderStatus.RECEIVED).toArray(tempDemand);
+    TaxiOrder[] tempDemand =
+                  taxiOrderRepository.findByStatus(TaxiOrder.OrderStatus.RECEIVED).toArray(new TaxiOrder[0]);
 
     if (tempDemand.length == 0) {
       return; // don't solve anything
     }
-    Cab[] tempSupply = null;
-    cabRepository.findByStatus(Cab.CabStatus.FREE).toArray(tempSupply);
+    Cab[] tempSupply = cabRepository.findByStatus(Cab.CabStatus.FREE).toArray(new Cab[0]);
     logger.info("Initial Count of demand="+ tempDemand.length +", supply="+ tempSupply.length);
 
     int[][] cost = new int[0][0];
     // SOLVER
     if (tempSupply.length > 0) {
 
-      Pool[] pl = findPool(t, f, temp_demand);
-      temp_demand = analyzePool(pl, temp_demand); // reduce temp_demand
+      PoolElement[] pl = PoolUtil.findPool(tempDemand,4);
+      // reduce tempDemand - 2nd+ passengers will not be sent to LCM or solver
+      tempDemand = PoolUtil.findFirstLegInPool(pl, tempDemand);
 
-      cost = calculate_cost(temp_demand, temp_supply);
-      if (cost.length > max_model_size) max_model_size = cost.length;
+      cost = LcmUtil.calculate_cost(tempDemand, tempSupply);
+      if (cost.length > kpi_max_model_size) kpi_max_model_size = cost.length;
       if (cost.length > MAX_NON_LCM) { // too big to send to solver, it has to be cut by LCM
         long start_lcm = System.currentTimeMillis();
         // LCM
-        LcmPair[] pairs = LCM(cost);
-        total_LCM_used++;
+        List<LcmPair> pairs = LcmUtil.lcm(cost);
+        kpi_total_LCM_used++;
         long end_lcm = System.currentTimeMillis();
         int temp_lcm_time = (int)((end_lcm - start_lcm) / 1000F);
-        if (temp_lcm_time > max_LCM_time) max_LCM_time = temp_lcm_time;
-        if (pairs.length == 0) {
-          System.out.println ("critical -> a big model but LCM hasn't helped");
+        if (temp_lcm_time > kpi_max_LCM_time) kpi_max_LCM_time = temp_lcm_time;
+        if (pairs.size() == 0) {
+          logger.warn("critical -> a big model but LCM hasn't helped");
         }
-        f_solv.write("LCM n_pairs="+ pairs.length);
-        TempModel tempModel = analyzePairs(t, pairs, f, temp_demand, temp_supply); // also produce input for the solver
-        temp_supply = tempModel.supply;
-        temp_demand = tempModel.demand;
+        logger.info("LCM n_pairs={}", pairs.size());
+        // go thru LCM response (which are indexes in tempDemand and tempSupply)
+        for (LcmPair pair : pairs) {
+          assignCustomerToCab(tempDemand[pair.clnt], tempSupply[pair.cab], pl);
+        }
 
-        if (LCM_min_val == big_cost) // no input for the solver;
-          continue;
+        /*TempModel tempModel = analyzeLcmAndPool(pairs, pl, tempDemand, tempSupply); // also produce input for the solver
+        // to be sent to solver
+        tempSupply = tempModel.supply;
+        tempDemand = tempModel.demand;
+         */
 
-        cost = calculate_cost(temp_demand, temp_supply);
-        f_solv.write(". Sent to solver: demand="+ temp_demand.length +", supply="+ temp_supply.length+ ". ");
+        // do we need this check, really
+        /*if (LCM_min_val == big_cost) { // no input for the solver;
+          return;
+        }
+        */
+
+        //cost = calculate_cost(temp_demand, temp_supply);
+        //logger.info(". Sent to solver: demand={}, supply={}", tempDemand.length, tempSupply.length);
       }
-      if (cost.length > max_solver_size) max_solver_size = cost.length;
+      /*if (cost.length > max_solver_size) max_solver_size = cost.length;
       Process p = Runtime.getRuntime().exec(SOLVER_CMD);
       try {
         long start_solver = System.currentTimeMillis();
@@ -85,12 +109,77 @@ public class SchedulerService {
       } catch (InterruptedException e) {
         e.printStackTrace();
         System.exit(0);
-      }
+      }*/
     }
-    int[] x = readSolversResult(cost.length);
+/*    int[] x = readSolversResult(cost.length);
     analyzeSolution(x, cost, t, f, f_solv, temp_demand, temp_supply);
+
+ */
     // now we could check if a customer in pool has got a cab,
     // if not - the other one should get a chance
-    f.flush();
+  }
+
+  @Transactional
+  private void assignCustomerToCab(TaxiOrder order, Cab cab, PoolElement[] pool) {
+    // update CAB
+    cab.setStatus(Cab.CabStatus.ASSIGNED);
+    cabRepository.save(cab);
+    Route route = new Route(Route.RouteStatus.ASSIGNED);
+    route.setCab(cab);
+    routeRepository.save(route);
+    Leg leg = null;
+    int legId = 0;
+    if (cab.getLocation() != order.fromStand) { // cab has to move to pickup the first customer
+      leg = new Leg(cab.getLocation(), order.fromStand, legId++, Route.RouteStatus.ASSIGNED);
+      leg.setRoute(route);
+      taskRepository.save(leg);
+    }
+    PoolElement elem = null;
+    boolean found = false;
+    // tasks & routes are assigned to customers in Pool
+    // if not assigned to a Pool we have to create a single-task route here
+    for (PoolElement e : pool) { // PoolElement contains TaxiOrder IDs (primary keys)
+      if (e.cust[0].id == order.id) { // yeap, this id is in a pool
+        found = true;
+        // checking number
+        // save pick-up phase
+        int c = 0;
+        for (; c < e.numbOfCust - 1; c++) {
+          if (e.cust[c].fromStand != e.cust[c + 1].fromStand) { // there is movement
+            leg = new Leg(e.cust[c].fromStand, e.cust[c + 1].fromStand, legId++, Route.RouteStatus.ASSIGNED);
+          }
+          saveLeg(e.cust[c], leg, route, cab); // TODO: analyze if a null leg is OK
+        }
+        // save drop-off phase
+        if (e.cust[c].fromStand != e.cust[c + 1].toStand) {
+          leg = new Leg(e.cust[c].fromStand, e.cust[c + 1].toStand, legId++, Route.RouteStatus.ASSIGNED);
+        }
+        saveLeg(e.cust[c], leg, route, cab);
+        for (; c < 2 * e.numbOfCust - 1; c++) {
+          if (e.cust[c].toStand != e.cust[c + 1].toStand) {
+            leg = new Leg(e.cust[c].toStand, e.cust[c + 1].toStand, legId++, Route.RouteStatus.ASSIGNED);
+          }
+          saveLeg(e.cust[c], leg, route, cab);
+        }
+        break;
+      }
+    }
+    if (!found) {  // lone trip
+      leg = new Leg(order.fromStand, order.toStand, legId++, Route.RouteStatus.ASSIGNED);
+      saveLeg(order, leg, route, cab);
+    }
+  }
+
+  private void saveLeg(TaxiOrder o, Leg l, Route r, Cab c) {
+    if (l != null) {
+      l.setRoute(r);
+      taskRepository.save(l);
+      o.setTask(l);
+    }
+    o.setStatus(TaxiOrder.OrderStatus.ASSIGNED);
+    o.setCab(c);
+    o.setRoute(r);
+    // TODO: order.eta to be set
+    taxiOrderRepository.save(o);
   }
 }

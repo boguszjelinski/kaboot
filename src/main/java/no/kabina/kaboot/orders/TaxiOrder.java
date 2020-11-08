@@ -19,11 +19,11 @@ public class TaxiOrder {
 
     @Id
     @GeneratedValue(strategy = GenerationType.AUTO)
-    private Long id;
+    public Long id;
 
   protected TaxiOrder.OrderStatus status;
-  protected int fromStand;
-  protected int toStand;
+  public int fromStand;
+  public int toStand;
   protected int maxWait; // how long can I wait for a cab
   protected int maxLoss; // [%] how long can I lose while in pool
   protected boolean shared; // can be in a pool ?
