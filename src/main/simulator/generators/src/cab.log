@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="windows-1250" standalone="no"?>
+<!DOCTYPE log SYSTEM "logger.dtd">
+<log>
+<record>
+  <date>2020-11-08T22:54:26.178248Z</date>
+  <millis>1604876066178</millis>
+  <nanos>248000</nanos>
+  <sequence>0</sequence>
+  <logger>kaboot.simulator.cabgenerator</logger>
+  <level>INFO</level>
+  <class>CabGenerator</class>
+  <method>live</method>
+  <thread>14</thread>
+  <message>I am alive, cab=0</message>
+</record>
+<record>
+  <date>2020-11-08T22:54:27.701532800Z</date>
+  <millis>1604876067701</millis>
+  <nanos>532800</nanos>
+  <sequence>1</sequence>
+  <logger>kaboot.simulator.cabgenerator</logger>
+  <level>INFO</level>
+  <class>CabGenerator</class>
+  <method>live</method>
+  <thread>14</thread>
+  <message>Creating cab=0</message>
+</record>
+</log>

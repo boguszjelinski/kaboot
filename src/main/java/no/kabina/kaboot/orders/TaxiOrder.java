@@ -1,12 +1,7 @@
 package no.kabina.kaboot.orders;
 
-import javax.persistence.Entity;
-import javax.persistence.FetchType;
-import javax.persistence.GeneratedValue;
-import javax.persistence.GenerationType;
-import javax.persistence.Id;
-import javax.persistence.JoinColumn;
-import javax.persistence.ManyToOne;
+import javax.persistence.*;
+
 import no.kabina.kaboot.cabs.Cab;
 import no.kabina.kaboot.customers.Customer;
 import no.kabina.kaboot.routes.Route;
@@ -27,8 +22,12 @@ public class TaxiOrder {
   protected int maxWait; // how long can I wait for a cab
   protected int maxLoss; // [%] how long can I lose while in pool
   protected boolean shared; // can be in a pool ?
-  protected int eta; // set when assigned
-  protected boolean inPool; // was actually in pool
+
+  @Column(nullable = true)
+  protected Integer eta; // set when assigned
+
+  @Column(nullable = true)
+  protected Boolean inPool; // was actually in pool
 
   protected TaxiOrder() {}
 

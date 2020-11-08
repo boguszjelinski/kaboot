@@ -2,6 +2,7 @@
     Project: Kabina/Kaboot
     Date: 2020
 */
+
 // javac -cp ../lib/gson-2.8.6.jar CabGenerator.java
 // java -cp ../lib/gson-2.8.6.jar;. CabGenerator
 
@@ -18,8 +19,13 @@ import java.util.Base64;
 import com.google.gson.Gson;
 
 public class CabGenerator {
-    final static int maxTime = 120; // minutes
+    final static int maxTime = 10; // minutes 120
     final static int maxCabs = 1000;
+    final static int maxStand = 50; // TODO: read from application.yml
+
+    final static boolean append = true;
+    final static Logger logger = Logger.getLogger("kaboot.simulator.cabgenerator");
+
     long start = System.currentTimeMillis();
     long end = System.currentTimeMillis();
      //(end - start) / 1000d // " seconds"
@@ -33,6 +39,13 @@ public class CabGenerator {
     }
 
     public static void main(String[] args) throws InterruptedException {
+        try {
+            FileHandler handler = new FileHandler("cab.log", append);
+            logger.addHandler(handler);
+        } catch (IOException ioe) {
+            logger.warning("Error opening log: " +ioe.getMessage());
+            return;
+        }
 
         // generating cabs
         for (int c = 0; c < maxCabs; c++) {
@@ -43,7 +56,7 @@ public class CabGenerator {
     }
 
     private static void live(int cab_id) {
-        System.out.println("live");
+        logger.info("I am alive, cab=" + cab_id);
         /*
             1. check if any valid route
             2. if not - wait 30sec
@@ -58,10 +71,15 @@ public class CabGenerator {
 
         // let's begin with cab's location
         Cab cab = getEntity("cabs/", cab_id, cab_id);
-
+        if (cab == null) { // initialize
+            logger.info("Creating cab=" + cab_id);
+            String json = "{\"location\":\"" + (cab_id % maxStand) + "\", \"status\": \""+ CabStatus.FREE +"\"}";
+            saveJSON("POST", cab_id, json);
+        }
         for (int t=0; t< maxTime; t++) {
             Route[] r = getRoute(cab_id);
             if (r!= null && r.length > 0) { // this cab has been assigned a task
+                logger.info("New route to run, cab=" + cab_id);
                 // go to first task - virtual walk, just wait this amount of time
                 Task task = r[0].getTasks().get(0);
                 waitMins(Math.abs(cab.location - task.fromStand)); // cab is moving
@@ -170,6 +188,44 @@ public class CabGenerator {
         }
     }
 
+    private static Cab saveJSON(String method, int cab_id, String json) {
+        try {
+            String user = "cab" + cab_id;
+            String password = user;
+            URL url = new URL("http://localhost:8080/cabs");
+            HttpURLConnection con = (HttpURLConnection) url.openConnection();
+            con.setRequestMethod(method);
+            con.setRequestProperty("Content-Type", "application/json; utf-8");
+            con.setRequestProperty("Accept", "application/json");
+            con.setDoOutput(true);
+            // Basic auth
+            setAuthentication(con, user, password);
+
+            //String jsonInputString = "{\"location\":" + cab.location + ", \"status\": \""+ cab.status +"\"}";
+            //System.out.println("JSON: " + jsonInputString);
+            try (OutputStream os = con.getOutputStream()) {
+                byte[] input = json.getBytes("utf-8");
+                os.write(input, 0, input.length);
+            }
+            Cab ret=null;
+            try (BufferedReader br = new BufferedReader(
+                    new InputStreamReader(con.getInputStream(), "utf-8"))) {
+                StringBuilder response = new StringBuilder();
+                String responseLine = null;
+                while ((responseLine = br.readLine()) != null) {
+                    response.append(responseLine.trim());
+                }
+                Gson g = new Gson();
+                ret = g.fromJson(response.toString(), Cab.class);
+            }
+            con.disconnect();
+            return ret;
+        } catch (Exception e) {
+            System.out.println("Exception: " + e.getMessage() + "; "+ e.getCause() + "; " + e.getStackTrace().toString());
+            return null;
+        }
+    }
+
     private static <T> T getEntity(String entityUrl, int user_id, int id) {
         String user = "cab" + user_id;
         StringBuilder result = new StringBuilder();
@@ -222,10 +278,14 @@ public class CabGenerator {
     }
 
     private class Cab {
+        public Cab(int i, int l, CabStatus s) {
+            this.id = i;
+            this.location = l;
+            this.status = s;
+        }
         public int id;
         public int location;
         public CabStatus status;
-
     }
 
     private static enum CabStatus {

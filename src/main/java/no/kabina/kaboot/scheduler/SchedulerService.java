@@ -14,6 +14,7 @@ import no.kabina.kaboot.routes.TaskRepository;
 import org.jobrunr.jobs.annotations.Job;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -21,6 +22,9 @@ import org.springframework.transaction.annotation.Transactional;
 public class SchedulerService {
 
   private Logger logger = LoggerFactory.getLogger(SchedulerService.class);
+
+  @Value("${kaboot.consts.max-non-lcm}")
+  public final int MAX_NON_LCM = 0; // how big can a solver model be; 0 = no solver at all
 
   private TaxiOrderRepository taxiOrderRepository;
   private CabRepository cabRepository;
@@ -32,8 +36,6 @@ public class SchedulerService {
   public static int kpi_total_LCM_used = 0;
   public static int kpi_max_LCM_time = 0;
 
-  public final int MAX_NON_LCM = 0; // how big can a solver model be; 0 = no solver at all
-
   public SchedulerService(TaxiOrderRepository taxiOrderRepository, CabRepository cabRepository,
                           RouteRepository routeRepository, TaskRepository taskRepository) {
     this.taxiOrderRepository = taxiOrderRepository;
@@ -44,7 +46,8 @@ public class SchedulerService {
 
   @Job(name = "Taxi scheduler", retries = 2)
   public void findPlan() {
-    UUID uuid = UUID.randomUUID();
+
+    UUID uuid = UUID.randomUUID();  // TODO: to mark cabs and customers as assigned to this instance of sheduler
 
     // create demand for the solver
     TaxiOrder[] tempDemand =
@@ -58,7 +61,7 @@ public class SchedulerService {
 
     int[][] cost = new int[0][0];
     // SOLVER
-    if (tempSupply.length > 0) {
+    if (tempSupply.length > 100000) {
 
       PoolElement[] pl = PoolUtil.findPool(tempDemand,4);
       // reduce tempDemand - 2nd+ passengers will not be sent to LCM or solver
