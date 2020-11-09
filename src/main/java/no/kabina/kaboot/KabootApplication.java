@@ -12,6 +12,7 @@ import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Profile;
 import org.springframework.transaction.annotation.EnableTransactionManagement;
 
 @SpringBootApplication
@@ -22,6 +23,7 @@ public class KabootApplication {
   * for JobRunr
   */
   @Bean
+  @Profile("!test")  // tests fail - JobMapper not created; what about 'prod' ?
   public StorageProvider storageProvider(JobMapper jobMapper) {
     InMemoryStorageProvider storageProvider = new InMemoryStorageProvider();
     storageProvider.setJobMapper(jobMapper);
@@ -32,6 +34,7 @@ public class KabootApplication {
    * for JobRunr
    */
   @Bean
+  @Profile("!test")
   public CommandLineRunner demo() {
     return (args) -> {
       BackgroundJob.scheduleRecurrently(

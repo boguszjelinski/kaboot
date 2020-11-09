@@ -74,7 +74,8 @@ public class CabGenerator {
         if (cab == null) { // initialize
             logger.info("Creating cab=" + cab_id);
             String json = "{\"location\":\"" + (cab_id % maxStand) + "\", \"status\": \""+ CabStatus.FREE +"\"}";
-            saveJSON("POST", cab_id, json);
+            json = "{\"location\":"+ cab_id +", \"status\": \"FREE\"}";
+            cab = saveJSON("POST", cab_id, json);
         }
         for (int t=0; t< maxTime; t++) {
             Route[] r = getRoute(cab_id);

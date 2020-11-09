@@ -7,12 +7,10 @@ spring:
     url: "jdbc:postgresql://localhost:5432/kabina"
     username: kabina
     password: kaboot
-  profiles:
-      active: dev
 
 org:
   jobrunr:
-    background-job-server.enabled: true
+    background-job-server.enabled: false
     dashboard.enabled: true
 
 kaboot:
