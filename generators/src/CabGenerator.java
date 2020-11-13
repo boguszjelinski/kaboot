@@ -51,7 +51,7 @@ public class CabGenerator {
         for (int c = 0; c < maxCabs; c++) {
             final int id = c;
             (new Thread(new CabRunnable(id))).start();
-            break;
+
         }
     }
 
@@ -72,10 +72,16 @@ public class CabGenerator {
         // let's begin with cab's location
         Cab cab = getEntity("cabs/", cab_id, cab_id);
         if (cab == null) { // initialize
-            logger.info("Creating cab=" + cab_id);
+            return;
+/*            logger.info("Creating cab=" + cab_id);
             String json = "{\"location\":\"" + (cab_id % maxStand) + "\", \"status\": \""+ CabStatus.FREE +"\"}";
-            json = "{\"location\":"+ cab_id +", \"status\": \"FREE\"}";
+
+            json = "{\"location\":"+ cab_id +", \"status\": \"0\"}";
+            logger.info("JSON=" + json);
+
             cab = saveJSON("POST", cab_id, json);
+
+ */
         }
         for (int t=0; t< maxTime; t++) {
             Route[] r = getRoute(cab_id);
@@ -87,7 +93,7 @@ public class CabGenerator {
                 cab.location = task.fromStand;
                 cab.status = CabStatus.ASSIGNED;
                 // inform that cab is at the stand -> update Cab entity, 'complete' previous Task
-                saveCab("PUT", cab);
+                saveCab("PUT", cab.id, cab);
                 waitMins(1); // wait 1min
                 int tasksNumb = r[0].getTasks().size();
                 for (int i=0; i < tasksNumb; i++) {
@@ -99,7 +105,7 @@ public class CabGenerator {
                     if (i == tasksNumb - 1) {
                         cab.status = CabStatus.FREE;
                     }
-                    saveCab("PUT", cab); // such call should 'complete' tasks; at the last task -> 'complete' route and 'free' that cab
+                    saveCab("PUT", cab.id, cab); // such call should 'complete' tasks; at the last task -> 'complete' route and 'free' that cab
                     waitMins(1); // wait 1min
                 }
             } else {
@@ -131,8 +137,10 @@ public class CabGenerator {
             while ((line = reader.readLine()) != null) {
                 result.append(line);
             }
+            Route[] r = null;
             Gson g = new Gson();
-            Route[] r = g.fromJson(result.toString(), Route[].class);
+            if (result != null)
+                r = g.fromJson(result.toString(), Route[].class);
             //Route r = covertFromJsonToObject(result.toString(), Route.class);
             return r;
         } catch( Exception e) {
@@ -151,14 +159,14 @@ public class CabGenerator {
         con.setRequestProperty("Authorization", authHeaderValue);
     }
 
-    private static Cab saveCab(String method, Cab cab) {
+    private static Cab saveCab(String method, int cab_id, Cab cab) {
         try {
-            String user = "cab" + cab.id;
+            String user = "cab" + cab_id;
             String password = user;
             URL url = new URL("http://localhost:8080/cabs");
             HttpURLConnection con = (HttpURLConnection) url.openConnection();
             con.setRequestMethod(method);
-            con.setRequestProperty("Content-Type", "application/json; utf-8");
+            con.setRequestProperty("Content-Type", "application/json");
             con.setRequestProperty("Accept", "application/json");
             con.setDoOutput(true);
             // Basic auth
@@ -179,7 +187,9 @@ public class CabGenerator {
                     response.append(responseLine.trim());
                 }
                 Gson g = new Gson();
-                ret = g.fromJson(response.toString(), Cab.class);
+                if (response != null) {
+                    ret = g.fromJson(response.toString(), Cab.class);
+                }
             }
             con.disconnect();
             return ret;
@@ -193,10 +203,10 @@ public class CabGenerator {
         try {
             String user = "cab" + cab_id;
             String password = user;
-            URL url = new URL("http://localhost:8080/cabs");
+            URL url = new URL("http://localhost:8080/cabs/");
             HttpURLConnection con = (HttpURLConnection) url.openConnection();
             con.setRequestMethod(method);
-            con.setRequestProperty("Content-Type", "application/json; utf-8");
+            con.setRequestProperty("Content-Type", "application/json");
             con.setRequestProperty("Accept", "application/json");
             con.setDoOutput(true);
             // Basic auth
@@ -217,7 +227,9 @@ public class CabGenerator {
                     response.append(responseLine.trim());
                 }
                 Gson g = new Gson();
-                ret = g.fromJson(response.toString(), Cab.class);
+                if (response != null) {
+                    ret = g.fromJson(response.toString(), Cab.class);
+                }
             }
             con.disconnect();
             return ret;
@@ -231,7 +243,7 @@ public class CabGenerator {
         String user = "cab" + user_id;
         StringBuilder result = new StringBuilder();
         HttpURLConnection con = null;
-        Class<T> dem = null;
+        Class<T> obj = null;
         try {
             // taxi_order will be updated with eta, cab_id and task_id when assigned
             URL url = new URL("http://localhost:8080/" + entityUrl + id); // assumption that one customer has one order
@@ -244,14 +256,18 @@ public class CabGenerator {
                 result.append(line);
             }
             Gson g = new Gson();
-            dem = g.fromJson(result.toString(), dem.getClass());
+            if (result == null) {
+                obj = null;
+            } else {
+                obj = g.fromJson(result.toString(), obj.getClass());
+            }
             //Route r = covertFromJsonToObject(result.toString(), Route.class);
         } catch( Exception e) {
             e.printStackTrace();
         }
         finally {
             con.disconnect();
-            return (T)dem;
+            return (T)obj;
         }
     }
 

@@ -32,7 +32,7 @@ public class KabootApplication {
 
   /**
    * for JobRunr
-   */
+   *//*
   @Bean
   @Profile("!test")
   public CommandLineRunner demo() {
@@ -45,6 +45,7 @@ public class KabootApplication {
       Thread.currentThread().join();
     };
   }
+  */
 
   public static void main(String[] args) {
     SpringApplication.run(KabootApplication.class, args);

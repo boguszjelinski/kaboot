@@ -28,15 +28,12 @@ public class TaxiOrderController {
   }
 
   @GetMapping("/orders/{id}")
-  public String one(@PathVariable int id, Authentication auth) {
+  public TaxiOrder one(@PathVariable int id, Authentication auth) {
     logger.info("GET order=" + id);
     Long cabId = AuthUtils.getUserId(auth, "ROLE_CUSTOMER");
-    // TODO: authorisation - customer can only see its own orders
-    TaxiOrder taxiOrder = repository.findById(id);
-    if (taxiOrder == null) {
-      return "Not found";
-    }
-    return taxiOrder.toString();
+    TaxiOrder to = repository.findById(id);
+      // TODO: authorisation - customer can only see its own orders
+    return to;
   }
 
   @GetMapping("/orders")
@@ -54,6 +51,8 @@ public class TaxiOrderController {
     }
     TaxiOrder order = new TaxiOrder(newTaxiOrder.fromStand, newTaxiOrder.toStand,
                     newTaxiOrder.maxWait, newTaxiOrder.maxLoss, newTaxiOrder.shared, TaxiOrder.OrderStatus.RECEIVED);
+    order.setEta(-1);
+    order.setInPool(false);
     return service.saveTaxiOrder(order, AuthUtils.getUserId(auth, "ROLE_CUSTOMER"));
   }
 

@@ -40,14 +40,11 @@ public class CabController {
     return repository.save(cab);
   }
 
-  // POstman
-  // raw / JSON
-  // {"location": "1", "status": 0}
   // TODO: temporary, should not be allowed for ROLE_CAB
-  @PostMapping(value="/cabs/", consumes = "application/json")
-  public void insertCab(@RequestBody String cab, Authentication auth) {
+  @PostMapping(value="/cabs/") // , consumes = "application/json"boot
+  public Cab insertCab(@RequestBody CabPOJO cab, Authentication auth) {
     logger.info("POST cab");
-   // Cab c = new Cab(cab.getLocation(), cab.getStatus());
-    //return repository.save(c);
+    Cab c = new Cab(cab.getLocation(), cab.getStatus());
+    return repository.save(c);
   }
 }

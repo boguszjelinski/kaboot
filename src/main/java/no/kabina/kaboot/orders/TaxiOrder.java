@@ -104,6 +104,9 @@ public class TaxiOrder {
   public void setStatus(OrderStatus status) {
     this.status = status;
   }
+  public OrderStatus getStatus() {
+        return this.status;
+    }
 
   public enum OrderStatus {
         RECEIVED,  // sent by customer

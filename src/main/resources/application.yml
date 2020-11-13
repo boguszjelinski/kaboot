@@ -1,21 +1,23 @@
 spring:
-  jpa:
-    hibernate:
-      ddl-auto: update
-    database-platform: org.hibernate.dialect.PostgreSQLDialect
-  datasource:
-    url: "jdbc:postgresql://localhost:5432/kabina"
-    username: kabina
-    password: kaboot
-  profiles:
-      active: dev
+    jpa:
+        hibernate:
+            ddl-auto: update
+        database-platform: org.hibernate.dialect.PostgreSQLDialect
+    datasource:
+        url: "jdbc:postgresql://localhost:5432/kabina"
+        username: kabina
+        password: kaboot
+    jackson:
+        serialization.FAIL_ON_EMPTY_BEANS: false
 
 org:
-  jobrunr:
-    background-job-server.enabled: true
-    dashboard.enabled: true
+    jobrunr:
+        background-job-server.enabled: true
+        dashboard.enabled: true
 
 kaboot:
-  consts:
-    max-non-lcm: 0
-    max-stand: 50
+    consts:
+        max-non-lcm: 0
+        max-stand: 50
+    scheduler:
+        online: true

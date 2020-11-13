@@ -26,6 +26,9 @@ public class SchedulerService {
   @Value("${kaboot.consts.max-non-lcm}")
   public final int MAX_NON_LCM = 0; // how big can a solver model be; 0 = no solver at all
 
+  @Value("${kaboot.scheduler.online}")
+  public final boolean isOnline = false;
+
   private TaxiOrderRepository taxiOrderRepository;
   private CabRepository cabRepository;
   private RouteRepository routeRepository;
@@ -44,47 +47,49 @@ public class SchedulerService {
     this.taskRepository = taskRepository;
   }
 
-  @Job(name = "Taxi scheduler", retries = 2)
+  //@Job(name = "Taxi scheduler", retries = 2)
   public void findPlan() {
+      try {
+          int[][] cost = new int[0][0];
+          UUID uuid = UUID.randomUUID();  // TODO: to mark cabs and customers as assigned to this instance of sheduler
 
-    UUID uuid = UUID.randomUUID();  // TODO: to mark cabs and customers as assigned to this instance of sheduler
+          // create demand for the solver
+          TaxiOrder[] tempDemand =
+              taxiOrderRepository.findByStatus(TaxiOrder.OrderStatus.RECEIVED).toArray(new TaxiOrder[0]);
 
-    // create demand for the solver
-    TaxiOrder[] tempDemand =
-                  taxiOrderRepository.findByStatus(TaxiOrder.OrderStatus.RECEIVED).toArray(new TaxiOrder[0]);
+          if (tempDemand.length == 0) {
+              return; // don't solve anything
+          }
+          Cab[] tempSupply = cabRepository.findByStatus(Cab.CabStatus.FREE).toArray(new Cab[0]);
+          logger.info("Initial Count of demand=" + tempDemand.length + ", supply=" + tempSupply.length);
 
-    if (tempDemand.length == 0) {
-      return; // don't solve anything
-    }
-    Cab[] tempSupply = cabRepository.findByStatus(Cab.CabStatus.FREE).toArray(new Cab[0]);
-    logger.info("Initial Count of demand="+ tempDemand.length +", supply="+ tempSupply.length);
+          if (isOnline) {
 
-    int[][] cost = new int[0][0];
-    // SOLVER
-    if (tempSupply.length > 100000) {
-
-      PoolElement[] pl = PoolUtil.findPool(tempDemand,4);
-      // reduce tempDemand - 2nd+ passengers will not be sent to LCM or solver
-      tempDemand = PoolUtil.findFirstLegInPool(pl, tempDemand);
-
-      cost = LcmUtil.calculate_cost(tempDemand, tempSupply);
-      if (cost.length > kpi_max_model_size) kpi_max_model_size = cost.length;
-      if (cost.length > MAX_NON_LCM) { // too big to send to solver, it has to be cut by LCM
-        long start_lcm = System.currentTimeMillis();
-        // LCM
-        List<LcmPair> pairs = LcmUtil.lcm(cost);
-        kpi_total_LCM_used++;
-        long end_lcm = System.currentTimeMillis();
-        int temp_lcm_time = (int)((end_lcm - start_lcm) / 1000F);
-        if (temp_lcm_time > kpi_max_LCM_time) kpi_max_LCM_time = temp_lcm_time;
-        if (pairs.size() == 0) {
-          logger.warn("critical -> a big model but LCM hasn't helped");
-        }
-        logger.info("LCM n_pairs={}", pairs.size());
-        // go thru LCM response (which are indexes in tempDemand and tempSupply)
-        for (LcmPair pair : pairs) {
-          assignCustomerToCab(tempDemand[pair.clnt], tempSupply[pair.cab], pl);
-        }
+              PoolElement[] pl = PoolUtil.findPool(tempDemand, 4);
+              // reduce tempDemand - 2nd+ passengers will not be sent to LCM or solver
+              logger.info("Pool size: " + pl.length);
+              tempDemand = PoolUtil.findFirstLegInPool(pl, tempDemand);
+              cost = LcmUtil.calculate_cost(tempDemand, tempSupply);
+              if (cost.length > kpi_max_model_size)
+                  kpi_max_model_size = cost.length;
+              if (cost.length > MAX_NON_LCM) { // too big to send to solver, it has to be cut by LCM
+                  long start_lcm = System.currentTimeMillis();
+                  // LCM
+                  List<LcmPair> pairs = LcmUtil.lcm(cost);
+                  logger.info("Number of LCM pairs: " + pairs.size());
+                  kpi_total_LCM_used++;
+                  long end_lcm = System.currentTimeMillis();
+                  int temp_lcm_time = (int) ((end_lcm - start_lcm) / 1000F);
+                  if (temp_lcm_time > kpi_max_LCM_time)
+                      kpi_max_LCM_time = temp_lcm_time;
+                  if (pairs.size() == 0) {
+                      logger.warn("critical -> a big model but LCM hasn't helped");
+                  }
+                  logger.info("LCM n_pairs={}", pairs.size());
+                  // go thru LCM response (which are indexes in tempDemand and tempSupply)
+                  for (LcmPair pair : pairs) {
+                      assignCustomerToCab(tempDemand[pair.clnt], tempSupply[pair.cab], pl);
+                  }
 
         /*TempModel tempModel = analyzeLcmAndPool(pairs, pl, tempDemand, tempSupply); // also produce input for the solver
         // to be sent to solver
@@ -92,15 +97,15 @@ public class SchedulerService {
         tempDemand = tempModel.demand;
          */
 
-        // do we need this check, really
+                  // do we need this check, really
         /*if (LCM_min_val == big_cost) { // no input for the solver;
           return;
         }
         */
 
-        //cost = calculate_cost(temp_demand, temp_supply);
-        //logger.info(". Sent to solver: demand={}, supply={}", tempDemand.length, tempSupply.length);
-      }
+                  //cost = calculate_cost(temp_demand, temp_supply);
+                  //logger.info(". Sent to solver: demand={}, supply={}", tempDemand.length, tempSupply.length);
+              }
       /*if (cost.length > max_solver_size) max_solver_size = cost.length;
       Process p = Runtime.getRuntime().exec(SOLVER_CMD);
       try {
@@ -113,13 +118,16 @@ public class SchedulerService {
         e.printStackTrace();
         System.exit(0);
       }*/
-    }
+          }
 /*    int[] x = readSolversResult(cost.length);
     analyzeSolution(x, cost, t, f, f_solv, temp_demand, temp_supply);
 
  */
-    // now we could check if a customer in pool has got a cab,
-    // if not - the other one should get a chance
+          // now we could check if a customer in pool has got a cab,
+          // if not - the other one should get a chance
+      } catch (Exception e) {
+          int a=0;
+      }
   }
 
   @Transactional

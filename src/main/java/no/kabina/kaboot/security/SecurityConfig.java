@@ -23,6 +23,7 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
             .antMatchers("/orders").hasRole("CUSTOMER")
             .antMatchers("/routes").hasRole("CAB")
             .antMatchers("/info").hasRole("ADMIN")
+            .antMatchers("/schedulework").hasRole("ADMIN")
             .anyRequest().authenticated()
             .and().csrf().disable()
             .httpBasic()
