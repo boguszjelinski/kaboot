@@ -33,8 +33,8 @@ public class Leg { // a leg of a route
   }
 
   @OneToMany
-  @JoinColumn(name = "task_id")
-  private Set<TaxiOrder> items = new HashSet<>();
+  @JoinColumn(name = "leg_id")
+  private Set<TaxiOrder> orders = new HashSet<>();
 
   @ManyToOne(optional = true, fetch = FetchType.LAZY)
   @JoinColumn(name = "route_id", nullable = true)

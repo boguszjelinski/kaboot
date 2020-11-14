@@ -19,7 +19,7 @@ import java.util.Base64;
 import com.google.gson.Gson;
 
 public class CabGenerator {
-    final static int maxTime = 10; // minutes 120
+    final static int maxTime = -1; // minutes 120
     final static int maxCabs = 1000;
     final static int maxStand = 50; // TODO: read from application.yml
 
@@ -60,7 +60,7 @@ public class CabGenerator {
         /*
             1. check if any valid route
             2. if not - wait 30sec
-            3. if yes - get the route with tasks, mark cab as 'not available' (sheduler's job)
+            3. if yes - get the route with tasks (legs), mark cab as 'not available' (sheduler's job)
             4. execute route - go from task to task
             5. report stoping at stands (Kaboot must notify customers)
             6. report 'cab is free'
@@ -70,18 +70,13 @@ public class CabGenerator {
         } catch (InterruptedException e) {}
 
         // let's begin with cab's location
-        Cab cab = getEntity("cabs/", cab_id, cab_id);
+        Cab cab = null; //getEntity("cabs/", cab_id, cab_id);
         if (cab == null) { // initialize
-            return;
-/*            logger.info("Creating cab=" + cab_id);
+            logger.info("Creating cab=" + cab_id);
             String json = "{\"location\":\"" + (cab_id % maxStand) + "\", \"status\": \""+ CabStatus.FREE +"\"}";
-
             json = "{\"location\":"+ cab_id +", \"status\": \"0\"}";
             logger.info("JSON=" + json);
-
             cab = saveJSON("POST", cab_id, json);
-
- */
         }
         for (int t=0; t< maxTime; t++) {
             Route[] r = getRoute(cab_id);

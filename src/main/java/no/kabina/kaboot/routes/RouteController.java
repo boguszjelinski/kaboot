@@ -11,11 +11,11 @@ import org.springframework.web.bind.annotation.RestController;
 public class RouteController {
 
   private final RouteRepository repository;
-  private final TaskRepository taskRepo;
+  private final LegRepository legRepo;
 
-  public RouteController(RouteRepository repository, TaskRepository taskRepo) {
+  public RouteController(RouteRepository repository, LegRepository legRepo) {
     this.repository = repository;
-    this.taskRepo = taskRepo;
+    this.legRepo = legRepo;
   }
 
   // curl -v --user cab0:cab0 http://localhost:8080/routes
@@ -29,7 +29,7 @@ public class RouteController {
   List<Route> retrieveByCabIdAndStatus(Long cabId, Route.RouteStatus status) {
     List<Route> routes = repository.findByCabIdAndStatus(cabId, status);
     /*   for (Route r: routes) {
-       r.setTasks(taskRepo.findByRouteId(r.getId()));
+       r.setLegs(legRepo.findByRouteId(r.getId()));
     }*/
     return routes;
   }

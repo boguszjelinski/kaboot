@@ -45,6 +45,7 @@ public class TaxiOrderController {
   //  curl -d '{"fromStand":0, "toStand": 1, "maxWait":1, "maxLoss": 30, "shared": true}' -H 'Content-Type: application/json' http://localhost:8080/orders
   @PostMapping(value="/orders", consumes = "application/json")
   public TaxiOrder newTaxiOrder(@RequestBody TaxiOrderPOJO newTaxiOrder, Authentication auth) {
+    // TODO: should fail if another order is RECEIVED
     logger.info("POST order");
     if (newTaxiOrder.fromStand == newTaxiOrder.toStand) { // a joker
       return null;

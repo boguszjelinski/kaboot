@@ -26,8 +26,8 @@ import static java.lang.StrictMath.abs;
 public class CustomerGenerator {
     final static Logger logger = Logger.getLogger("kaboot.simulator.cabgenerator");
     //final static String DEMAND_FILE = "C:\\Users\\dell\\TAXI\\GIT\\simulations\\taxi_demand.txt";
-    final static String DEMAND_FILE = "/home/m91127/GITHUB/taxidispatcher/simulations/taxi_demand.txt";
-
+   // final static String DEMAND_FILE = "/home/m91127/GITHUB/taxidispatcher/simulations/taxi_demand.txt";
+    final static String DEMAND_FILE = "C:\\Users\\dell\\TAXI\\GIT\\simulations\\taxi_demand.txt";
     static long demandCount=0;
     static int [][] demand = new int[100000][5];
     static int maxTime = 0;

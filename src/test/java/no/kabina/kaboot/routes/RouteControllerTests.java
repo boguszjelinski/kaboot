@@ -28,7 +28,7 @@ public class RouteControllerTests {
     private RouteRepository routeRepo;
 
     @MockBean
-    private TaskRepository taskRepo;
+    private LegRepository legRepo;
 
     private String token;
 

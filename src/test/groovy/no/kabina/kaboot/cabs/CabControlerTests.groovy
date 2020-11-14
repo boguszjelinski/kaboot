@@ -12,7 +12,7 @@ import org.springframework.test.web.servlet.MockMvc
 import no.kabina.kaboot.orders.TaxiOrderRepository
 import no.kabina.kaboot.orders.TaxiOrderService
 import no.kabina.kaboot.routes.RouteRepository
-import no.kabina.kaboot.routes.TaskRepository
+import no.kabina.kaboot.routes.LegRepository
 import spock.lang.Specification
 import spock.mock.DetachedMockFactory
 
@@ -79,8 +79,8 @@ class CabControlerTests extends Specification {
         }
 
         @Bean
-        TaskRepository taskRepository() {
-          return detachedMockFactory.Stub(TaskRepository)
+        LegRepository legRepository() {
+          return detachedMockFactory.Stub(LegRepository)
         }
     }
 }

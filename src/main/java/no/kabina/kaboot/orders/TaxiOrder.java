@@ -60,7 +60,7 @@ public class TaxiOrder {
 
   // also for data integrity checks; the pick-up task; null if cab was already there
   @ManyToOne(optional = true, fetch = FetchType.LAZY)
-  @JoinColumn(name="task_id", nullable=true)
+  @JoinColumn(name="leg_id", nullable=true)
   private Leg leg;  // an order can be pick-up by one task, but one task can pick up MANY orders/customers
                         // this foreign key will give the driver information whom to pick up and where to drop-off
 
@@ -152,11 +152,11 @@ public class TaxiOrder {
     return this.route;
   }
 
-  public Leg getTask() {
+  public Leg getLeg() {
     return this.leg;
   }
 
-  public void setTask(Leg leg) {
+  public void setLeg(Leg leg) {
     this.leg = leg;
   }
 

@@ -62,11 +62,11 @@ public class Route {
     this.status = stat;
   }
 
-  public void setTasks(Set<Leg> legs) {
+  public void setLegs(Set<Leg> legs) {
     this.legs = legs;
   }
 
-  public Set<Leg> getTasks() {
+  public Set<Leg> getLegs() {
     return legs;
   }
 
