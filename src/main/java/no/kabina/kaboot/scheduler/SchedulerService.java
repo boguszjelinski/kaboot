@@ -48,64 +48,62 @@ public class SchedulerService {
 
   //@Job(name = "Taxi scheduler", retries = 2)
   public void findPlan() {
-      try {
-          int[][] cost = new int[0][0];
-          UUID uuid = UUID.randomUUID();  // TODO: to mark cabs and customers as assigned to this instance of sheduler
+    try {
+      int[][] cost; //= new int[0][0];
+      //UUID uuid = UUID.randomUUID();  // TODO: to mark cabs and customers as assigned to this instance of sheduler
 
-          // create demand for the solver
-          TaxiOrder[] tempDemand =
-              taxiOrderRepository.findByStatus(TaxiOrder.OrderStatus.RECEIVED).toArray(new TaxiOrder[0]);
+      // create demand for the solver
+      TaxiOrder[] tempDemand =
+          taxiOrderRepository.findByStatus(TaxiOrder.OrderStatus.RECEIVED).toArray(new TaxiOrder[0]);
 
-          if (tempDemand.length == 0) {
-              return; // don't solve anything
+      if (tempDemand.length == 0) {
+        return; // don't solve anything
+      }
+      Cab[] tempSupply = cabRepository.findByStatus(Cab.CabStatus.FREE).toArray(new Cab[0]);
+      logger.info("Initial Count of demand={}, supply={}", tempDemand.length, tempSupply.length);
+
+      if (isOnline) {
+        // TODO: big models and
+        PoolElement[] pl = PoolUtil.findPool(tempDemand, 4);
+        // reduce tempDemand - 2nd+ passengers will not be sent to LCM or solver
+        logger.info("Pool size: {}", pl.length);
+        tempDemand = PoolUtil.findFirstLegInPool(pl, tempDemand);
+        logger.info("Demand after pooling: {}", tempDemand.length);
+        cost = LcmUtil.calculate_cost(tempDemand, tempSupply);
+        if (cost.length > kpi_max_model_size) {
+          kpi_max_model_size = cost.length;
+        }
+        if (cost.length > MAX_NON_LCM) { // too big to send to solver, it has to be cut by LCM
+          long start_lcm = System.currentTimeMillis();
+          // =========== LCM ==========
+          List<LcmPair> pairs = LcmUtil.lcm(cost);
+          logger.info("LCM pairs: {}", pairs.size());
+          kpi_total_LCM_used++;
+          long end_lcm = System.currentTimeMillis();
+          int temp_lcm_time = (int) ((end_lcm - start_lcm) / 1000F);
+          if (temp_lcm_time > kpi_max_LCM_time)
+            kpi_max_LCM_time = temp_lcm_time;
+          if (pairs.size() == 0) {
+            logger.warn("critical -> a big model but LCM hasn't helped");
           }
-          Cab[] tempSupply = cabRepository.findByStatus(Cab.CabStatus.FREE).toArray(new Cab[0]);
-          logger.info("Initial Count of demand=" + tempDemand.length + ", supply=" + tempSupply.length);
-
-          if (isOnline) {
-              // TODO: big models and
-              PoolElement[] pl = PoolUtil.findPool(tempDemand, 4);
-              // reduce tempDemand - 2nd+ passengers will not be sent to LCM or solver
-              logger.info("Pool size: " + pl.length);
-              tempDemand = PoolUtil.findFirstLegInPool(pl, tempDemand);
-              logger.info("Demand after pooling: " + tempDemand.length);
-              cost = LcmUtil.calculate_cost(tempDemand, tempSupply);
-              if (cost.length > kpi_max_model_size)
-                  kpi_max_model_size = cost.length;
-              if (cost.length > MAX_NON_LCM) { // too big to send to solver, it has to be cut by LCM
-                  long start_lcm = System.currentTimeMillis();
-                  // LCM
-                  List<LcmPair> pairs = LcmUtil.lcm(cost);
-                  logger.info("LCM pairs: " + pairs.size());
-                  kpi_total_LCM_used++;
-                  long end_lcm = System.currentTimeMillis();
-                  int temp_lcm_time = (int) ((end_lcm - start_lcm) / 1000F);
-                  if (temp_lcm_time > kpi_max_LCM_time)
-                      kpi_max_LCM_time = temp_lcm_time;
-                  if (pairs.size() == 0) {
-                      logger.warn("critical -> a big model but LCM hasn't helped");
-                  }
-                  logger.info("LCM n_pairs={}", pairs.size());
-                  // go thru LCM response (which are indexes in tempDemand and tempSupply)
-                  for (LcmPair pair : pairs) {
-                      assignCustomerToCab(tempDemand[pair.clnt], tempSupply[pair.cab], pl);
-                      int i=1;
-                  }
-                    /*TempModel tempModel = analyzeLcmAndPool(pairs, pl, tempDemand, tempSupply); // also produce input for the solver
-                    // to be sent to solver
-                    tempSupply = tempModel.supply;
-                    tempDemand = tempModel.demand;
-                     */
-                              // do we need this check, really
-                    /*if (LCM_min_val == big_cost) { // no input for the solver;
-                      return;
-                    }
-                    */
-
-                  //cost = calculate_cost(temp_demand, temp_supply);
-                  //logger.info(". Sent to solver: demand={}, supply={}", tempDemand.length, tempSupply.length);
-              }
-      /*if (cost.length > max_solver_size) max_solver_size = cost.length;
+          logger.info("LCM n_pairs={}", pairs.size());
+          // go thru LCM response (which are indexes in tempDemand and tempSupply)
+          for (LcmPair pair : pairs) {
+            assignCustomerToCab(tempDemand[pair.clnt], tempSupply[pair.cab], pl);
+          }
+          TempModel tempModel = PoolUtil.analyzeLcmAndPool(pairs, pl, tempDemand, tempSupply); // also produce input for the solver
+            // to be sent to solver
+          tempSupply = tempModel.supply;
+          tempDemand = tempModel.demand;
+          logger.info("Sent to solver: demand={}, supply={}", tempDemand.length, tempSupply.length);
+                      // do we need this check, really
+            /*if (LCM_min_val == big_cost) { // no input for the solver;
+              return;
+            }
+            */
+          cost = LcmUtil.calculate_cost(tempDemand, tempSupply);
+        }
+  /*if (cost.length > max_solver_size) max_solver_size = cost.length;
       Process p = Runtime.getRuntime().exec(SOLVER_CMD);
       try {
         long start_solver = System.currentTimeMillis();
@@ -124,12 +122,12 @@ public class SchedulerService {
  */
           // now we could check if a customer in pool has got a cab,
           // if not - the other one should get a chance
-      } catch (Exception e) {
-          logger.info(e.getMessage() + ": " + e.getCause());
-      }
+    } catch (Exception e) {
+      logger.info(e.getMessage() + ": " + e.getCause());
+    }
   }
 
-  @Transactional
+  @Transactional  // TODO: it isn't transactional
   private void assignCustomerToCab(TaxiOrder order, Cab cab, PoolElement[] pool) {
     // update CAB
     cab.setStatus(Cab.CabStatus.ASSIGNED);
@@ -144,12 +142,11 @@ public class SchedulerService {
       leg.setRoute(route);
       legRepository.save(leg);
     }
-    PoolElement elem = null;
     boolean found = false;
     // legs & routes are assigned to customers in Pool
     // if not assigned to a Pool we have to create a single-task route here
     for (PoolElement e : pool) { // PoolElement contains TaxiOrder IDs (primary keys)
-      if (e.cust[0].id == order.id) { // yeap, this id is in a pool
+      if (e.cust[0].id.equals(order.id)) { // yeap, this id is in a pool
         found = true;
         // checking number
         // save pick-up phase
@@ -158,7 +155,7 @@ public class SchedulerService {
           leg = null;
           if (e.cust[c].fromStand != e.cust[c + 1].fromStand) { // there is movement
             leg = new Leg(e.cust[c].fromStand, e.cust[c + 1].fromStand, legId++, Route.RouteStatus.ASSIGNED);
-            leg = saveLeg(e.cust[c], leg, route, cab); // TODO: analyze if a null leg is OK
+            saveLeg(leg, route);
           }
           updateOrder(leg, e.cust[c], cab, route);
         }
@@ -166,15 +163,14 @@ public class SchedulerService {
         // save drop-off phase
         if (e.cust[c].fromStand != e.cust[c + 1].toStand) {
           leg = new Leg(e.cust[c].fromStand, e.cust[c + 1].toStand, legId++, Route.RouteStatus.ASSIGNED);
-          leg = saveLeg(e.cust[c], leg, route, cab);
+          leg = saveLeg(leg, route);
         }
         updateOrder(leg, e.cust[c], cab, route);
         //
         for (c++; c < 2 * e.numbOfCust - 1; c++) {
-          leg = null;
           if (e.cust[c].toStand != e.cust[c + 1].toStand) {
             leg = new Leg(e.cust[c].toStand, e.cust[c + 1].toStand, legId++, Route.RouteStatus.ASSIGNED);
-            leg = saveLeg(e.cust[c], leg, route, cab);
+            saveLeg(leg, route);
           }
           // here we don't update TaxiOrder
         }
@@ -182,13 +178,13 @@ public class SchedulerService {
       }
     }
     if (!found) {  // lone trip
-      leg = new Leg(order.fromStand, order.toStand, legId++, Route.RouteStatus.ASSIGNED);
-      leg = saveLeg(order, leg, route, cab);
+      leg = new Leg(order.fromStand, order.toStand, legId, Route.RouteStatus.ASSIGNED);
+      leg = saveLeg(leg, route);
       updateOrder(leg, order, cab, route);
     }
   }
 
-  private Leg saveLeg(TaxiOrder o, Leg l, Route r, Cab c) {
+  private Leg saveLeg(Leg l, Route r) {
     if (l != null) {
       l.setRoute(r);
       return legRepository.save(l);
@@ -197,13 +193,13 @@ public class SchedulerService {
   }
 
   private void updateOrder(Leg l, TaxiOrder o, Cab c, Route r) {
-      if (l != null) {
-          o.setLeg(l);
-      }
-      o.setStatus(TaxiOrder.OrderStatus.ASSIGNED);
-      o.setCab(c);
-      o.setRoute(r);
-      // TODO: order.eta to be set
-      taxiOrderRepository.save(o);
+    if (l != null) {
+      o.setLeg(l);
+    }
+    o.setStatus(TaxiOrder.OrderStatus.ASSIGNED);
+    o.setCab(c);
+    o.setRoute(r);
+    // TODO: order.eta to be set
+    taxiOrderRepository.save(o);
   }
 }

@@ -1,7 +1,7 @@
 package no.kabina.kaboot.scheduler;
 
 public class LcmPair {
-    int cab, clnt;
+    public int cab, clnt;
 
     public LcmPair(int cab, int clnt) {
         this.cab = cab;

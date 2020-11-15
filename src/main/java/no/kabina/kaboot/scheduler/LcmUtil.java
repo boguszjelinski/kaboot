@@ -50,7 +50,6 @@ public class LcmUtil {
       }
       // assigning cab and the client
       pairs.add(new LcmPair(smin, dmin));
-      //assignCustomerToCab(smin, dmin);  // cab, clnt
 
       // removing the column from further search by assigning big cost
       for (s = 0; s < n; s++) {
