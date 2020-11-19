@@ -1,34 +1,40 @@
 package no.kabina.kaboot.scheduler;
 
+import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-
 import no.kabina.kaboot.cabs.Cab;
 import no.kabina.kaboot.orders.TaxiOrder;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Service;
+import org.springframework.stereotype.Component;
 
-@Service
+@Component
 public class LcmUtil {
+
+  private static Logger logger = LoggerFactory.getLogger(LcmUtil.class);
 
   @Autowired
   static DistanceService dsrvc;
 
-  private static final int bigCost = 250000;
+  private static final String SOLVER_COST_FILE = "cost.txt";
+
+  public static final int bigCost = 250000;
   private static final int DROP_TIME = 10;
 
   /** Low Cost Method aka "greedy" - looks for lowest values in the matrix
   *
   * @param cost
   */
-  public static List<LcmPair> lcm(int[][] cost) {
-
-    final int maxNonLcm = 0; // 0 = no solver now
-    int lcmMinVal;
+  public static LcmOutput lcm(int[][] cost, int maxNonLcm) { // 0 = no solver now
+    int lcmMinVal = bigCost;
     int n = cost.length;
     int[][] costLcm = Arrays.stream(cost).map(int[]::clone).toArray(int[][]::new);
-    List<LcmPair> pairs = new ArrayList<LcmPair>();
+    List<LcmPair> pairs = new ArrayList<>();
     int size = n;
     for (int i = 0; i < n; i++) { // we need to repeat the search (cut off rows/columns) 'n' times
       lcmMinVal = bigCost;
@@ -64,16 +70,19 @@ public class LcmUtil {
         break; // rest will be covered by solver
       }
     }
-    return pairs;
+    return new LcmOutput(pairs, lcmMinVal);
   }
 
-  public static int[][] calculate_cost(TaxiOrder[] temp_demand, Cab[] temp_supply) {
-    int n = 0, c, d;
-    int n_supply = temp_supply.length;
-    int n_demand = temp_demand.length;
-    n = Math.max(n_supply, n_demand); // checking max size for unbalanced scenarios
-    if (n == 0) return new int[0][0];
-
+  public static int[][] calculateCost(TaxiOrder[] tmpDemand, Cab[] tmpSupply) {
+    int n = 0;
+    int c;
+    int d;
+    int numbSupply = tmpSupply.length;
+    int numbDemand = tmpDemand.length;
+    n = Math.max(numbSupply, numbDemand); // checking max size for unbalanced scenarios
+    if (n == 0) {
+      return new int[0][0];
+    }
     int[][] cost = new int[n][n];
     // resetting cost table
     for (c = 0; c < n; c++) {
@@ -81,25 +90,26 @@ public class LcmUtil {
         cost[c][d] = bigCost;
       }
     }
-    for (c = 0; c < n_supply; c++) {
-      for (d = 0; d < n_demand; d++) {
-        int dst = dsrvc.getDistance(temp_supply[c].getLocation(), temp_demand[d].fromStand);
+    for (c = 0; c < numbSupply; c++) {
+      for (d = 0; d < numbDemand; d++) {
+        int dst = dsrvc.getDistance(tmpSupply[c].getLocation(), tmpDemand[d].fromStand);
         if (dst < DROP_TIME) { // take this possibility only if reasonable time to pick-up a customer
           // otherwise big_cost will stay in this cell
           cost[c][d] = dst;
         }
       }
     }
-/*    FileWriter fr = new FileWriter(new File(SOLVER_COST_FILE));
-    fr.write( n +"\n");
-    for (c=0; c<n; c++) {
-      for (d=0; d<n; d++) fr.write(cost[c][d]+" ");
-      fr.write("\n");
+    try (FileWriter fr = new FileWriter(new File(SOLVER_COST_FILE))) {
+      fr.write(n + "\n");
+      for (c = 0; c < n; c++) {
+        for (d = 0; d < n; d++) {
+          fr.write(cost[c][d] + " ");
+        }
+        fr.write("\n");
+      }
+    } catch (IOException ioe) {
+      logger.warn("IOE: {}", ioe.getMessage());
     }
-    fr.close();
- */
     return cost;
   }
-
-
 }

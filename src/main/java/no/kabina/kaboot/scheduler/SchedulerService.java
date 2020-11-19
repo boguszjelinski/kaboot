@@ -1,16 +1,17 @@
 package no.kabina.kaboot.scheduler;
 
+import java.io.BufferedReader;
+import java.io.FileReader;
+import java.io.IOException;
 import java.util.List;
-import java.util.UUID;
-
 import no.kabina.kaboot.cabs.Cab;
 import no.kabina.kaboot.cabs.CabRepository;
 import no.kabina.kaboot.orders.TaxiOrder;
 import no.kabina.kaboot.orders.TaxiOrderRepository;
 import no.kabina.kaboot.routes.Leg;
+import no.kabina.kaboot.routes.LegRepository;
 import no.kabina.kaboot.routes.Route;
 import no.kabina.kaboot.routes.RouteRepository;
-import no.kabina.kaboot.routes.LegRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -22,8 +23,12 @@ public class SchedulerService {
 
   private Logger logger = LoggerFactory.getLogger(SchedulerService.class);
 
+  //final String SOLVER_CMD = "C:\\Python\\Python37\\python solver.py";
+  final String SOLVER_CMD = "runpy.bat";
+  final String SOLVER_OUT_FILE = "solv_out.txt";
+
   @Value("${kaboot.consts.max-non-lcm}")
-  private int MAX_NON_LCM; // how big can a solver model be; 0 = no solver at all
+  private int MAX_SOLVER_SIZE; // how big can a solver model be; 0 = no solver at all
 
   @Value("${kaboot.scheduler.online}")
   private boolean isOnline;
@@ -37,6 +42,7 @@ public class SchedulerService {
   public static int kpi_max_model_size = 0;
   public static int kpi_total_LCM_used = 0;
   public static int kpi_max_LCM_time = 0;
+  public static int maxSolverTime = 0;
 
   public SchedulerService(TaxiOrderRepository taxiOrderRepository, CabRepository cabRepository,
                           RouteRepository routeRepository, LegRepository legRepository) {
@@ -62,21 +68,22 @@ public class SchedulerService {
       Cab[] tempSupply = cabRepository.findByStatus(Cab.CabStatus.FREE).toArray(new Cab[0]);
       logger.info("Initial Count of demand={}, supply={}", tempDemand.length, tempSupply.length);
 
-      if (isOnline) {
+      if (tempSupply.length > 0 && tempDemand.length > 0 && isOnline) {
         // TODO: big models and
         PoolElement[] pl = PoolUtil.findPool(tempDemand, 4);
         // reduce tempDemand - 2nd+ passengers will not be sent to LCM or solver
         logger.info("Pool size: {}", pl.length);
         tempDemand = PoolUtil.findFirstLegInPool(pl, tempDemand);
         logger.info("Demand after pooling: {}", tempDemand.length);
-        cost = LcmUtil.calculate_cost(tempDemand, tempSupply);
+        cost = LcmUtil.calculateCost(tempDemand, tempSupply);
         if (cost.length > kpi_max_model_size) {
           kpi_max_model_size = cost.length;
         }
-        if (cost.length > MAX_NON_LCM) { // too big to send to solver, it has to be cut by LCM
+        if (cost.length > MAX_SOLVER_SIZE) { // too big to send to solver, it has to be cut by LCM
           long start_lcm = System.currentTimeMillis();
           // =========== LCM ==========
-          List<LcmPair> pairs = LcmUtil.lcm(cost);
+          LcmOutput out = LcmUtil.lcm(cost, MAX_SOLVER_SIZE);
+          List<LcmPair> pairs = out.pairs;
           logger.info("LCM pairs: {}", pairs.size());
           kpi_total_LCM_used++;
           long end_lcm = System.currentTimeMillis();
@@ -96,34 +103,77 @@ public class SchedulerService {
           tempSupply = tempModel.supply;
           tempDemand = tempModel.demand;
           logger.info("Sent to solver: demand={}, supply={}", tempDemand.length, tempSupply.length);
-                      // do we need this check, really
-            /*if (LCM_min_val == big_cost) { // no input for the solver;
-              return;
-            }
-            */
-          cost = LcmUtil.calculate_cost(tempDemand, tempSupply);
-        }
-  /*if (cost.length > max_solver_size) max_solver_size = cost.length;
-      Process p = Runtime.getRuntime().exec(SOLVER_CMD);
-      try {
-        long start_solver = System.currentTimeMillis();
-        p.waitFor();
-        long end_solver = System.currentTimeMillis();
-        int temp_solver_time = (int)((end_solver - start_solver) / 1000F);
-        if (temp_solver_time > max_solver_time) max_solver_time = temp_solver_time;
-      } catch (InterruptedException e) {
-        e.printStackTrace();
-        System.exit(0);
-      }*/
+          // do we need this check, really
+          if (out.minVal == LcmUtil.bigCost) { // no input for the solver; probably only when MAX_SOLVER_SIZE=0
+            return;
           }
-/*    int[] x = readSolversResult(cost.length);
-    analyzeSolution(x, cost, t, f, f_solv, temp_demand, temp_supply);
-
- */
-          // now we could check if a customer in pool has got a cab,
-          // if not - the other one should get a chance
+          cost = LcmUtil.calculateCost(tempDemand, tempSupply);
+          if (cost.length > MAX_SOLVER_SIZE) { // too big to send to solver, it has to be cut hard
+            if (tempSupply.length > MAX_SOLVER_SIZE) {
+              tempSupply = GcmUtil.reduceSupply(cost, tempSupply, MAX_SOLVER_SIZE);
+            }
+            if (tempDemand.length > MAX_SOLVER_SIZE) {
+              tempDemand = GcmUtil.reduceDemand(cost, tempDemand, MAX_SOLVER_SIZE);
+            }
+            LcmUtil.calculateCost(tempDemand, tempSupply); // it writes input file for solver
+          }
+        }
+        //if (cost.length > max_solver_size) max_solver_size = cost.length;
+        runSolver();
+        int[] x = readSolversResult(cost.length);
+        assignCustomers(x, cost, tempDemand, tempSupply, pl);
+        // now we could check if a customer in pool has got a cab,
+        // if not - the other one should get a chance
+      }
     } catch (Exception e) {
       logger.info(e.getMessage() + ": " + e.getCause());
+    }
+  }
+
+  private void runSolver() {
+    try {
+      // TODO: rm out file first
+      Process p = Runtime.getRuntime().exec(SOLVER_CMD);
+      long startSolver = System.currentTimeMillis();
+      p.waitFor();
+      long endSolver = System.currentTimeMillis();
+      int tempSolverTime = (int) ((endSolver - startSolver) / 1000F);
+      if (tempSolverTime > maxSolverTime) {
+        maxSolverTime = tempSolverTime;
+      }
+    } catch (InterruptedException | IOException e) {
+      logger.warn("Exception while running solver: {}", e.getMessage());
+    }
+  }
+
+  private int[] readSolversResult(int nn) {
+    int[] x = new int[nn * nn];
+    try (BufferedReader reader = new BufferedReader(new FileReader(SOLVER_OUT_FILE))) {
+      String line = null;
+      for (int i = 0; i < nn * nn; i++) {
+        line = reader.readLine();
+        if (line == null) {
+          logger.warn("wrong output from solver");
+          return new int[0];
+        }
+        x[i] = Integer.parseInt(line);
+      }
+    } catch (IOException e) {
+      logger.warn("missing output from solver");
+      return new int[0];
+    }
+    return x;
+  }
+
+  // solver returns a very simple output, it has to be compared with data which helped create its input
+  private void assignCustomers(int[] x, int[][] cost, TaxiOrder[] tmpDemand, Cab[] tmpSupply, PoolElement[] pool) {
+    int nn = cost.length;
+    for (int s = 0; s < tmpSupply.length; s++) {
+      for (int c = 0; c < tmpDemand.length; c++) {
+        if (x[nn * s + c] == 1 && cost[s][c] < LcmUtil.bigCost) { // not a fake assignment (to balance the model)
+          assignCustomerToCab(tmpDemand[c], tmpSupply[s], pool);
+        }
+      }
     }
   }
 

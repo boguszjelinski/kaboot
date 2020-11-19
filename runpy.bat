@@ -1,0 +1,1 @@
+conda run -n foo C:\Users\dell\anaconda3\envs\foo\python.exe solver.py
