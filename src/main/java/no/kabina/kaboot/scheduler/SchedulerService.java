@@ -79,10 +79,11 @@ public class SchedulerService {
         if (cost.length > kpi_max_model_size) {
           kpi_max_model_size = cost.length;
         }
-        if (cost.length > MAX_SOLVER_SIZE) { // too big to send to solver, it has to be cut by LCM
+        if (tempDemand.length > MAX_SOLVER_SIZE && tempSupply.length > MAX_SOLVER_SIZE) { // too big to send to solver, it has to be cut by LCM
+          // both sides has to be bigger,
           long start_lcm = System.currentTimeMillis();
           // =========== LCM ==========
-          LcmOutput out = LcmUtil.lcm(cost, MAX_SOLVER_SIZE);
+          LcmOutput out = LcmUtil.lcm(cost, Math.min(tempDemand.length, tempSupply.length) - MAX_SOLVER_SIZE);
           List<LcmPair> pairs = out.pairs;
           logger.info("LCM pairs: {}", pairs.size());
           kpi_total_LCM_used++;
@@ -102,26 +103,30 @@ public class SchedulerService {
             // to be sent to solver
           tempSupply = tempModel.supply;
           tempDemand = tempModel.demand;
-          logger.info("Sent to solver: demand={}, supply={}", tempDemand.length, tempSupply.length);
+          logger.info("After LCM: demand={}, supply={}", tempDemand.length, tempSupply.length);
           // do we need this check, really
           if (out.minVal == LcmUtil.bigCost) { // no input for the solver; probably only when MAX_SOLVER_SIZE=0
             return;
           }
           cost = LcmUtil.calculateCost(tempDemand, tempSupply);
-          if (cost.length > MAX_SOLVER_SIZE) { // too big to send to solver, it has to be cut hard
-            if (tempSupply.length > MAX_SOLVER_SIZE) {
-              tempSupply = GcmUtil.reduceSupply(cost, tempSupply, MAX_SOLVER_SIZE);
-            }
-            if (tempDemand.length > MAX_SOLVER_SIZE) {
-              tempDemand = GcmUtil.reduceDemand(cost, tempDemand, MAX_SOLVER_SIZE);
-            }
-            LcmUtil.calculateCost(tempDemand, tempSupply); // it writes input file for solver
-          }
         }
         //if (cost.length > max_solver_size) max_solver_size = cost.length;
+        if (cost.length > MAX_SOLVER_SIZE) { // still too big to send to solver, it has to be cut hard
+          if (tempSupply.length > MAX_SOLVER_SIZE) { // some cabs will not get passengers, they have to wait for new ones
+            tempSupply = GcmUtil.reduceSupply(cost, tempSupply, MAX_SOLVER_SIZE);
+          }
+          if (tempDemand.length > MAX_SOLVER_SIZE) {
+            tempDemand = GcmUtil.reduceDemand(cost, tempDemand, MAX_SOLVER_SIZE);
+          }
+          cost = LcmUtil.calculateCost(tempDemand, tempSupply); // it writes input file for solver
+        }
         runSolver();
         int[] x = readSolversResult(cost.length);
-        assignCustomers(x, cost, tempDemand, tempSupply, pl);
+        if (x.length != cost.length * cost.length) {
+          logger.warn("Solver returned wrong data set");
+        } else {
+          assignCustomers(x, cost, tempDemand, tempSupply, pl);
+        }
         // now we could check if a customer in pool has got a cab,
         // if not - the other one should get a chance
       }

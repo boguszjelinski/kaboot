@@ -4,9 +4,13 @@ import java.util.Arrays;
 import java.util.List;
 import no.kabina.kaboot.cabs.Cab;
 import no.kabina.kaboot.orders.TaxiOrder;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 // Greatest Cost - finding cabs with greatest distance to limit the size of solver
 public class GcmUtil {
+
+  private static Logger logger = LoggerFactory.getLogger(GcmUtil.class);
 
     /** Find maximum minimums - get rid of Cabs which are too distant
      *
@@ -30,19 +34,26 @@ public class GcmUtil {
       }
       minDistances[s] = minVal;
     }
-
-    List<Cab> list = Arrays.asList(tmpSupply);
-
     // finding max values and getting rid of them
     for (int x = 0; x < tmpSupply.length - goalSize; x++) { // repeat so many times
       int idx = 0;
       for (int i = 0; i < minDistances.length; i++) {
         idx = minDistances[i] > minDistances[idx] ? i : idx;
       }
-      list.remove(tmpSupply[idx]);
       minDistances[idx] = -1; // otherwise you would try to remove it more than once
     }
-    return list.toArray(new Cab[0]);
+
+    Cab[] ret = new Cab[goalSize];
+    int idx = 0;
+    for (int j=0; j<minDistances.length; j++) {
+      if (minDistances[j] != -1) {
+        ret[idx++] = tmpSupply[j];
+      }
+    }
+    if (idx != goalSize) {
+      logger.warn("there was -1 in table earlier - change this marker to -1234567890"); // TODO
+    }
+    return ret;
   }
 
   public static TaxiOrder[] reduceDemand(int[][] cost, TaxiOrder[] tmpDemand, int goalSize) {
@@ -61,18 +72,25 @@ public class GcmUtil {
       }
       minDistances[d] = minVal;
     }
-
-    List<TaxiOrder> list = Arrays.asList(tmpDemand);
-
     // finding max values and getting rid of them
     for (int x = 0; x < tmpDemand.length - goalSize; x++) { // repeat so many times
       int idx = 0;
       for (int i = 0; i < minDistances.length; i++) {
         idx = minDistances[i] > minDistances[idx] ? i : idx;
       }
-      list.remove(tmpDemand[idx]);
       minDistances[idx] = -1; // otherwise you would try to remove it more than once
     }
-    return list.toArray(new TaxiOrder[0]);
+
+    TaxiOrder[] ret = new TaxiOrder[goalSize];
+    int idx = 0;
+    for (int j=0; j<minDistances.length; j++) {
+      if (minDistances[j] != -1) {
+        ret[idx++] = tmpDemand[j];
+      }
+    }
+    if (idx != goalSize) {
+      logger.warn("there was -1 in table earlier - change this marker to -1234567890"); // TODO
+    }
+    return ret;
   }
 }

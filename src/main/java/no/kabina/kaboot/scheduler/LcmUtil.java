@@ -24,18 +24,17 @@ public class LcmUtil {
   private static final String SOLVER_COST_FILE = "cost.txt";
 
   public static final int bigCost = 250000;
-  private static final int DROP_TIME = 10;
 
   /** Low Cost Method aka "greedy" - looks for lowest values in the matrix
   *
   * @param cost
   */
-  public static LcmOutput lcm(int[][] cost, int maxNonLcm) { // 0 = no solver now
+  public static LcmOutput lcm(int[][] cost, int howMany) { // 0 = no solver now
     int lcmMinVal = bigCost;
     int n = cost.length;
     int[][] costLcm = Arrays.stream(cost).map(int[]::clone).toArray(int[][]::new);
     List<LcmPair> pairs = new ArrayList<>();
-    int size = n;
+    int counter = 0;
     for (int i = 0; i < n; i++) { // we need to repeat the search (cut off rows/columns) 'n' times
       lcmMinVal = bigCost;
       int smin = -1;
@@ -65,8 +64,8 @@ public class LcmUtil {
       for (d = 0; d < n; d++) {
         costLcm[smin][d] = bigCost;
       }
-      size--;
-      if (size == maxNonLcm) {
+      counter ++;
+      if (counter == howMany) {
         break; // rest will be covered by solver
       }
     }
@@ -93,7 +92,7 @@ public class LcmUtil {
     for (c = 0; c < numbSupply; c++) {
       for (d = 0; d < numbDemand; d++) {
         int dst = dsrvc.getDistance(tmpSupply[c].getLocation(), tmpDemand[d].fromStand);
-        if (dst < DROP_TIME) { // take this possibility only if reasonable time to pick-up a customer
+        if (dst <= tmpDemand[d].getMaxWait()) { // take this possibility only if reasonable time to pick-up a customer
           // otherwise big_cost will stay in this cell
           cost[c][d] = dst;
         }
