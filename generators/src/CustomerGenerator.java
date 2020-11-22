@@ -2,26 +2,18 @@
     Project: Kabina/Kaboot
     Date: 2020
 */
-import com.google.gson.Gson;
 
-import java.io.OutputStream;
+// javac -cp ../lib/gson-2.8.6.jar CustomerGenerator.java CustomerRunnable.java
+
 import java.io.BufferedReader;
 import java.io.FileReader;
-import java.io.InputStream;
-import java.io.BufferedInputStream;
-import java.io.InputStreamReader;
 import java.io.IOException;
-import java.net.HttpURLConnection;
-import java.net.URL;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Base64;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.FileHandler;
 import java.util.logging.Logger;
 import java.util.logging.SimpleFormatter;
-import static java.lang.StrictMath.abs;
 
 public class CustomerGenerator {
     final static Logger logger = Logger.getLogger("kaboot.simulator.cabgenerator");
@@ -34,13 +26,14 @@ public class CustomerGenerator {
 
     public static void main(String[] args) throws InterruptedException {
         System.setProperty("java.util.logging.SimpleFormatter.format", "%1$tY-%1$tm-%1$td %1$tH:%1$tM:%1$tS %4$-6s %2$s %5$s%6$s%n");
+        configureLogger();
         readDemand();
         if (demand.length == 0) {
             logger.info("Error reading demand file");
             return;
         }
         logger.info("Orders in total: " + demand.length);
-        configureLogger();
+
         logger.info("Start");
 
         for (int t = 0; t < maxTime; t++) { // time axis
@@ -50,6 +43,9 @@ public class CustomerGenerator {
                     && demand[i][1] != demand[i][2]) { // part of the array is empty, that would not work for t==0
                     final int[] d = demand[i];
                     (new Thread(new CustomerRunnable(d))).start();
+                    try { Thread.sleep(10); // so that to disperse them a bit and not to kill backend
+                    } catch (InterruptedException e) {}
+                    break; // !!! just one 
                 }
             }
             TimeUnit.SECONDS.sleep(10);

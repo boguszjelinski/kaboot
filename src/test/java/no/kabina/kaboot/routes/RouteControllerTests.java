@@ -1,7 +1,6 @@
 package no.kabina.kaboot.routes;
 
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.nio.charset.StandardCharsets;
@@ -37,6 +36,16 @@ public class RouteControllerTests {
         String auth = "cab0:cab0";
         String encodedAuth = Base64.getEncoder().encodeToString(auth.getBytes(StandardCharsets.UTF_8));
         token = "Basic " + encodedAuth;
+    }
+
+    @Test
+    public void whenInsert_thenReturns200() throws Exception {
+        String body = "{\"status\": \"COMPLETE\"}";
+        mvc.perform(put("/legs/1") // cab0
+                .header("Authorization", token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(body))
+                .andExpect(status().isOk());
     }
 
     @Test

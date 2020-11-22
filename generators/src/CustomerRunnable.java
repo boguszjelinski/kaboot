@@ -1,24 +1,13 @@
-import com.google.gson.Gson;
-import com.fasterxml.jackson.databind.ObjectMapper;
-
 import java.io.OutputStream;
 import java.io.BufferedReader;
-import java.io.FileReader;
 import java.io.InputStream;
 import java.io.BufferedInputStream;
 import java.io.InputStreamReader;
-import java.io.IOException;
-import java.lang.NullPointerException;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.Base64;
-import java.util.concurrent.TimeUnit;
-import java.util.logging.FileHandler;
 import java.util.logging.Logger;
-import java.util.logging.SimpleFormatter;
 import static java.lang.StrictMath.abs;
 
 class CustomerRunnable implements Runnable {
@@ -40,7 +29,7 @@ class CustomerRunnable implements Runnable {
     final static int MAX_WAIT_FOR_CAB = 10; // minutes; might be random in taxi_demand.txt
     final static int MAX_POOL_LOSS = 30; // %; might be random in taxi_demand.txt
     final static int MAX_TRIP_LOSS = 3; // minutes; just not be a jerk!
-    final static int MAX_TRIP_LEN = 100; // cab driver is a human, can choose a wrong way :)
+    final static int MAX_TRIP_LEN = 60; // cab driver is a human, can choose a wrong way :)
 
     private Demand order;
 
@@ -66,11 +55,12 @@ class CustomerRunnable implements Runnable {
         // order id returned
 
         logger.info("Is alive cust_id=" + d.id + ", from=" + d.from + ", to=" +d.to);
-        Demand order = saveOrder("POST", d); //          order = d; but now ith has entity id
+      /*  Demand order = saveOrder("POST", d); //          order = d; but now ith has entity id
         if (order == null) {
             logger.info("Unable to request a cab, cust_id=" + d.id);
             return;
         }
+        */
         logger.info("Cab requested, order_id=" + order.id);
         // just give kaboot a while to think about it
         // pool ? cab? ETA ?
@@ -85,7 +75,7 @@ class CustomerRunnable implements Runnable {
             if (ret.contains("ASSIGNED" /*&& ord.cab_id != -1*/))  {
                 break;
             }
-            else logger.info("NOT ASSIGNED: " + ret);
+            //else logger.info("NOT ASSIGNED: " + ret);
         }
         TaxiOrder ord = null;
         if (ord == null || ord.status != OrderStatus.ASSIGNED
@@ -103,11 +93,11 @@ class CustomerRunnable implements Runnable {
         }
         */
         order.status = OrderStatus.ACCEPTED;
-        order = saveOrder("PUT", order); // PUT = update
+        saveOrder("PUT", order); // PUT = update
 
         boolean arrived = false;
-        for (int t=0; t<MAX_WAIT_FOR_CAB; t++) {
-            waitSecs(60);
+        for (int t=0; t<MAX_WAIT_FOR_CAB * 4 ; t++) { // *4 as 15 secs below
+            waitSecs(15);
             Cab cab = getEntity("cabs/", d.id, order.cab_id);
             if (cab.location == d.from) {
                 arrived = true;
@@ -117,17 +107,26 @@ class CustomerRunnable implements Runnable {
         if (!arrived) {
             // complain
             logger.info("Cab has not arrived: cust_id=" + d.id);
+            order.status = OrderStatus.CANCELLED; // just not to kill scheduler
+            saveOrder("PUT", order); 
             return;
         }
         // authenticate to the cab - open the door?
         order.status = OrderStatus.PICKEDUP;
-        order = saveOrder("PUT", order); // PUT = update
+        saveOrder("PUT", order); // PUT = update
         // take a trip
         int duration=0;
-        for (; duration<MAX_TRIP_LEN; duration++) {
-            waitSecs(60);
-            order = getEntity("orders/", d.id, order.id);
+        for (; duration<MAX_TRIP_LEN *4; duration++) {
+            waitSecs(15);
+            /*order = getEntity("orders/", d.id, order.id);
             if (order.status == OrderStatus.COMPLETE && order.cab_id != -1)  {
+                break;
+            }*/
+            Cab cab = getEntity("cabs/", d.id, order.cab_id);
+            if (cab.location == d.to) {
+                logger.info("Arrived at " + d.to + ", cust_id=" +  d.id);
+                order.status = OrderStatus.COMPLETE;
+                saveOrder("PUT", order); 
                 break;
             }
         }
@@ -135,15 +134,21 @@ class CustomerRunnable implements Runnable {
         if (order.inPool) {
             if (duration > (int) (abs(d.from - d.to) * MAX_POOL_LOSS)) {
                 // complain
+                logger.info("Duration in pool was too long: cust_id=" + d.id);
             }
         } else { // not a carpool
             if (duration > (int) (abs(d.from - d.to) + MAX_TRIP_LOSS)) {
                 // complain
+                logger.info("Duration took too long: cust_id=" + d.id);
             }
+        }
+        if (order.status == OrderStatus.ASSIGNED) {
+            order.status = OrderStatus.CANCELLED; // just not to kill scheduler
+            saveOrder("PUT", order); 
         }
     }
 
-    private Demand saveOrder(String method, Demand d) {
+    private void saveOrder(String method, Demand d) {
         try {
             String user = "cust" + d.id;
             String password = user;
@@ -165,7 +170,6 @@ class CustomerRunnable implements Runnable {
                 byte[] input = jsonInputString.getBytes("utf-8");
                 os.write(input, 0, input.length);
             }
-            Demand ret = null;
             try (BufferedReader br = new BufferedReader(
                 new InputStreamReader(con.getInputStream(), "utf-8"))) {
                 StringBuilder response = new StringBuilder();
@@ -173,19 +177,16 @@ class CustomerRunnable implements Runnable {
                 while ((responseLine = br.readLine()) != null) {
                     response.append(responseLine.trim());
                 }
-                Gson g = new Gson();
-                if (response != null)
-                    ret = g.fromJson(response.toString(), Demand.class);
             }
             con.disconnect();
-            return ret;
+            return;
         } catch (Exception e) {
             System.out.println("Exception: " + e.getMessage() + "; "+ e.getCause() + "; " + e.getStackTrace().toString());
-            return null;
+            return;
         }
     }
 
-    private Demand getAssignment(Demand d) {
+/*    private Demand getAssignment(Demand d) {
         String user = "cust" + d.id;
         StringBuilder result = new StringBuilder();
         HttpURLConnection con = null;
@@ -213,7 +214,7 @@ class CustomerRunnable implements Runnable {
             return dem;
         }
     }
-
+*/
     private <T> T getEntity(String entityUrl, int user_id, int id) {
         String user = "cust" + user_id;
         StringBuilder result = new StringBuilder();

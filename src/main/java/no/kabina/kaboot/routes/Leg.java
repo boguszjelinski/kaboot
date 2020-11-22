@@ -40,9 +40,8 @@ public class Leg { // a leg of a route
   @JoinColumn(name = "route_id", nullable = true)
   private Route route;
 
-  public Long getId() {
-    return id;
-  }
+  public Long getId() { return id; }
+  public void setId (Long id) { this.id = id; }
 
   public int getFromStand() {
     return fromStand;
@@ -66,5 +65,8 @@ public class Leg { // a leg of a route
 
   public void setRoute(Route route) {
     this.route = route;
+  }
+  public Route getRoute() {
+    return this.route;
   }
 }

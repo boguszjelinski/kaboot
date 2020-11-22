@@ -57,6 +57,7 @@ public class Route {
   public RouteStatus getStatus() {
     return status;
   }
+  public Cab getCab() { return cab; }
 
   public void setStatus(RouteStatus stat) {
     this.status = stat;

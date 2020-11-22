@@ -33,16 +33,15 @@ public class SchedulerService {
   @Value("${kaboot.scheduler.online}")
   private boolean isOnline;
 
-  private TaxiOrderRepository taxiOrderRepository;
-  private CabRepository cabRepository;
-  private RouteRepository routeRepository;
-  private LegRepository legRepository;
+  private final TaxiOrderRepository taxiOrderRepository;
+  private final CabRepository cabRepository;
+  private final RouteRepository routeRepository;
+  private final LegRepository legRepository;
 
-
-  public static int kpi_max_model_size = 0;
-  public static int kpi_total_LCM_used = 0;
-  public static int kpi_max_LCM_time = 0;
-  public static int maxSolverTime = 0;
+  private static int kpiMaxModelSize = 0;
+  private static int kpiTotalLCMUsed = 0;
+  private static int kpiMaxLCMTime = 0;
+  private static int maxSolverTime = 0;
 
   public SchedulerService(TaxiOrderRepository taxiOrderRepository, CabRepository cabRepository,
                           RouteRepository routeRepository, LegRepository legRepository) {
@@ -76,8 +75,8 @@ public class SchedulerService {
         tempDemand = PoolUtil.findFirstLegInPool(pl, tempDemand);
         logger.info("Demand after pooling: {}", tempDemand.length);
         cost = LcmUtil.calculateCost(tempDemand, tempSupply);
-        if (cost.length > kpi_max_model_size) {
-          kpi_max_model_size = cost.length;
+        if (cost.length > kpiMaxModelSize) {
+          kpiMaxModelSize = cost.length;
         }
         if (tempDemand.length > MAX_SOLVER_SIZE && tempSupply.length > MAX_SOLVER_SIZE) { // too big to send to solver, it has to be cut by LCM
           // both sides has to be bigger,
@@ -86,19 +85,21 @@ public class SchedulerService {
           LcmOutput out = LcmUtil.lcm(cost, Math.min(tempDemand.length, tempSupply.length) - MAX_SOLVER_SIZE);
           List<LcmPair> pairs = out.pairs;
           logger.info("LCM pairs: {}", pairs.size());
-          kpi_total_LCM_used++;
+          kpiTotalLCMUsed++;
           long end_lcm = System.currentTimeMillis();
           int temp_lcm_time = (int) ((end_lcm - start_lcm) / 1000F);
-          if (temp_lcm_time > kpi_max_LCM_time)
-            kpi_max_LCM_time = temp_lcm_time;
+          if (temp_lcm_time > kpiMaxLCMTime)
+            kpiMaxLCMTime = temp_lcm_time;
           if (pairs.size() == 0) {
             logger.warn("critical -> a big model but LCM hasn't helped");
           }
           logger.info("LCM n_pairs={}", pairs.size());
           // go thru LCM response (which are indexes in tempDemand and tempSupply)
+          int sum = 0;
           for (LcmPair pair : pairs) {
-            assignCustomerToCab(tempDemand[pair.clnt], tempSupply[pair.cab], pl);
+            sum += assignCustomerToCab(tempDemand[pair.clnt], tempSupply[pair.cab], pl);
           }
+          logger.info("Customers assigned by LCM: {}", sum);
           TempModel tempModel = PoolUtil.analyzeLcmAndPool(pairs, pl, tempDemand, tempSupply); // also produce input for the solver
             // to be sent to solver
           tempSupply = tempModel.supply;
@@ -120,18 +121,20 @@ public class SchedulerService {
           }
           cost = LcmUtil.calculateCost(tempDemand, tempSupply); // it writes input file for solver
         }
+        logger.info("Runnnig solver: demand={}, supply={}", tempDemand.length, tempSupply.length);
         runSolver();
         int[] x = readSolversResult(cost.length);
         if (x.length != cost.length * cost.length) {
           logger.warn("Solver returned wrong data set");
         } else {
-          assignCustomers(x, cost, tempDemand, tempSupply, pl);
+          int assgnd = assignCustomers(x, cost, tempDemand, tempSupply, pl);
+          logger.info("Customers assigned by solver: {}", assgnd);
         }
         // now we could check if a customer in pool has got a cab,
         // if not - the other one should get a chance
       }
     } catch (Exception e) {
-      logger.info(e.getMessage() + ": " + e.getCause());
+      logger.warn("{} {}", e.getMessage(), e.getCause());
     }
   }
 
@@ -170,20 +173,39 @@ public class SchedulerService {
     return x;
   }
 
+  /**
+   *
+   * @param x
+   * @param cost
+   * @param tmpDemand
+   * @param tmpSupply
+   * @param pool
+   * @return number of assigned customers
+   */
   // solver returns a very simple output, it has to be compared with data which helped create its input
-  private void assignCustomers(int[] x, int[][] cost, TaxiOrder[] tmpDemand, Cab[] tmpSupply, PoolElement[] pool) {
+  private int assignCustomers(int[] x, int[][] cost, TaxiOrder[] tmpDemand, Cab[] tmpSupply, PoolElement[] pool) {
     int nn = cost.length;
+    int count = 0;
+
     for (int s = 0; s < tmpSupply.length; s++) {
       for (int c = 0; c < tmpDemand.length; c++) {
         if (x[nn * s + c] == 1 && cost[s][c] < LcmUtil.bigCost) { // not a fake assignment (to balance the model)
-          assignCustomerToCab(tmpDemand[c], tmpSupply[s], pool);
+          count += assignCustomerToCab(tmpDemand[c], tmpSupply[s], pool);
         }
       }
     }
+    return count;
   }
 
+  /**
+   *
+   * @param order
+   * @param cab
+   * @param pool
+   * @return  number of assigned customers
+   */
   @Transactional  // TODO: it isn't transactional
-  private void assignCustomerToCab(TaxiOrder order, Cab cab, PoolElement[] pool) {
+  private int assignCustomerToCab(TaxiOrder order, Cab cab, PoolElement[] pool) {
     // update CAB
     cab.setStatus(Cab.CabStatus.ASSIGNED);
     cabRepository.save(cab);
@@ -197,12 +219,10 @@ public class SchedulerService {
       leg.setRoute(route);
       legRepository.save(leg);
     }
-    boolean found = false;
     // legs & routes are assigned to customers in Pool
     // if not assigned to a Pool we have to create a single-task route here
     for (PoolElement e : pool) { // PoolElement contains TaxiOrder IDs (primary keys)
       if (e.cust[0].id.equals(order.id)) { // yeap, this id is in a pool
-        found = true;
         // checking number
         // save pick-up phase
         int c = 0;
@@ -229,14 +249,14 @@ public class SchedulerService {
           }
           // here we don't update TaxiOrder
         }
-        break;
+        return e.numbOfCust;
       }
     }
-    if (!found) {  // lone trip
-      leg = new Leg(order.fromStand, order.toStand, legId, Route.RouteStatus.ASSIGNED);
-      leg = saveLeg(leg, route);
-      updateOrder(leg, order, cab, route);
-    }
+    // Pool not found
+    leg = new Leg(order.fromStand, order.toStand, legId, Route.RouteStatus.ASSIGNED);
+    leg = saveLeg(leg, route);
+    updateOrder(leg, order, cab, route);
+    return 1; // one customer
   }
 
   private Leg saveLeg(Leg l, Route r) {
