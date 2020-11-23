@@ -4,7 +4,6 @@
 */
 
 import java.util.ArrayList;
-import java.util.Base64;
 import java.util.List;
 import java.util.logging.Logger;
 
@@ -118,12 +117,12 @@ public class CabRunnable implements Runnable {
     }
  
     private Route getRoute(int cab_id) {
-        String json = Utils.getEntityAsJson(cab_id, "http://localhost:8080/routes");
+        String json = Utils.getEntityAsJson(cab_id, "routes");
         return getRouteFromJson(json);
     }
     
     private Cab getCab(String entityUrl, int user_id, int id) {
-        String json = Utils.getEntityAsJson(user_id, "http://localhost:8080/" + entityUrl + id);
+        String json = Utils.getEntityAsJson(user_id, entityUrl + id);
         return getCabFromJson(json);
     }
 

@@ -153,12 +153,12 @@ class CustomerRunnable implements Runnable {
     }
 
     private Demand getOrder(int user_id, int order_id) {
-        String json = Utils.getEntityAsJson(user_id, "http://localhost:8080/orders/" + order_id);
+        String json = Utils.getEntityAsJson(user_id, "orders/" + order_id);
         return getOrderFromJson(json);
     }
 
     private Cab getCab(String entityUrl, int user_id, int id) {
-        String json = Utils.getEntityAsJson(user_id, "http://localhost:8080/" + entityUrl + id);
+        String json = Utils.getEntityAsJson(user_id, entityUrl + id);
         return getCabFromJson(json);
     }
 

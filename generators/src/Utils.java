@@ -59,7 +59,7 @@ public class Utils {
         HttpURLConnection con = null;
         try {
             // taxi_order will be updated with eta, cab_id and task_id when assigned
-            URL url = new URL(urlStr); // assumption that one customer has one order
+            URL url = new URL("http://localhost:8080/" + urlStr); // assumption that one customer has one order
             con = (HttpURLConnection) url.openConnection();
             setAuthentication(con, user, user);
             result = getResponse(con);
