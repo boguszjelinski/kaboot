@@ -1,46 +1,33 @@
-import java.io.OutputStream;
-import java.io.BufferedReader;
-import java.io.InputStream;
-import java.io.BufferedInputStream;
-import java.io.InputStreamReader;
-import java.net.HttpURLConnection;
-import java.net.URL;
-import java.nio.charset.StandardCharsets;
-import java.util.Base64;
 import java.util.logging.Logger;
 import static java.lang.StrictMath.abs;
+
+import java.util.Map;
+import javax.script.ScriptEngine;
+import javax.script.ScriptEngineManager;
+import javax.script.ScriptException;
 
 class CustomerRunnable implements Runnable {
 
     final static Logger logger = Logger.getLogger("kaboot.simulator.cabgenerator");
-
-    static enum OrderStatus {
-        RECEIVED,  // sent by customer
-        ASSIGNED,  // assigned to a cab, a proposal sent to customer with time-of-arrival
-        ACCEPTED,  // plan accepted by customer, waiting for the cab
-        CANCELLED, // cancelled before assignment
-        REJECTED,  // proposal rejected by customer
-        ABANDONED, // cancelled after assignment but before 'PICKEDUP'
-        REFUSED,   // no cab available, cab broke down at any stage
-        PICKEDUP,
-        COMPLETE
-    }
+   
     final static int MAX_WAIT_FOR_RESPONSE = 3; // minutes; might be random in taxi_demand.txt
     final static int MAX_WAIT_FOR_CAB = 10; // minutes; might be random in taxi_demand.txt
     final static int MAX_POOL_LOSS = 30; // %; might be random in taxi_demand.txt
     final static int MAX_TRIP_LOSS = 3; // minutes; just not be a jerk!
     final static int MAX_TRIP_LEN = 60; // cab driver is a human, can choose a wrong way :)
 
-    private Demand order;
+    private Demand tOrder;
+    private ScriptEngine engine;
 
     public CustomerRunnable(int[] order) {
-        this.order = new Demand(order[0],order[1],order[2],order[3],order[4]);
-        this.order.setStatus(OrderStatus.RECEIVED);
+        this.tOrder = new Demand(order[0],order[1],order[2],order[3],order[4]);
+        this.tOrder.setStatus(OrderStatus.RECEIVED);
+        ScriptEngineManager sem = new ScriptEngineManager();
+        this.engine = sem.getEngineByName("javascript");
     }
     public void run() {
         System.setProperty("java.util.logging.SimpleFormatter.format","%1$tY-%1$tm-%1$td %1$tH:%1$tM:%1$tS %4$-6s %2$s %5$s%6$s%n");
-//        configureLogger();
-        live(order);
+        live(tOrder);
     }
 
     private void live(Demand d) {
@@ -61,24 +48,25 @@ class CustomerRunnable implements Runnable {
             return;
         }
         */
+        Demand order = new Demand(113579, 10, 6, 0, 10);
         logger.info("Cab requested, order_id=" + order.id);
         // just give kaboot a while to think about it
         // pool ? cab? ETA ?
-        String ret = null;
+        
         for (int t=0; t<MAX_WAIT_FOR_RESPONSE; t++) {
-            waitSecs(60);
-            ret = getEntityString("orders/", d.id, order.id);
-            if (ret == null) {
+            Utils.waitSecs(60); 
+            order = getOrder(d.id, order.id);
+            if (order == null) {
                 logger.info("Serious error, order not found, order_id=" + order.id);
                 return;
             }
-            if (ret.contains("ASSIGNED" /*&& ord.cab_id != -1*/))  {
+            if (order.status == OrderStatus.ASSIGNED)  {
                 break;
             }
             //else logger.info("NOT ASSIGNED: " + ret);
         }
-        TaxiOrder ord = null;
-        if (ord == null || ord.status != OrderStatus.ASSIGNED
+        
+        if (order == null || order.status != OrderStatus.ASSIGNED
             //|| ord.cab_id == -1
             ) { // Kaboot has not answered, too busy
             // complain
@@ -97,8 +85,8 @@ class CustomerRunnable implements Runnable {
 
         boolean arrived = false;
         for (int t=0; t<MAX_WAIT_FOR_CAB * 4 ; t++) { // *4 as 15 secs below
-            waitSecs(15);
-            Cab cab = getEntity("cabs/", d.id, order.cab_id);
+            Utils.waitSecs(15);
+            Cab cab = getCab("cabs/", d.id, order.cab_id);
             if (cab.location == d.from) {
                 arrived = true;
                 break;
@@ -117,12 +105,12 @@ class CustomerRunnable implements Runnable {
         // take a trip
         int duration=0;
         for (; duration<MAX_TRIP_LEN *4; duration++) {
-            waitSecs(15);
+            Utils.waitSecs(15);
             /*order = getEntity("orders/", d.id, order.id);
             if (order.status == OrderStatus.COMPLETE && order.cab_id != -1)  {
                 break;
             }*/
-            Cab cab = getEntity("cabs/", d.id, order.cab_id);
+            Cab cab = getCab("cabs/", d.id, order.cab_id);
             if (cab.location == d.to) {
                 logger.info("Arrived at " + d.to + ", cust_id=" +  d.id);
                 order.status = OrderStatus.COMPLETE;
@@ -149,162 +137,112 @@ class CustomerRunnable implements Runnable {
     }
 
     private void saveOrder(String method, Demand d) {
+        String json = "{\"fromStand\":" + d.from + ", \"toStand\": " + d.to + ", \"status\":\"" + d.status
+                            + "\", \"maxWait\":10, \"maxLoss\": 10, \"shared\": true}";
+        Utils.saveJSON(method, "orders", d.id, d.id, json); // TODO: FAIL, this is not customer id
+    }
+  
+    private Map getMap(String json) {
         try {
-            String user = "cust" + d.id;
-            String password = user;
-            URL url = new URL("http://localhost:8080/orders");
-            HttpURLConnection con = (HttpURLConnection) url.openConnection();
-            con.setRequestMethod(method);
-            con.setRequestProperty("Content-Type", "application/json");
-            con.setRequestProperty("Accept", "application/json");
-            con.setDoOutput(true);
-            // Basic auth
-            String auth = user + ":" + password;
-            String encodedAuth = Base64.getEncoder().encodeToString(auth.getBytes(StandardCharsets.UTF_8));
-            String authHeaderValue = "Basic " + encodedAuth;
-            con.setRequestProperty("Authorization", authHeaderValue);
-
-            String jsonInputString = "{\"fromStand\":" + d.from + ", \"toStand\": " + d.to + ", \"maxWait\":10, \"maxLoss\": 10, \"shared\": true}";
-            //System.out.println("JSON: " + jsonInputString);
-            try (OutputStream os = con.getOutputStream()) {
-                byte[] input = jsonInputString.getBytes("utf-8");
-                os.write(input, 0, input.length);
-            }
-            try (BufferedReader br = new BufferedReader(
-                new InputStreamReader(con.getInputStream(), "utf-8"))) {
-                StringBuilder response = new StringBuilder();
-                String responseLine = null;
-                while ((responseLine = br.readLine()) != null) {
-                    response.append(responseLine.trim());
-                }
-            }
-            con.disconnect();
-            return;
-        } catch (Exception e) {
-            System.out.println("Exception: " + e.getMessage() + "; "+ e.getCause() + "; " + e.getStackTrace().toString());
-            return;
+            String script = "Java.asJSONCompatible(" + json + ")";
+            Object result = this.engine.eval(script);
+            return (Map) result;
+        } catch (ScriptException se) {
+            return null;
         }
     }
 
-/*    private Demand getAssignment(Demand d) {
-        String user = "cust" + d.id;
-        StringBuilder result = new StringBuilder();
-        HttpURLConnection con = null;
-        Demand dem = null;
-        try {
-            // taxi_order will be updated with eta, cab_id and task_id when assigned
-            URL url = new URL("http://localhost:8080/orders/" + d.id); // assumption that one customer has one order
-            con = (HttpURLConnection) url.openConnection();
-            setAuthentication(con, user, user);
-            InputStream in = new BufferedInputStream(con.getInputStream());
-            BufferedReader reader = new BufferedReader(new InputStreamReader(in));
-            String line;
-            while ((line = reader.readLine()) != null) {
-                result.append(line);
-            }
-            Gson g = new Gson();
-            if (result != null)
-                dem = g.fromJson(result.toString(), Demand.class);
-            //Route r = covertFromJsonToObject(result.toString(), Route.class);
-        } catch( Exception e) {
-            e.printStackTrace();
-        }
-        finally {
-            con.disconnect();
-            return dem;
-        }
-    }
-*/
-    private <T> T getEntity(String entityUrl, int user_id, int id) {
-        String user = "cust" + user_id;
-        StringBuilder result = new StringBuilder();
-        HttpURLConnection con = null;
-        Class<T> dem = null;
-        try {
-            // taxi_order will be updated with eta, cab_id and task_id when assigned
-            URL url = new URL("http://localhost:8080/" + entityUrl + id); // assumption that one customer has one order
-            con = (HttpURLConnection) url.openConnection();
-            setAuthentication(con, user, user);
-            InputStream in = new BufferedInputStream(con.getInputStream());
-            BufferedReader reader = new BufferedReader(new InputStreamReader(in));
-            String line;
-            while ((line = reader.readLine()) != null) {
-                result.append(line);
-            }
-        } catch( Exception e) {
-            e.printStackTrace();
-        }
-        finally {
-            con.disconnect();
-            //dem = covertFromJsonToObject(result.toString(), dem.getClass());
-            return (T)dem;
-        }
+    private Demand getOrder(int user_id, int order_id) {
+        String json = Utils.getEntityAsJson(user_id, "http://localhost:8080/orders/" + order_id);
+        return getOrderFromJson(json);
     }
 
-    private String getEntityString(String entityUrl, int user_id, int id) {
-        String user = "cust" + user_id;
-        StringBuilder result = new StringBuilder();
-        HttpURLConnection con = null;
-        try {
-            // taxi_order will be updated with eta, cab_id and task_id when assigned
-            URL url = new URL("http://localhost:8080/" + entityUrl + id); // assumption that one customer has one order
-            con = (HttpURLConnection) url.openConnection();
-            setAuthentication(con, user, user);
-            InputStream in = new BufferedInputStream(con.getInputStream());
-            BufferedReader reader = new BufferedReader(new InputStreamReader(in));
-            String line;
-            while ((line = reader.readLine()) != null) {
-                result.append(line);
-            }
-            //Route r = covertFromJsonToObject(result.toString(), Route.class);
-        } catch( Exception e) {
-            e.printStackTrace();
-        }
-        finally {
-            con.disconnect();
-            return result.toString();
-        }
+    private Cab getCab(String entityUrl, int user_id, int id) {
+        String json = Utils.getEntityAsJson(user_id, "http://localhost:8080/" + entityUrl + id);
+        return getCabFromJson(json);
     }
 
-    private  void setAuthentication(HttpURLConnection con, String user, String passwd) {
-        String auth = user + ":" + passwd;
-        String encodedAuth = Base64.getEncoder().encodeToString(auth.getBytes(StandardCharsets.UTF_8));
-        String authHeaderValue = "Basic " + encodedAuth;
-        con.setRequestProperty("Authorization", authHeaderValue);
+    private Cab getCabFromJson(String str) {
+        Map map = getMap(str);
+        //"{"id":0,"location":1,"status":"FREE"}"
+        if (map == null) {
+            return null;
+        }
+        return new Cab( (int) map.get("id"),
+                        (int) map.get("location"),
+                        getCabStatus((String) map.get("status")));
     }
+    
+    public Utils.CabStatus getCabStatus (String stat) {
+        switch (stat) {
+            case "ASSIGNED": return Utils.CabStatus.ASSIGNED;
+            case "FREE":     return Utils.CabStatus.FREE;
+            case "CHARGING": return Utils.CabStatus.CHARGING;
+        }
+        return null;
+    }
+
+    private Demand getOrderFromJson(String str) {
+        //"{"id":113579,"status":"ASSIGNED","fromStand":10,"toStand":6,"maxWait":10,"maxLoss":10,"shared":true,"eta":-1,"inPool":false,
+        //"customer":{"id":1,"hibernateLazyInitializer":{}},
+        //"leg":{"id":114461,"fromStand":10,"toStand":8,"place":1,"status":"ASSIGNED",
+        //       "route":null, "hibernateLazyInitializer":{}},
+        //"route":{"id":114459,"status":"ASSIGNED",
+        //         "cab":{"id":907,"location":12,"status":"ASSIGNED","hibernateLazyInitializer":{}},
+        //         "legs":null,"hibernateLazyInitializer":{}}}"
+        Map map = getMap(str);
+        if (map == null) {
+            return null;
+        }
+        Map route = (Map) map.get("route");
+        Map cab = null;
+        int cab_id = -1;
+        if (route != null) {
+            cab = (Map) route.get("cab");
+            if (cab != null) {
+                cab_id = (int) cab.get("id");
+            }
+        }
+        Demand o = new Demand(  (int) map.get("id"),
+                                (int) map.get("fromStand"),
+                                (int) map.get("toStand"),
+                                getOrderStatus((String) map.get("status")),
+                                (boolean) map.get("inPool"),
+                                cab_id);
+        return o;
+    }
+
+    private OrderStatus getOrderStatus (String stat) {
+        if (stat == null) {
+            return null;
+        }
+
+        switch (stat) {
+            case "ASSIGNED":  return OrderStatus.ASSIGNED;
+            case "ABANDONED": return OrderStatus.ABANDONED;
+            case "ACCEPTED":  return OrderStatus.ACCEPTED;
+            case "CANCELLED": return OrderStatus.CANCELLED;
+            case "COMPLETE":  return OrderStatus.COMPLETE;
+            case "PICKEDUP":  return OrderStatus.PICKEDUP;
+            case "RECEIVED":  return OrderStatus.RECEIVED;
+            case "REFUSED":   return OrderStatus.REFUSED;
+            case "REJECTED":  return OrderStatus.REJECTED;
+        }
+        return null;
+    }
+    
     private class Cab {
+        public Cab(int i, int l, Utils.CabStatus s) {
+            this.id = i;
+            this.location = l;
+            this.status = s;
+        }
         public int id;
         public int location;
-    }
-
-    private class TaxiOrder {
-        public Long id;
-        public OrderStatus status;
-        public int fromStand;
-        public int toStand;
-        public int maxWait; // how long can I wait for a cab
-        public int maxLoss; // [%] how long can I lose while in pool
-        public boolean shared; // can be in a pool ?
-        public Integer eta; // set when assigned
-        public Boolean inPool; // was actually in pool
-        public Object cab;  // an order can be serviced by ONE cab only, but one cab can service MANY orders throughout the day
-        public Object customer;  // an order can be serviced by ONE cab only, but one cab can service MANY orders throughout the day
-        public Object task;  // an order can be pick-up by one task, but one task can pick up MANY orders/customers
-        public Object route;  // an order can be serviced by ONE cab only, but one cab can service MANY orders throughout the day
-
-        public void setId(Long id) {            this.id = id;        }
-        public void setStatus(OrderStatus status) { this.status = status; }
-        public void setFromStand(int fromStand) { this.fromStand = fromStand; }
-        public void setToStand(int toStand) { this.toStand = toStand; }
-        public void setMaxWait(int maxWait) { this.maxWait = maxWait; }
-        public void setMaxLoss(int maxLoss) { this.maxLoss = maxLoss; }
-        public void setShared(boolean shared) { this.shared = shared; }
-        public void setEta(Integer eta) { this.eta = eta; }
-        public void setInPool(Boolean inPool) { this.inPool = inPool; }
-        public void setCab(Object cab) { this.cab = cab; }
-        public void setCustomer(Object customer) { this.customer = customer; }
-        public void setTask(Object task) { this.task = task; }
-        public void setRoute(Object route) { this.route = route; }
+        public Utils.CabStatus status;
+        public void setId(int id) { this.id = id; }
+        public void setLocation(int l) { this.location = l; }
+        public void setStatus(Utils.CabStatus s) { this.status = s; }
     }
 
     private class Demand {
@@ -314,6 +252,15 @@ class CustomerRunnable implements Runnable {
         public int cab_id;
         public OrderStatus status;
 
+        public Demand (int id, int from, int to, OrderStatus status, boolean inPool, int cab_id) {
+            this.id = id;
+            this.from = from;
+            this.to = to;
+            this.status = status;
+            this.inPool = inPool;
+            this.cab_id = cab_id;
+        }
+
         public Demand (int id, int from, int to, int time, int at) {
             this.id = id;
             this.from = from;
@@ -322,11 +269,22 @@ class CustomerRunnable implements Runnable {
             this.time = time;
         }
         public void setStatus (OrderStatus stat) { this.status = stat; }
+        public void setId(int id) { this.id = id; }
+        public void setFrom(int fromStand) { this.from = fromStand; }
+        public void setTo(int toStand) { this.to = toStand; }
+        public void setEta(Integer eta) { this.eta = eta; }
+        public void setInPool(Boolean inPool) { this.inPool = inPool; }
     }
 
-    private static void waitSecs(int secs) {
-        try { Thread.sleep(secs*1000); } catch (InterruptedException e) {} // one minute
+    static enum OrderStatus {
+        RECEIVED,  // sent by customer
+        ASSIGNED,  // assigned to a cab, a proposal sent to customer with time-of-arrival
+        ACCEPTED,  // plan accepted by customer, waiting for the cab
+        CANCELLED, // cancelled before assignment
+        REJECTED,  // proposal rejected by customer
+        ABANDONED, // cancelled after assignment but before 'PICKEDUP'
+        REFUSED,   // no cab available, cab broke down at any stage
+        PICKEDUP,
+        COMPLETE
     }
-
-
 }

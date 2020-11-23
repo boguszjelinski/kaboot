@@ -3,7 +3,7 @@
     Date: 2020
 */
 
-// javac -cp ../lib/gson-2.8.6.jar CustomerGenerator.java CustomerRunnable.java
+// javac CustomerGenerator.java 
 
 import java.io.BufferedReader;
 import java.io.FileReader;
@@ -11,12 +11,10 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.concurrent.TimeUnit;
-import java.util.logging.FileHandler;
 import java.util.logging.Logger;
-import java.util.logging.SimpleFormatter;
 
 public class CustomerGenerator {
-    final static Logger logger = Logger.getLogger("kaboot.simulator.cabgenerator");
+    static Logger logger = Logger.getLogger("kaboot.simulator.customergenerator");
     //final static String DEMAND_FILE = "C:\\Users\\dell\\TAXI\\GIT\\simulations\\taxi_demand.txt";
    // final static String DEMAND_FILE = "/home/m91127/GITHUB/taxidispatcher/simulations/taxi_demand.txt";
     final static String DEMAND_FILE = "C:\\Users\\dell\\TAXI\\GIT\\simulations\\taxi_demand.txt";
@@ -25,16 +23,14 @@ public class CustomerGenerator {
     static int maxTime = 0;
 
     public static void main(String[] args) throws InterruptedException {
-        System.setProperty("java.util.logging.SimpleFormatter.format", "%1$tY-%1$tm-%1$td %1$tH:%1$tM:%1$tS %4$-6s %2$s %5$s%6$s%n");
-        configureLogger();
+        logger = Utils.configureLogger(logger, "customer.log");
+
         readDemand();
         if (demand.length == 0) {
             logger.info("Error reading demand file");
             return;
         }
         logger.info("Orders in total: " + demand.length);
-
-        logger.info("Start");
 
         for (int t = 0; t < maxTime; t++) { // time axis
             // filter out demand for this time point
@@ -51,21 +47,6 @@ public class CustomerGenerator {
             TimeUnit.SECONDS.sleep(10);
             break; // just t==0
         }
-    }
-
-    private static Logger configureLogger() {
-        FileHandler fh;
-        try {
-            fh = new FileHandler("customer.log");
-            logger.addHandler(fh);
-            SimpleFormatter formatter = new SimpleFormatter();
-            fh.setFormatter(formatter);
-        } catch (SecurityException e) {
-            e.printStackTrace();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-        return logger;
     }
 
     private static void readDemand() {

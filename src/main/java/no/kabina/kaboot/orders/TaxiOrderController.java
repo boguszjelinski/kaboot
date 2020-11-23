@@ -32,7 +32,17 @@ public class TaxiOrderController {
     logger.info("GET order=" + id);
     Long cabId = AuthUtils.getUserId(auth, "ROLE_CUSTOMER");
     TaxiOrder to = repository.findById(id);
+    if (to == null) {
+      return null;
+    }
       // TODO: authorisation - customer can only see its own orders
+    if (to.getRoute() != null) {
+      to.getRoute().setLegs(null); // too much detail
+      // but we need 'cab' from route
+    }
+    if (to.getLeg() != null) {
+      to.getLeg().setRoute(null); // too much detail
+    }
     return to;
   }
 
@@ -44,7 +54,7 @@ public class TaxiOrderController {
 
   //  curl -d '{"fromStand":0, "toStand": 1, "maxWait":1, "maxLoss": 30, "shared": true}' -H 'Content-Type: application/json' http://localhost:8080/orders
   @PostMapping(value="/orders", consumes = "application/json")
-  public TaxiOrder newTaxiOrder(@RequestBody TaxiOrderPOJO newTaxiOrder, Authentication auth) {
+  public TaxiOrder newTaxiOrder(@RequestBody TaxiOrderPojo newTaxiOrder, Authentication auth) {
     // TODO: should fail if another order is RECEIVED
     logger.info("POST order");
     if (newTaxiOrder.fromStand == newTaxiOrder.toStand) { // a joker
@@ -57,8 +67,15 @@ public class TaxiOrderController {
     return service.saveTaxiOrder(order, AuthUtils.getUserId(auth, "ROLE_CUSTOMER"));
   }
 
+  /** mainly to update status
+   *
+   * @param id
+   * @param newTaxiOrder
+   * @param auth
+   * @return
+   */
   @PutMapping(value="/orders/{id}", consumes = "application/json")
-  public TaxiOrder updateTaxiOrder(@PathVariable Long id, @RequestBody TaxiOrderPOJO newTaxiOrder, Authentication auth) {
+  public TaxiOrder updateTaxiOrder(@PathVariable Long id, @RequestBody TaxiOrderPojo newTaxiOrder, Authentication auth) {
     logger.info("PUT order=" + id);
     Optional<TaxiOrder> ord = repository.findById(id);
 
@@ -66,6 +83,7 @@ public class TaxiOrderController {
       return null;
     }
     ord.get().setId(id);
+    ord.get().setStatus(newTaxiOrder.status);
     return service.updateTaxiOrder(ord.get(), AuthUtils.getUserId(auth, "ROLE_CUSTOMER"));
   }
 }
