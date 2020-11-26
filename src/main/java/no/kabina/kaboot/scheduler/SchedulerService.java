@@ -60,6 +60,7 @@ public class SchedulerService {
       // create demand for the solver
       TaxiOrder[] tempDemand =
           taxiOrderRepository.findByStatus(TaxiOrder.OrderStatus.RECEIVED).toArray(new TaxiOrder[0]);
+      //tempDemand = expireRequests(tempDemand); // mark "refused" if waited too long
 
       if (tempDemand.length == 0) {
         return; // don't solve anything
@@ -276,5 +277,9 @@ public class SchedulerService {
     o.setRoute(r);
     // TODO: order.eta to be set
     taxiOrderRepository.save(o);
+  }
+
+  private TaxiOrder[] expireRequests (TaxiOrder[] demand) {
+    return demand;
   }
 }

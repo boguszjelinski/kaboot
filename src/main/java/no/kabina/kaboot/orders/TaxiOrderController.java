@@ -57,6 +57,10 @@ public class TaxiOrderController {
   public TaxiOrder newTaxiOrder(@RequestBody TaxiOrderPojo newTaxiOrder, Authentication auth) {
     // TODO: should fail if another order is RECEIVED
     logger.info("POST order");
+    Long usr_id = AuthUtils.getUserId(auth, "ROLE_CUSTOMER");
+    if (usr_id == null) {
+      return null; // not authorised
+    }
     if (newTaxiOrder.fromStand == newTaxiOrder.toStand) { // a joker
       return null;
     }
@@ -64,7 +68,7 @@ public class TaxiOrderController {
                     newTaxiOrder.maxWait, newTaxiOrder.maxLoss, newTaxiOrder.shared, TaxiOrder.OrderStatus.RECEIVED);
     order.setEta(-1);
     order.setInPool(false);
-    return service.saveTaxiOrder(order, AuthUtils.getUserId(auth, "ROLE_CUSTOMER"));
+    return service.saveTaxiOrder(order, usr_id);
   }
 
   /** mainly to update status
@@ -77,13 +81,16 @@ public class TaxiOrderController {
   @PutMapping(value="/orders/{id}", consumes = "application/json")
   public TaxiOrder updateTaxiOrder(@PathVariable Long id, @RequestBody TaxiOrderPojo newTaxiOrder, Authentication auth) {
     logger.info("PUT order=" + id);
+    Long usr_id = AuthUtils.getUserId(auth, "ROLE_CUSTOMER");
+    if (usr_id == null) {
+      return null; // not authorised
+    }
     Optional<TaxiOrder> ord = repository.findById(id);
-
     if (ord == null || !ord.isPresent()) {
       return null;
     }
     ord.get().setId(id);
     ord.get().setStatus(newTaxiOrder.status);
-    return service.updateTaxiOrder(ord.get(), AuthUtils.getUserId(auth, "ROLE_CUSTOMER"));
+    return service.updateTaxiOrder(ord.get(), usr_id);
   }
 }

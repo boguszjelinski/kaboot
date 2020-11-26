@@ -2,6 +2,7 @@ package no.kabina.kaboot.orders;
 
 import javax.persistence.*;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import no.kabina.kaboot.cabs.Cab;
 import no.kabina.kaboot.customers.Customer;
 import no.kabina.kaboot.routes.Route;
@@ -52,20 +53,24 @@ public class TaxiOrder {
   // asigned cab
   @ManyToOne(optional = true, fetch = FetchType.LAZY)
   @JoinColumn(name = "cab_id", nullable = true)
+  @JsonIgnore
   private Cab cab;  // an order can be serviced by ONE cab only, but one cab can service MANY orders throughout the day
 
   @ManyToOne(optional = true, fetch = FetchType.LAZY)
   @JoinColumn(name = "customer_id", nullable = true)
+  @JsonIgnore
   private Customer customer;  // an order can be serviced by ONE cab only, but one cab can service MANY orders throughout the day
 
   // also for data integrity checks; the pick-up task; null if cab was already there
   @ManyToOne(optional = true, fetch = FetchType.LAZY)
   @JoinColumn(name="leg_id", nullable=true)
+  @JsonIgnore
   private Leg leg;  // an order can be pick-up by one task, but one task can pick up MANY orders/customers
                         // this foreign key will give the driver information whom to pick up and where to drop-off
 
   @ManyToOne(optional = true, fetch = FetchType.LAZY)
   @JoinColumn(name="route_id", nullable=true)
+  @JsonIgnore
   private Route route;  // an order can be serviced by ONE cab only, but one cab can service MANY orders throughout the day
 
   @Override

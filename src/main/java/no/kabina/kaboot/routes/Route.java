@@ -11,6 +11,8 @@ import javax.persistence.Id;
 import javax.persistence.JoinColumn;
 import javax.persistence.ManyToOne;
 import javax.persistence.OneToMany;
+
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import no.kabina.kaboot.cabs.Cab;
 import no.kabina.kaboot.orders.TaxiOrder;
 
@@ -31,6 +33,7 @@ public class Route {
 
   @ManyToOne(optional = true, fetch = FetchType.LAZY)
   @JoinColumn(name = "cab_id", nullable = true)
+  @JsonIgnore
   private Cab cab;
 
   @OneToMany(mappedBy = "route", cascade = CascadeType.ALL, fetch = FetchType.LAZY)

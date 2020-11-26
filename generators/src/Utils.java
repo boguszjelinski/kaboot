@@ -20,8 +20,7 @@ public class Utils {
         con.setRequestProperty("Authorization", authHeaderValue);
     }
 
-    public static void saveJSON(String method, String entity, int cab_id, int rec_id, String json) {
-        String user = "cab" + cab_id;
+    public static String saveJSON(String method, String entity, String user, int rec_id, String json) {
         String password = user;
         HttpURLConnection con = null;
         StringBuilder response = new StringBuilder();
@@ -51,10 +50,10 @@ public class Utils {
             con.disconnect();
         }
         // we don't need any feedback // getCabFromJson(response.toString());
+        return response.toString();
     }
 
-    public static String getEntityAsJson(int user_id, String urlStr) {
-        String user = "cab" + user_id;
+    public static String getEntityAsJson(String user, String urlStr) {
         StringBuilder result = new StringBuilder();
         HttpURLConnection con = null;
         try {

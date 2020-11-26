@@ -42,13 +42,13 @@ class CustomerRunnable implements Runnable {
         // order id returned
 
         logger.info("Is alive cust_id=" + d.id + ", from=" + d.from + ", to=" +d.to);
-      /*  Demand order = saveOrder("POST", d); //          order = d; but now ith has entity id
+        Demand order = saveOrder("POST", d); //          order = d; but now ith has entity id
         if (order == null) {
             logger.info("Unable to request a cab, cust_id=" + d.id);
             return;
         }
-        */
-        Demand order = new Demand(113579, 10, 6, 0, 10);
+      
+        //Demand order = new Demand(113579, 10, 6, 0, 10);
         logger.info("Cab requested, order_id=" + order.id);
         // just give kaboot a while to think about it
         // pool ? cab? ETA ?
@@ -57,7 +57,7 @@ class CustomerRunnable implements Runnable {
             Utils.waitSecs(60); 
             order = getOrder(d.id, order.id);
             if (order == null) {
-                logger.info("Serious error, order not found, order_id=" + order.id);
+                logger.info("Serious error, order not found, d.id=" + d.id);
                 return;
             }
             if (order.status == OrderStatus.ASSIGNED)  {
@@ -71,6 +71,8 @@ class CustomerRunnable implements Runnable {
             ) { // Kaboot has not answered, too busy
             // complain
             logger.info("Waited in vain: cust_id=" + d.id);
+            order.status = OrderStatus.CANCELLED; // just not to kill scheduler
+            saveOrder("PUT", order); 
             return;
         }
         logger.info("Assigned: cust_id=" + d.id);
@@ -136,10 +138,11 @@ class CustomerRunnable implements Runnable {
         }
     }
 
-    private void saveOrder(String method, Demand d) {
+    private Demand saveOrder(String method, Demand d) {
         String json = "{\"fromStand\":" + d.from + ", \"toStand\": " + d.to + ", \"status\":\"" + d.status
                             + "\", \"maxWait\":10, \"maxLoss\": 10, \"shared\": true}";
-        Utils.saveJSON(method, "orders", d.id, d.id, json); // TODO: FAIL, this is not customer id
+        json = Utils.saveJSON(method, "orders", "cust" + d.id, d.id, json); // TODO: FAIL, this is not customer id
+        return getOrderFromJson(json);
     }
   
     private Map getMap(String json) {
@@ -153,12 +156,12 @@ class CustomerRunnable implements Runnable {
     }
 
     private Demand getOrder(int user_id, int order_id) {
-        String json = Utils.getEntityAsJson(user_id, "orders/" + order_id);
+        String json = Utils.getEntityAsJson("cust"+user_id, "orders/" + order_id);
         return getOrderFromJson(json);
     }
 
     private Cab getCab(String entityUrl, int user_id, int id) {
-        String json = Utils.getEntityAsJson(user_id, entityUrl + id);
+        String json = Utils.getEntityAsJson("cust"+user_id, entityUrl + id);
         return getCabFromJson(json);
     }
 

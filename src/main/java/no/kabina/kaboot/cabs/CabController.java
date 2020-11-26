@@ -20,7 +20,7 @@ public class CabController {
   @GetMapping("/cabs/{id}")
   public Cab one(@PathVariable int id, Authentication auth) {
     logger.info("GET cab=" + id);
-    //Long cabId = AuthUtils.getUserId(auth, "ROLE_CUSTOMER");
+    //Long cabId = AuthUtils.getUserId(auth, "ROLE_CUSTOMER"); both roles should access
     // TODO: more authorisation ?
     Cab c = repository.findById(id);
     return c;
