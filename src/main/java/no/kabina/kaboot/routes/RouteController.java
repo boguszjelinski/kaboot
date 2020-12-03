@@ -31,7 +31,7 @@ public class RouteController {
       return null;
     } else {
       Route r = routes.get(0);
-      r.setCab(null);
+      //r.setCab(null);
       for (Leg l : r.getLegs()) {
         l.setRoute(null);
       }
@@ -41,7 +41,7 @@ public class RouteController {
 
   // mainly to mark COMPLETED and to bill the customer
   @PutMapping(value = "/routes/{id}", consumes = "application/json")
-  public Route updateLeg(@PathVariable Long id, @RequestBody RoutePojo route, Authentication auth) {
+  public String updateLeg(@PathVariable Long id, @RequestBody RoutePojo route, Authentication auth) {
     logger.info("PUT route={}", id);
     Route r = repository.findById(id).get();
 
@@ -50,7 +50,8 @@ public class RouteController {
       return null;
     }
     r.setStatus(route.getStatus());
-    return repository.save(r);
+    repository.save(r);
+    return "OK";
   }
 
   List<Route> retrieveByCabIdAndStatus(Long cabId, Route.RouteStatus status) {

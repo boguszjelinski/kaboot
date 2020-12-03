@@ -3,6 +3,9 @@ package no.kabina.kaboot.scheduler;
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;
+import java.time.Duration;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import no.kabina.kaboot.cabs.Cab;
 import no.kabina.kaboot.cabs.CabRepository;
@@ -12,6 +15,7 @@ import no.kabina.kaboot.routes.Leg;
 import no.kabina.kaboot.routes.LegRepository;
 import no.kabina.kaboot.routes.Route;
 import no.kabina.kaboot.routes.RouteRepository;
+import no.kabina.kaboot.stats.StatService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -27,6 +31,9 @@ public class SchedulerService {
   final String SOLVER_CMD = "runpy.bat";
   final String SOLVER_OUT_FILE = "solv_out.txt";
 
+  @Value("${kaboot.consts.max-pool4}")
+  private int MAX_4POOL; // TODO: it is not that simple, we need a model here: size, max wait, ...
+
   @Value("${kaboot.consts.max-non-lcm}")
   private int MAX_SOLVER_SIZE; // how big can a solver model be; 0 = no solver at all
 
@@ -37,18 +44,16 @@ public class SchedulerService {
   private final CabRepository cabRepository;
   private final RouteRepository routeRepository;
   private final LegRepository legRepository;
-
-  private static int kpiMaxModelSize = 0;
-  private static int kpiTotalLCMUsed = 0;
-  private static int kpiMaxLCMTime = 0;
-  private static int maxSolverTime = 0;
+  private final StatService statSrvc;
 
   public SchedulerService(TaxiOrderRepository taxiOrderRepository, CabRepository cabRepository,
-                          RouteRepository routeRepository, LegRepository legRepository) {
+                          RouteRepository routeRepository, LegRepository legRepository,
+                          StatService statService) {
     this.taxiOrderRepository = taxiOrderRepository;
     this.cabRepository = cabRepository;
     this.routeRepository = routeRepository;
     this.legRepository = legRepository;
+    this.statSrvc = statService;
   }
 
   //@Job(name = "Taxi scheduler", retries = 2)
@@ -56,41 +61,75 @@ public class SchedulerService {
     try {
       int[][] cost; //= new int[0][0];
       //UUID uuid = UUID.randomUUID();  // TODO: to mark cabs and customers as assigned to this instance of sheduler
-
+      // first update some statistics
+      statSrvc.updateIntVal("avg_pickup_time", statSrvc.countAvgPickupTime()); // TODO: in the future move it where it is counted once after simulation
       // create demand for the solver
       TaxiOrder[] tempDemand =
           taxiOrderRepository.findByStatus(TaxiOrder.OrderStatus.RECEIVED).toArray(new TaxiOrder[0]);
-      //tempDemand = expireRequests(tempDemand); // mark "refused" if waited too long
+      tempDemand = expireRequests(tempDemand); // mark "refused" if waited too long
 
       if (tempDemand.length == 0) {
+        logger.info("No suitable demand");
         return; // don't solve anything
       }
+
       Cab[] tempSupply = cabRepository.findByStatus(Cab.CabStatus.FREE).toArray(new Cab[0]);
-      logger.info("Initial Count of demand={}, supply={}", tempDemand.length, tempSupply.length);
+      if (tempSupply.length == 0) {
+        logger.info("No cabs available");
+        return; // don't solve anything
+      }
+      logger.info("Initial count of demand={}, supply={}", tempDemand.length, tempSupply.length);
+
+      tempDemand = LcmUtil.getRidOfDistantCustomers(tempDemand, tempSupply);
+      if (tempDemand.length == 0) {
+        logger.info("No suitable demand, too distant");
+        return; // don't solve anything
+      }
+      tempSupply = LcmUtil.getRidOfDistantCabs(tempDemand, tempSupply);
+      if (tempSupply.length == 0) {
+        logger.info("No cabs available, too distant");
+        return; // don't solve anything
+      }
 
       if (tempSupply.length > 0 && tempDemand.length > 0 && isOnline) {
-        // TODO: big models and
-        PoolElement[] pl = PoolUtil.findPool(tempDemand, 4);
+
+        PoolElement[] pl = null;
+        // TODO: 4,3 & 2 - all of them should be run, as "4" can drop a lot of customers
+        long start_pool = System.currentTimeMillis();
+        if (tempDemand.length < MAX_4POOL) {
+          pl = PoolUtil.findPool(tempDemand, 4); // four passengers: size^4 combinations (full search)
+        } else {
+          pl = PoolUtil.findPool(tempDemand, 3);
+        }
+        long end_pool = System.currentTimeMillis();
+        int temp_pool_time = (int) ((end_pool - start_pool) / 1000F);
+
+        statSrvc.updateMaxIntVal("max_pool_time", temp_pool_time);
+
         // reduce tempDemand - 2nd+ passengers will not be sent to LCM or solver
         logger.info("Pool size: {}", pl.length);
         tempDemand = PoolUtil.findFirstLegInPool(pl, tempDemand);
         logger.info("Demand after pooling: {}", tempDemand.length);
         cost = LcmUtil.calculateCost(tempDemand, tempSupply);
-        if (cost.length > kpiMaxModelSize) {
-          kpiMaxModelSize = cost.length;
-        }
+
+        statSrvc.updateMaxIntVal("max_model_size", cost.length);
+
         if (tempDemand.length > MAX_SOLVER_SIZE && tempSupply.length > MAX_SOLVER_SIZE) { // too big to send to solver, it has to be cut by LCM
+          // ----- LCM block ----
           // both sides has to be bigger,
           long start_lcm = System.currentTimeMillis();
           // =========== LCM ==========
+          statSrvc.updateMaxIntVal("max_lcm_size", cost.length);
           LcmOutput out = LcmUtil.lcm(cost, Math.min(tempDemand.length, tempSupply.length) - MAX_SOLVER_SIZE);
           List<LcmPair> pairs = out.pairs;
           logger.info("LCM pairs: {}", pairs.size());
-          kpiTotalLCMUsed++;
+
+          statSrvc.incrementIntVal("total_lcm_used");
           long end_lcm = System.currentTimeMillis();
           int temp_lcm_time = (int) ((end_lcm - start_lcm) / 1000F);
-          if (temp_lcm_time > kpiMaxLCMTime)
-            kpiMaxLCMTime = temp_lcm_time;
+
+          statSrvc.updateMaxIntVal("max_lcm_time", temp_lcm_time);
+
           if (pairs.size() == 0) {
             logger.warn("critical -> a big model but LCM hasn't helped");
           }
@@ -112,7 +151,7 @@ public class SchedulerService {
           }
           cost = LcmUtil.calculateCost(tempDemand, tempSupply);
         }
-        //if (cost.length > max_solver_size) max_solver_size = cost.length;
+
         if (cost.length > MAX_SOLVER_SIZE) { // still too big to send to solver, it has to be cut hard
           if (tempSupply.length > MAX_SOLVER_SIZE) { // some cabs will not get passengers, they have to wait for new ones
             tempSupply = GcmUtil.reduceSupply(cost, tempSupply, MAX_SOLVER_SIZE);
@@ -122,6 +161,7 @@ public class SchedulerService {
           }
           cost = LcmUtil.calculateCost(tempDemand, tempSupply); // it writes input file for solver
         }
+        statSrvc.updateMaxIntVal("max_solver_size", cost.length);
         logger.info("Runnnig solver: demand={}, supply={}", tempDemand.length, tempSupply.length);
         runSolver();
         int[] x = readSolversResult(cost.length);
@@ -147,9 +187,7 @@ public class SchedulerService {
       p.waitFor();
       long endSolver = System.currentTimeMillis();
       int tempSolverTime = (int) ((endSolver - startSolver) / 1000F);
-      if (tempSolverTime > maxSolverTime) {
-        maxSolverTime = tempSolverTime;
-      }
+      statSrvc.updateMaxIntVal("max_solver_time", tempSolverTime);
     } catch (InterruptedException | IOException e) {
       logger.warn("Exception while running solver: {}", e.getMessage());
     }
@@ -279,7 +317,25 @@ public class SchedulerService {
     taxiOrderRepository.save(o);
   }
 
+  /** refusing orders that have waited too long due to lack of available cabs
+   *
+   * @param demand
+   * @return array of orders that are still valid
+   */
   private TaxiOrder[] expireRequests (TaxiOrder[] demand) {
-    return demand;
+    List<TaxiOrder> newDemand = new ArrayList<>();
+
+    LocalDateTime time = LocalDateTime.now();
+    for (TaxiOrder o : demand) {
+      long minutes = Duration.between(time, o.getRcvdTime()).getSeconds()/60;
+      if (minutes > o.getMaxWait()) { // TODO: maybe scheduler should have its own, global MAX WAIT
+        logger.info("Customer={} refused, max wait exceeded", o.id);
+        o.setStatus(TaxiOrder.OrderStatus.REFUSED);
+        taxiOrderRepository.save(o);
+      } else {
+        newDemand.add(o);
+      }
+    }
+    return newDemand.toArray(new TaxiOrder[0]);
   }
 }

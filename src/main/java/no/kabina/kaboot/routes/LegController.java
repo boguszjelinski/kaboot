@@ -26,7 +26,7 @@ public class LegController {
    * @return
    */
   @PutMapping(value = "/legs/{id}", consumes = "application/json")
-  public Leg updateLeg(@PathVariable Long id, @RequestBody LegPojo leg, Authentication auth) {
+  public String updateLeg(@PathVariable Long id, @RequestBody LegPojo leg, Authentication auth) {
     Leg l = null;
     logger.info("PUT leg={}", id);
     Optional<Leg> o = legRepo.findById(id);
@@ -40,6 +40,7 @@ public class LegController {
       return null;
     }
     l.setStatus(leg.getStatus());
-    return legRepo.save(l);
+    legRepo.save(l);
+    return "OK";
   }
 }

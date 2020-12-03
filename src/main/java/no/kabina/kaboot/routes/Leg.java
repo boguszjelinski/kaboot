@@ -11,7 +11,6 @@ import javax.persistence.JoinColumn;
 import javax.persistence.ManyToOne;
 import javax.persistence.OneToMany;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
 import no.kabina.kaboot.orders.TaxiOrder;
 
 @Entity
@@ -34,13 +33,12 @@ public class Leg { // a leg of a route
       this.status = status;
   }
 
-  @OneToMany
+  @OneToMany(fetch = FetchType.LAZY)
   @JoinColumn(name = "leg_id")
   private Set<TaxiOrder> orders = new HashSet<>();
 
   @ManyToOne(optional = true, fetch = FetchType.LAZY)
   @JoinColumn(name = "route_id", nullable = true)
-  @JsonIgnore
   private Route route;
 
   public Long getId() { return id; }

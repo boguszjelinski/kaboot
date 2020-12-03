@@ -89,8 +89,8 @@ public class CabRunnable implements Runnable {
                     // go from where you are to task.stand
                     task = legs.get(i);
                     logger.info("Moving from " +task.fromStand+ " to " +task.toStand+ ", cab=" + cab_id + ", leg=" + task.id +",");
-// change to Mins !!      
-Utils.waitSecs(Math.abs(task.fromStand - task.toStand)); // cab is moving
+
+                    Utils.waitMins(Math.abs(task.fromStand - task.toStand)); // cab is moving
                     task.status = RouteStatus.COMPLETE;
                     updateTask(cab.id, task);
                     cab.location = task.toStand;

@@ -8,6 +8,8 @@ import no.kabina.kaboot.customers.Customer;
 import no.kabina.kaboot.routes.Route;
 import no.kabina.kaboot.routes.Leg;
 
+import java.time.LocalDateTime;
+
 // insert into taxi_order (id, from_stand, to_stand, max_wait, max_loss, shared) values (0,1,2,10,30,true)
 
 @Entity
@@ -20,9 +22,10 @@ public class TaxiOrder {
   protected TaxiOrder.OrderStatus status;
   public int fromStand;
   public int toStand;
-  protected int maxWait; // how long can I wait for a cab
+  protected int maxWait; // how long can I wait for a cab [min]
   protected int maxLoss; // [%] how long can I lose while in pool
   protected boolean shared; // can be in a pool ?
+  private LocalDateTime rcvdTime;
 
   @Column(nullable = true)
   protected Integer eta; // set when assigned
@@ -48,29 +51,27 @@ public class TaxiOrder {
     this.maxLoss = maxLoss;
     this.shared = shared;
     this.status = status;
+    this.rcvdTime = LocalDateTime.now();
   }
 
+  // @JsonIgnore
   // asigned cab
   @ManyToOne(optional = true, fetch = FetchType.LAZY)
   @JoinColumn(name = "cab_id", nullable = true)
-  @JsonIgnore
   private Cab cab;  // an order can be serviced by ONE cab only, but one cab can service MANY orders throughout the day
 
   @ManyToOne(optional = true, fetch = FetchType.LAZY)
   @JoinColumn(name = "customer_id", nullable = true)
-  @JsonIgnore
   private Customer customer;  // an order can be serviced by ONE cab only, but one cab can service MANY orders throughout the day
 
   // also for data integrity checks; the pick-up task; null if cab was already there
   @ManyToOne(optional = true, fetch = FetchType.LAZY)
-  @JoinColumn(name="leg_id", nullable=true)
-  @JsonIgnore
+  @JoinColumn(name = "leg_id", nullable = true)
   private Leg leg;  // an order can be pick-up by one task, but one task can pick up MANY orders/customers
                         // this foreign key will give the driver information whom to pick up and where to drop-off
 
   @ManyToOne(optional = true, fetch = FetchType.LAZY)
-  @JoinColumn(name="route_id", nullable=true)
-  @JsonIgnore
+  @JoinColumn(name = "route_id", nullable = true)
   private Route route;  // an order can be serviced by ONE cab only, but one cab can service MANY orders throughout the day
 
   @Override
@@ -97,6 +98,7 @@ public class TaxiOrder {
   public int getMaxWait() {
     return maxWait;
   }
+  public void setMaxWait(int mw) { this.maxWait = mw; }
 
   public int getMaxLoss() {
     return maxLoss;
@@ -117,7 +119,7 @@ public class TaxiOrder {
         RECEIVED,  // sent by customer
         ASSIGNED,  // assigned to a cab, a proposal sent to customer with time-of-arrival
         ACCEPTED,  // plan accepted by customer, waiting for the cab
-        CANCELLED, // cancelled before assignment
+        CANCELLED, // cancelled by customer before assignment
         REJECTED,  // proposal rejected by customer
         ABANDONED, // cancelled after assignment but before 'PICKEDUP'
         REFUSED,   // no cab available, cab broke down at any stage
@@ -153,6 +155,10 @@ public class TaxiOrder {
     this.cab = cab;
   }
 
+  public Cab getCab() {
+    return this.cab;
+  }
+
   public Route getRoute() {
     return this.route;
   }
@@ -167,5 +173,13 @@ public class TaxiOrder {
 
   public void setRoute(Route r) {
     this.route = r;
+  }
+
+  public LocalDateTime getRcvdTime() {
+    return rcvdTime;
+  }
+
+  public void setRcvdTime(LocalDateTime rcvdTime) {
+    this.rcvdTime = rcvdTime;
   }
 }

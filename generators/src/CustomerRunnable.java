@@ -8,7 +8,7 @@ import javax.script.ScriptException;
 
 class CustomerRunnable implements Runnable {
 
-    final static Logger logger = Logger.getLogger("kaboot.simulator.cabgenerator");
+    final static Logger logger = Logger.getLogger("kaboot.simulator.customergenerator");
    
     final static int MAX_WAIT_FOR_RESPONSE = 3; // minutes; might be random in taxi_demand.txt
     final static int MAX_WAIT_FOR_CAB = 10; // minutes; might be random in taxi_demand.txt
@@ -52,9 +52,9 @@ class CustomerRunnable implements Runnable {
         logger.info("Cab requested, order_id=" + order.id);
         // just give kaboot a while to think about it
         // pool ? cab? ETA ?
-        
-        for (int t=0; t<MAX_WAIT_FOR_RESPONSE; t++) {
-            Utils.waitSecs(60); 
+        Utils.waitSecs(90); // just give the solver some time
+        for (int t=0; t<MAX_WAIT_FOR_RESPONSE * 2; t++) {
+            Utils.waitSecs(30); 
             order = getOrder(d.id, order.id);
             if (order == null) {
                 logger.info("Serious error, order not found, d.id=" + d.id);
@@ -70,12 +70,16 @@ class CustomerRunnable implements Runnable {
             //|| ord.cab_id == -1
             ) { // Kaboot has not answered, too busy
             // complain
-            logger.info("Waited in vain: cust_id=" + d.id);
+            if (order == null) {
+                logger.info("Waited in vain, no answer: cust_id=" + d.id);
+            } else {
+                logger.info("Waited in vain, no assignment: cust_id=" + d.id + ", order_id=" + order.id +",");
+            }
             order.status = OrderStatus.CANCELLED; // just not to kill scheduler
             saveOrder("PUT", order); 
             return;
         }
-        logger.info("Assigned: cust_id=" + d.id);
+        logger.info("Assigned: cust_id=" + d.id + ", order_id=" + order.id +",");
         /*if (order.eta > d.at + MAX_WAIT_FOR_CAB) {
             // complain
             logger.info("I can't wait that long: cust_id=" + d.id);
@@ -96,7 +100,8 @@ class CustomerRunnable implements Runnable {
         }
         if (!arrived) {
             // complain
-            logger.info("Cab has not arrived: cust_id=" + d.id);
+            logger.info("Cab has not arrived: cust_id=" + d.id + ", order_id=" + order.id + ", cab_id="
+                            + order.cab_id + ",");
             order.status = OrderStatus.CANCELLED; // just not to kill scheduler
             saveOrder("PUT", order); 
             return;
@@ -114,7 +119,8 @@ class CustomerRunnable implements Runnable {
             }*/
             Cab cab = getCab("cabs/", d.id, order.cab_id);
             if (cab.location == d.to) {
-                logger.info("Arrived at " + d.to + ", cust_id=" +  d.id);
+                logger.info("Arrived at " + d.to + ", cust_id=" +  d.id+ ", order_id=" + order.id + ", cab_id="
+                                    + order.cab_id + ",");
                 order.status = OrderStatus.COMPLETE;
                 saveOrder("PUT", order); 
                 break;
@@ -193,6 +199,9 @@ class CustomerRunnable implements Runnable {
         //"route":{"id":114459,"status":"ASSIGNED",
         //         "cab":{"id":907,"location":12,"status":"ASSIGNED","hibernateLazyInitializer":{}},
         //         "legs":null,"hibernateLazyInitializer":{}}}"
+        if ("OK".equals(str)) { // PUT
+            return null; 
+        }
         Map map = getMap(str);
         if (map == null) {
             return null;

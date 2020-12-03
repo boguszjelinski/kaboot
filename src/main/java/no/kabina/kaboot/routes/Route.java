@@ -11,8 +11,6 @@ import javax.persistence.Id;
 import javax.persistence.JoinColumn;
 import javax.persistence.ManyToOne;
 import javax.persistence.OneToMany;
-
-import com.fasterxml.jackson.annotation.JsonIgnore;
 import no.kabina.kaboot.cabs.Cab;
 import no.kabina.kaboot.orders.TaxiOrder;
 
@@ -33,14 +31,13 @@ public class Route {
 
   @ManyToOne(optional = true, fetch = FetchType.LAZY)
   @JoinColumn(name = "cab_id", nullable = true)
-  @JsonIgnore
   private Cab cab;
 
-  @OneToMany(mappedBy = "route", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
-  //  @JoinColumn(name = "route_id")
+  @OneToMany(fetch = FetchType.LAZY) // mappedBy = "route", cascade = CascadeType.ALL
+  @JoinColumn(name = "route_id")
   private Set<Leg> legs = new HashSet<>();
 
-  @OneToMany // many customers that can ride within one route (pool)
+  @OneToMany(fetch = FetchType.LAZY) // many customers that can ride within one route (pool)
   @JoinColumn(name = "route_id")
   private Set<TaxiOrder> orders = new HashSet<>();
 
@@ -60,7 +57,10 @@ public class Route {
   public RouteStatus getStatus() {
     return status;
   }
-  public Cab getCab() { return cab; }
+
+  public Cab getCab() {
+    return cab;
+  }
 
   public void setStatus(RouteStatus stat) {
     this.status = stat;

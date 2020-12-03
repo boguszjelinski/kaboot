@@ -20,7 +20,7 @@ public class CustomerGenerator {
     final static String DEMAND_FILE = "C:\\Users\\dell\\TAXI\\GIT\\simulations\\taxi_demand.txt";
     static long demandCount=0;
     static int [][] demand = new int[100000][5];
-    static int maxTime = 0; // 120 !!!!!!!!!!!!!!!!!!!!!!
+    static int maxTime =  120;
 
     public static void main(String[] args) throws InterruptedException {
         logger = Utils.configureLogger(logger, "customer.log");
@@ -37,16 +37,25 @@ public class CustomerGenerator {
             for (int i = 0; i < demand.length; i++) {
                 if (demand[i][4] == t
                     && demand[i][1] != demand[i][2]) { // part of the array is empty, that would not work for t==0
-                    final int[] d = demand[i];
-                    (new Thread(new CustomerRunnable(d))).start();
-                    try { Thread.sleep(10); // so that to disperse them a bit and not to kill backend
-                    } catch (InterruptedException e) {}
-                    break; // !!! just one !!!!!!!!!!!!!!!!!!!!!
+                    if (i % 3 != 0) { // just to reduce scheduler load
+                        final int[] d = demand[i];
+                        (new Thread(new CustomerRunnable(d))).start();
+                        try { Thread.sleep(5); // so that to disperse them a bit and not to kill backend
+                        } catch (InterruptedException e) {}
+                    }
                 }
             }
-            TimeUnit.SECONDS.sleep(10);
-            break; // just t==0!!!!!!!!!!!!!!!!!!!!!!!!!!!
+            TimeUnit.SECONDS.sleep(60); // 120min
         }
+        
+       /* int[] de = new int[5];
+        de[0] = 113570;
+        de[1] = 11;
+        de[2] = 12;
+        de[3] = 0;
+        de[4] = 0;
+        final int[] d = de;
+        (new Thread(new CustomerRunnable(d))).start();*/
     }
 
     private static void readDemand() {

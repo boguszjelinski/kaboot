@@ -1,8 +1,12 @@
 package no.kabina.kaboot.orders;
 
+import java.time.Duration;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
+import no.kabina.kaboot.routes.Route;
+import no.kabina.kaboot.stats.StatService;
 import no.kabina.kaboot.utils.AuthUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -21,10 +25,12 @@ public class TaxiOrderController {
 
   private final TaxiOrderRepository repository;
   private final TaxiOrderService service;
+  private final StatService statSrvc;
 
-  public TaxiOrderController(TaxiOrderRepository repository, TaxiOrderService service) {
+  public TaxiOrderController(TaxiOrderRepository repository, TaxiOrderService service, StatService statSrvc) {
     this.repository = repository;
     this.service = service;
+    this.statSrvc = statSrvc;
   }
 
   @GetMapping("/orders/{id}")
@@ -35,6 +41,7 @@ public class TaxiOrderController {
     if (to == null) {
       return null;
     }
+    Route r = to.getRoute(); // don't be lazy
       // TODO: authorisation - customer can only see its own orders
     if (to.getRoute() != null) {
       to.getRoute().setLegs(null); // too much detail
@@ -67,11 +74,12 @@ public class TaxiOrderController {
     TaxiOrder order = new TaxiOrder(newTaxiOrder.fromStand, newTaxiOrder.toStand,
                     newTaxiOrder.maxWait, newTaxiOrder.maxLoss, newTaxiOrder.shared, TaxiOrder.OrderStatus.RECEIVED);
     order.setEta(-1);
+    order.setMaxWait(20);
     order.setInPool(false);
     return service.saveTaxiOrder(order, usr_id);
   }
 
-  /** mainly to update status
+  /** goal is to update status
    *
    * @param id
    * @param newTaxiOrder
@@ -79,7 +87,7 @@ public class TaxiOrderController {
    * @return
    */
   @PutMapping(value="/orders/{id}", consumes = "application/json")
-  public TaxiOrder updateTaxiOrder(@PathVariable Long id, @RequestBody TaxiOrderPojo newTaxiOrder, Authentication auth) {
+  public String updateTaxiOrder(@PathVariable Long id, @RequestBody TaxiOrderPojo newTaxiOrder, Authentication auth) {
     logger.info("PUT order=" + id);
     Long usr_id = AuthUtils.getUserId(auth, "ROLE_CUSTOMER");
     if (usr_id == null) {
@@ -89,8 +97,13 @@ public class TaxiOrderController {
     if (ord == null || !ord.isPresent()) {
       return null;
     }
+    if (newTaxiOrder.status == TaxiOrder.OrderStatus.PICKEDUP) {
+      Duration duration = Duration.between(ord.get().getRcvdTime(), LocalDateTime.now());
+      statSrvc.addPickupTime(duration.getSeconds());
+    }
     ord.get().setId(id);
     ord.get().setStatus(newTaxiOrder.status);
-    return service.updateTaxiOrder(ord.get(), usr_id);
+    service.updateTaxiOrder(ord.get(), usr_id);
+    return "OK";
   }
 }

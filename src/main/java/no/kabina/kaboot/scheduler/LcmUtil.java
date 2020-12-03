@@ -22,7 +22,8 @@ public class LcmUtil {
   static DistanceService dsrvc;
 
   private static final String SOLVER_COST_FILE = "cost.txt";
-
+  public static final int SCHEDULING_DURATION = 3; // scheduler runs once a minute
+                                        // + it takes one minute to compute + 1min to distribute the information
   public static final int bigCost = 250000;
 
   /** Low Cost Method aka "greedy" - looks for lowest values in the matrix
@@ -92,7 +93,8 @@ public class LcmUtil {
     for (c = 0; c < numbSupply; c++) {
       for (d = 0; d < numbDemand; d++) {
         int dst = dsrvc.getDistance(tmpSupply[c].getLocation(), tmpDemand[d].fromStand);
-        if (dst <= tmpDemand[d].getMaxWait()) { // take this possibility only if reasonable time to pick-up a customer
+        if (dst <= tmpDemand[d].getMaxWait() - SCHEDULING_DURATION - PoolUtil.POOL_MAX_WAIT_TIME) {
+          // take this possibility only if reasonable time to pick-up a customer
           // otherwise big_cost will stay in this cell
           cost[c][d] = dst;
         }
@@ -110,5 +112,36 @@ public class LcmUtil {
       logger.warn("IOE: {}", ioe.getMessage());
     }
     return cost;
+  }
+
+  // TODO: it is not wise to make this search here and in calculatCost
+  public static Cab[] getRidOfDistantCabs(TaxiOrder[] demand, Cab[] supply) {
+    List<Cab> list = new ArrayList<>();
+    for (int c = 0; c < supply.length; c++) {
+      for (int d = 0; d < demand.length; d++) {
+        int dst = dsrvc.getDistance(supply[c].getLocation(), demand[d].fromStand);
+        if (dst <= demand[d].getMaxWait() - SCHEDULING_DURATION - PoolUtil.POOL_MAX_WAIT_TIME) {
+          // great, we have at least one customer in range for this cab
+          list.add(supply[c]);
+          break;
+        }
+      }
+    }
+    return list.toArray(new Cab[0]);
+  }
+
+  public static TaxiOrder[] getRidOfDistantCustomers(TaxiOrder[] demand, Cab[] supply) {
+    List<TaxiOrder> list = new ArrayList<>();
+    for (int d = 0; d < demand.length; d++) {
+      for (int c = 0; c < supply.length; c++) {
+        int dst = dsrvc.getDistance(supply[c].getLocation(), demand[d].fromStand);
+        if (dst <= demand[d].getMaxWait() - SCHEDULING_DURATION - PoolUtil.POOL_MAX_WAIT_TIME) {
+          // great, we have at least one cab in range for this customer
+          list.add(demand[d]);
+          break;
+        }
+      }
+    }
+    return list.toArray(new TaxiOrder[0]);
   }
 }

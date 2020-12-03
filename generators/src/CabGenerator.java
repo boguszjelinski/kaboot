@@ -16,7 +16,7 @@ public class CabGenerator {
         for (int c = 0; c < maxCabs; c++) {
             final int id = c;
             (new Thread(new CabRunnable(id))).start();
-            try { Thread.sleep(10); // so that to disperse them a bit and not to kill backend
+            try { Thread.sleep(5); // so that to disperse them a bit and not to kill backend
             } catch (InterruptedException e) {}
         }
     }

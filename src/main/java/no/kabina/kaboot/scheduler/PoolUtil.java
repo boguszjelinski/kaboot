@@ -11,7 +11,6 @@ import java.util.List;
 
 import no.kabina.kaboot.cabs.Cab;
 import no.kabina.kaboot.orders.TaxiOrder;
-import org.springframework.stereotype.Service;
 
 public class PoolUtil {
 
@@ -21,10 +20,10 @@ public class PoolUtil {
   static final int TO = 2;
 
   // four most important parameters 
-  static final int maxNumbCust = 1500;  // number of customers/passengers
   private static int MAX_IN_POOL = 4;
   public static int custInPool;  // how many passengers can a cab take
-  static final int MAX_WAIT_TIME = 2; // how many 'minutes' (time entities) want a passenger to wait for a cab
+
+  public static final int POOL_MAX_WAIT_TIME = 2; // how many 'minutes' (time entities) want a passenger to wait for a cab
   static final double MAX_LOSS = 1.01; // 1.3 would mean that one can accept a trip to take 30% time more than being transported alone
 
   static int [][]cost  = new int[maxNumbStands][maxNumbStands];
@@ -125,7 +124,7 @@ public class PoolUtil {
         for (int l = 0; l < level; l++) {
           pCost += cost[demand[pickup[l]].fromStand][demand[pickup[l + 1]].fromStand];
         }
-        if (pCost > MAX_WAIT_TIME) { // TODO: each customer has its own preference
+        if (pCost > POOL_MAX_WAIT_TIME) { // TODO: each customer has its own preference
           continue;
         }
         // find the next customer
@@ -135,6 +134,7 @@ public class PoolUtil {
   }
 
   public static PoolElement[] findPool(TaxiOrder[] dem, int inPool) {
+    poolList = new ArrayList<PoolElement>();
     custInPool = inPool;
     for (int i = 0; i < maxNumbStands; i++) {
       for (int j = i; j < maxNumbStands; j++) {

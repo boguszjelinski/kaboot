@@ -32,20 +32,20 @@ public class KabootApplication {
 
   /**
    * for JobRunr
-   *//*
+   */
+
   @Bean
   @Profile("!test")
   public CommandLineRunner demo() {
     return (args) -> {
       BackgroundJob.scheduleRecurrently(
-          "find-plan",
-          SchedulerService::findPlan,
-          Cron.minutely()
+              "find-plan",
+              SchedulerService::findPlan,
+              Cron.minutely()
       );
       Thread.currentThread().join();
     };
   }
-  */
 
   public static void main(String[] args) {
     SpringApplication.run(KabootApplication.class, args);

@@ -23,11 +23,12 @@ public class CabController {
     //Long cabId = AuthUtils.getUserId(auth, "ROLE_CUSTOMER"); both roles should access
     // TODO: more authorisation ?
     Cab c = repository.findById(id);
+    c.setItems(null); // omit this in JSON
     return c;
   }
 
   @PutMapping(value = "/cabs/{id}", consumes = "application/json")
-  public Cab updateCab(@PathVariable Long id, @RequestBody Cab cab, Authentication auth) {
+  public String updateCab(@PathVariable Long id, @RequestBody Cab cab, Authentication auth) {
     logger.info("PUT cab={}", id);
     cab.setId(id);
     Long usrId = AuthUtils.getUserId(auth, "ROLE_CAB");
@@ -38,7 +39,8 @@ public class CabController {
     if (prev.isEmpty()) {
       return null;  // we cannot update a nonexisting object
     }
-    return repository.save(cab);
+    repository.save(cab);
+    return "OK";
   }
 
   // TODO: temporary, should not be allowed for ROLE_CAB

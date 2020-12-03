@@ -2,12 +2,8 @@ package no.kabina.kaboot.cabs;
 
 import java.util.HashSet;
 import java.util.Set;
-import javax.persistence.Entity;
-import javax.persistence.GeneratedValue;
-import javax.persistence.GenerationType;
-import javax.persistence.Id;
-import javax.persistence.JoinColumn;
-import javax.persistence.OneToMany;
+import javax.persistence.*;
+
 import no.kabina.kaboot.orders.TaxiOrder;
 
 @Entity
@@ -27,19 +23,24 @@ public class Cab {
     this.status = status;
   }
 
-  @OneToMany
+  @OneToMany(fetch = FetchType.LAZY)
   @JoinColumn(name = "cab_id")
   private Set<TaxiOrder> items = new HashSet<>();
 
   public Long getId() {
     return id;
   }
+
   public void setId(Long id) {
     this.id = id;
   }
 
   public int getLocation() {
     return location;
+  }
+
+  public void setItems(Set<TaxiOrder> i) {
+    this.items = i;
   }
 
   public CabStatus getStatus() {
