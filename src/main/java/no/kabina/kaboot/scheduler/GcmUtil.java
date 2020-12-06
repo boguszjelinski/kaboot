@@ -1,7 +1,5 @@
 package no.kabina.kaboot.scheduler;
 
-import java.util.Arrays;
-import java.util.List;
 import no.kabina.kaboot.cabs.Cab;
 import no.kabina.kaboot.orders.TaxiOrder;
 import org.slf4j.Logger;

@@ -97,9 +97,11 @@ public class TaxiOrderController {
     if (ord == null || !ord.isPresent()) {
       return null;
     }
+    Duration duration = Duration.between(ord.get().getRcvdTime(), LocalDateTime.now());
     if (newTaxiOrder.status == TaxiOrder.OrderStatus.PICKEDUP) {
-      Duration duration = Duration.between(ord.get().getRcvdTime(), LocalDateTime.now());
-      statSrvc.addPickupTime(duration.getSeconds());
+      statSrvc.addAverageElement("avg_order_pickup_time", duration.getSeconds());
+    } else if (newTaxiOrder.status == TaxiOrder.OrderStatus.COMPLETE) {
+      statSrvc.addAverageElement("avg_order_complete_time", duration.getSeconds());
     }
     ord.get().setId(id);
     ord.get().setStatus(newTaxiOrder.status);

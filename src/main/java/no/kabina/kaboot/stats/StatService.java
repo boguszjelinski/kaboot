@@ -3,18 +3,18 @@ package no.kabina.kaboot.stats;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 
 @Component
 public class StatService {
 
   StatRepository statRepo;
-
-  private List<Long> pickupTime; // duration, to count the average
+  HashMap<String, List<Long>> avgElements;
 
   StatService(StatRepository repo) {
     this.statRepo = repo;
-    pickupTime = new ArrayList<>();
+    avgElements = new HashMap<String, List<Long>>();
   }
 
     /**
@@ -35,6 +35,16 @@ public class StatService {
     } else {
       return stat;
     }
+  }
+
+  public Stat addToIntVal(String key, int value) {
+    Stat stat = statRepo.findByName(key);
+    if (stat == null) {
+      Stat s = new Stat(key, value, 0);
+      return statRepo.save(s);
+    }
+    stat.setIntVal(stat.getIntVal() + value);
+    return statRepo.save(stat);
   }
 
   public Stat updateAvgIntVal(String key, int value) {
@@ -77,16 +87,25 @@ public class StatService {
     return statRepo.save(stat);
   }
 
-  public void addPickupTime(Long time) {
-    pickupTime.add(time);
+  public void addAverageElement(String key, Long time) {
+    List<Long> list = avgElements.get(key);
+    if (list == null) {
+      list = new ArrayList<>();
+    }
+    list.add(time);
+    avgElements.put(key, list);
   }
 
-  public int countAvgPickupTime() {
-    int sum = pickupTime.stream().mapToInt(Long::intValue).sum();
-    if (pickupTime.size() == 0) {
+  public int countAverage(String key) {
+    List<Long> list = avgElements.get(key);
+    if (list == null) {
+      return 0;
+    }
+    int sum = list.stream().mapToInt(Long::intValue).sum();
+    if (list.size() == 0) {
       return -1;
     } else {
-      return sum / pickupTime.size();
+      return sum / list.size();
     }
   }
 }

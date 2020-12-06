@@ -28,7 +28,8 @@ logging:
 kaboot:
     consts:
         max-non-lcm: 300
-        max-pool4: 400
+        max-pool4: 200
+        max-pool3: 400
         max-stand: 50
     scheduler:
         online: true

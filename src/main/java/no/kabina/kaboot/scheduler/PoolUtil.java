@@ -184,13 +184,39 @@ public class PoolUtil {
     return ret.toArray(new PoolElement[0]);
   }
 
-  public static TaxiOrder[] findFirstLegInPool(PoolElement[] arr, TaxiOrder[] tempDemand) {
+  public static TaxiOrder[] findFirstLegInPoolOrLone(PoolElement[] arr, TaxiOrder[] tempDemand) {
+    if (arr == null || arr.length == 0) {
+      return tempDemand;
+    }
     List<TaxiOrder> ret = new ArrayList<>();
 
     for (TaxiOrder td : tempDemand) {
       boolean found = false;
       for (PoolElement a : arr) {
         for (int j = 1; j < a.cust.length / 2; j++) { // 0: the first leg; /2 -> pickups + dropp-offs
+          if (a.cust[j].id.equals(td.id)) { // this customer will be picked up by another customer should not be sent tol solver
+            found = true;
+            break;
+          }
+        }
+      }
+      if (!found) { // 'd' is not picked up by others, he is the first one to be picked up, therefore will be sent to solver
+        ret.add(td);
+      }
+    }
+    return ret.toArray(new TaxiOrder[0]); // ret.size()
+  }
+
+  public static TaxiOrder[] findCustomersWithoutPool(PoolElement[] arr, TaxiOrder[] tempDemand) {
+    if (arr == null || arr.length == 0) {
+      return tempDemand;
+    }
+    List<TaxiOrder> ret = new ArrayList<>();
+
+    for (TaxiOrder td : tempDemand) {
+      boolean found = false;
+      for (PoolElement a : arr) {
+        for (int j = 0; j < a.cust.length / 2; j++) { // 0: the first leg; /2 -> pickups + dropp-offs
           if (a.cust[j].id.equals(td.id)) { // this customer will be picked up by another customer should not be sent tol solver
             found = true;
             break;

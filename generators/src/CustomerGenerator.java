@@ -37,7 +37,7 @@ public class CustomerGenerator {
             for (int i = 0; i < demand.length; i++) {
                 if (demand[i][4] == t
                     && demand[i][1] != demand[i][2]) { // part of the array is empty, that would not work for t==0
-                    if (i % 3 != 0) { // just to reduce scheduler load
+                    if (i % 3 == 0) { // just to reduce scheduler load
                         final int[] d = demand[i];
                         (new Thread(new CustomerRunnable(d))).start();
                         try { Thread.sleep(5); // so that to disperse them a bit and not to kill backend
