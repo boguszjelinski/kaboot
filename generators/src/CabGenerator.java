@@ -3,7 +3,7 @@
     Date: 2020
 */
 // javac CabGenerator.java
-// java CabGenerator
+// java -Dnashorn.args="--no-deprecation-warning" CabGenerator
 
 import java.util.logging.Logger;
 

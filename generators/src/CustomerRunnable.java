@@ -12,9 +12,9 @@ class CustomerRunnable implements Runnable {
    
     final static int MAX_WAIT_FOR_RESPONSE = 3; // minutes; might be random in taxi_demand.txt
     final static int MAX_WAIT_FOR_CAB = 10; // minutes; might be random in taxi_demand.txt
-    final static int MAX_POOL_LOSS = 30; // %; might be random in taxi_demand.txt
-    final static int MAX_TRIP_LOSS = 3; // minutes; just not be a jerk!
-    final static int MAX_TRIP_LEN = 60; // cab driver is a human, can choose a wrong way :)
+    final static double MAX_POOL_LOSS = 1.30; // %; might be random in taxi_demand.txt
+    final static int MAX_TRIP_LOSS = 4; // minutes; just not be a jerk!
+    final static int MAX_TRIP_LEN = 30; // check gen_demand.py, +/- 4min, 
 
     private Demand tOrder;
     private ScriptEngine engine;
@@ -110,9 +110,10 @@ class CustomerRunnable implements Runnable {
         order.status = OrderStatus.PICKEDUP;
         saveOrder("PUT", order); // PUT = update
         // take a trip
-        int duration=0;
-        for (; duration<MAX_TRIP_LEN *4; duration++) {
-            Utils.waitSecs(15);
+        int duration = 0; 
+        final int CHECK_INTERVAL = 15; // secs
+        for (; duration<MAX_TRIP_LEN * (60/CHECK_INTERVAL); duration++) {
+            Utils.waitSecs(CHECK_INTERVAL);
             /*order = getEntity("orders/", d.id, order.id);
             if (order.status == OrderStatus.COMPLETE && order.cab_id != -1)  {
                 break;
@@ -126,20 +127,29 @@ class CustomerRunnable implements Runnable {
                 break;
             }
         }
-        // POOL CHECK
-        if (order.inPool) {
-            if (duration > (int) (abs(d.from - d.to) * MAX_POOL_LOSS)) {
-                // complain
-                logger.info("Duration in pool was too long: cust_id=" + d.id);
-            }
-        } else { // not a carpool
-            if (duration > (int) (abs(d.from - d.to) + MAX_TRIP_LOSS)) {
-                // complain
-                logger.info("Duration took too long: cust_id=" + d.id);
+        if (duration >= MAX_TRIP_LEN * (60/CHECK_INTERVAL)) {
+            logger.info("Something wrong - customer has never reached the destination: cust_id=" + d.id
+                            + ", order_id=" + order.id + ", cab_id="+ order.cab_id + ",");
+        } else {
+            // POOL CHECK
+            if (order.inPool) { // TODO: this 
+                if (duration/(60/CHECK_INTERVAL) > (int) (abs(d.from - d.to) * MAX_POOL_LOSS + MAX_TRIP_LOSS)) {
+                    // complain
+                    logger.info("Duration in pool was too long: cust_id=" + d.id
+                                    + ", order_id=" + order.id + ", cab_id=" + order.cab_id + ",");
+                }
+            } else { // not a carpool
+                if (duration/(60/CHECK_INTERVAL) > (int) (abs(d.from - d.to) + MAX_TRIP_LOSS)) {
+                    // complain
+                    logger.info("Duration took too long: cust_id=" + d.id
+                                    + ", order_id=" + order.id + ", cab_id=" + order.cab_id + ",");
+                }
             }
         }
-        if (order.status == OrderStatus.ASSIGNED) {
+        if (order.status != OrderStatus.COMPLETE) {
             order.status = OrderStatus.CANCELLED; // just not to kill scheduler
+            logger.info("Status is not COMPLETE, cancelling the trip: cust_id=" + d.id
+                                    + ", order_id=" + order.id + ", cab_id=" + order.cab_id + ",");
             saveOrder("PUT", order); 
         }
     }

@@ -9,6 +9,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
+import com.sun.istack.Pool;
 import no.kabina.kaboot.cabs.Cab;
 import no.kabina.kaboot.cabs.CabRepository;
 import no.kabina.kaboot.orders.TaxiOrder;
@@ -129,6 +130,7 @@ public class SchedulerService {
     int[] x = readSolversResult(cost.length);
     if (x.length != cost.length * cost.length) {
       logger.warn("Solver returned wrong data set");
+      // TODO: LCM should be called instead
     } else {
       int assgnd = assignCustomers(x, cost, tempDemand, tempSupply, pl);
       logger.info("Customers assigned by solver: {}", assgnd);
@@ -216,21 +218,25 @@ public class SchedulerService {
   private PoolElement[] generatePool(TaxiOrder[] demand) {
     final long startPool = System.currentTimeMillis();
     if (demand == null || demand.length < 2) {
-      return null;
+      return new PoolElement[0];
     }
     // with 4 passengers
     PoolElement[] ret;
     PoolElement[] pl4 = null;
     if (demand.length < MAX_4POOL) {
+      final long startPool4 = System.currentTimeMillis();
       pl4 = PoolUtil.findPool(demand, 4); // four passengers: size^4 combinations (full search)
+      updateStats("pool4_time", startPool4);
     }
     // with 3 passengers
     TaxiOrder[] demand3 = PoolUtil.findCustomersWithoutPool(pl4, demand);
     if (demand3 != null && demand3.length > 0) { // there is still an opportunity
       PoolElement[] pl3;
       if (demand3.length < MAX_3POOL) { // not too big for three customers, let's find out!
+        final long startPool3 = System.currentTimeMillis();
         pl3 = PoolUtil.findPool(demand3, 3);
-        if (pl3 == null || pl3.length == 0) { // ignore hint, one day can be null
+        updateStats("pool3_time", startPool3);
+        if (pl3.length == 0) {
           pl3 = pl4;
         } else {
           pl3 = ArrayUtils.addAll(pl3, pl4);
@@ -242,7 +248,7 @@ public class SchedulerService {
       TaxiOrder[] demand2 = PoolUtil.findCustomersWithoutPool(pl3, demand3);
       if (demand2 != null && demand2.length > 0) {
         PoolElement[] pl2 = PoolUtil.findPool(demand2, 2);
-        if (pl2 == null || pl2.length == 0) {
+        if (pl2.length == 0) {
           ret = pl3;
         } else {
           ret = ArrayUtils.addAll(pl2, pl3);
@@ -255,7 +261,7 @@ public class SchedulerService {
     }
     updateStats("pool_time", startPool);
     // reduce tempDemand - 2nd+ passengers will not be sent to LCM or solver
-    logger.info("Pool size: {}", ret.length);
+    logger.info("Pool size: {}", ret == null ? 0 : ret.length);
     return ret;
   }
 

@@ -5,6 +5,10 @@ import java.util.Set;
 import javax.persistence.*;
 
 import no.kabina.kaboot.orders.TaxiOrder;
+// pg_dump --host localhost --port 5432 --username kabina --format plain --verbose --file "cab.sql" --table public.cab kabina
+// pg_dump --username kabina -d kabina -t cab > cab2.sql
+//psql -U kabina kabina < cab.sql
+// CREATE TABLE cab AS TABLE cab2;
 
 @Entity
 public class Cab {

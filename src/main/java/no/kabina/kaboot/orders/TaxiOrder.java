@@ -1,14 +1,18 @@
 package no.kabina.kaboot.orders;
 
-import javax.persistence.*;
-
-import com.fasterxml.jackson.annotation.JsonIgnore;
+import java.time.LocalDateTime;
+import javax.persistence.Column;
+import javax.persistence.Entity;
+import javax.persistence.FetchType;
+import javax.persistence.GeneratedValue;
+import javax.persistence.GenerationType;
+import javax.persistence.Id;
+import javax.persistence.JoinColumn;
+import javax.persistence.ManyToOne;
 import no.kabina.kaboot.cabs.Cab;
 import no.kabina.kaboot.customers.Customer;
-import no.kabina.kaboot.routes.Route;
 import no.kabina.kaboot.routes.Leg;
-
-import java.time.LocalDateTime;
+import no.kabina.kaboot.routes.Route;
 
 // insert into taxi_order (id, from_stand, to_stand, max_wait, max_loss, shared) values (0,1,2,10,30,true)
 
@@ -98,7 +102,10 @@ public class TaxiOrder {
   public int getMaxWait() {
     return maxWait;
   }
-  public void setMaxWait(int mw) { this.maxWait = mw; }
+
+  public void setMaxWait(int mw) {
+    this.maxWait = mw;
+  }
 
   public int getMaxLoss() {
     return maxLoss;
@@ -111,9 +118,10 @@ public class TaxiOrder {
   public void setStatus(OrderStatus status) {
     this.status = status;
   }
+
   public OrderStatus getStatus() {
-        return this.status;
-    }
+    return this.status;
+  }
 
   public enum OrderStatus {
         RECEIVED,  // sent by customer

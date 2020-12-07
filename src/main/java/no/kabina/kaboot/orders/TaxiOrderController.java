@@ -4,7 +4,6 @@ import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
-
 import no.kabina.kaboot.routes.Route;
 import no.kabina.kaboot.stats.StatService;
 import no.kabina.kaboot.utils.AuthUtils;
@@ -21,7 +20,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 public class TaxiOrderController {
 
-  private Logger logger = LoggerFactory.getLogger(TaxiOrderController.class);
+  private final Logger logger = LoggerFactory.getLogger(TaxiOrderController.class);
 
   private final TaxiOrderRepository repository;
   private final TaxiOrderService service;
@@ -35,7 +34,7 @@ public class TaxiOrderController {
 
   @GetMapping("/orders/{id}")
   public TaxiOrder one(@PathVariable int id, Authentication auth) {
-    logger.info("GET order=" + id);
+    logger.info("GET order={}", id);
     Long cabId = AuthUtils.getUserId(auth, "ROLE_CUSTOMER");
     TaxiOrder to = repository.findById(id);
     if (to == null) {
@@ -60,12 +59,12 @@ public class TaxiOrderController {
   }
 
   //  curl -d '{"fromStand":0, "toStand": 1, "maxWait":1, "maxLoss": 30, "shared": true}' -H 'Content-Type: application/json' http://localhost:8080/orders
-  @PostMapping(value="/orders", consumes = "application/json")
+  @PostMapping(value = "/orders", consumes = "application/json")
   public TaxiOrder newTaxiOrder(@RequestBody TaxiOrderPojo newTaxiOrder, Authentication auth) {
     // TODO: should fail if another order is RECEIVED
     logger.info("POST order");
-    Long usr_id = AuthUtils.getUserId(auth, "ROLE_CUSTOMER");
-    if (usr_id == null) {
+    Long roleCustomer = AuthUtils.getUserId(auth, "ROLE_CUSTOMER");
+    if (roleCustomer == null) {
       return null; // not authorised
     }
     if (newTaxiOrder.fromStand == newTaxiOrder.toStand) { // a joker
@@ -76,7 +75,7 @@ public class TaxiOrderController {
     order.setEta(-1);
     order.setMaxWait(20);
     order.setInPool(false);
-    return service.saveTaxiOrder(order, usr_id);
+    return service.saveTaxiOrder(order, roleCustomer);
   }
 
   /** goal is to update status
@@ -88,13 +87,13 @@ public class TaxiOrderController {
    */
   @PutMapping(value="/orders/{id}", consumes = "application/json")
   public String updateTaxiOrder(@PathVariable Long id, @RequestBody TaxiOrderPojo newTaxiOrder, Authentication auth) {
-    logger.info("PUT order=" + id);
-    Long usr_id = AuthUtils.getUserId(auth, "ROLE_CUSTOMER");
-    if (usr_id == null) {
+    logger.info("PUT order={}", id);
+    Long usrId = AuthUtils.getUserId(auth, "ROLE_CUSTOMER");
+    if (usrId == null) {
       return null; // not authorised
     }
     Optional<TaxiOrder> ord = repository.findById(id);
-    if (ord == null || !ord.isPresent()) {
+    if (ord.isEmpty()) {
       return null;
     }
     Duration duration = Duration.between(ord.get().getRcvdTime(), LocalDateTime.now());
@@ -105,7 +104,7 @@ public class TaxiOrderController {
     }
     ord.get().setId(id);
     ord.get().setStatus(newTaxiOrder.status);
-    service.updateTaxiOrder(ord.get(), usr_id);
+    service.updateTaxiOrder(ord.get(), usrId);
     return "OK";
   }
 }
