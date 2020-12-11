@@ -8,7 +8,7 @@ import org.slf4j.LoggerFactory;
 // Greatest Cost - finding cabs with greatest distance to limit the size of solver
 public class GcmUtil {
 
-  private static Logger logger = LoggerFactory.getLogger(GcmUtil.class);
+  private static final Logger logger = LoggerFactory.getLogger(GcmUtil.class);
 
     /** Find maximum minimums - get rid of Cabs which are too distant
      *
@@ -81,7 +81,7 @@ public class GcmUtil {
 
     TaxiOrder[] ret = new TaxiOrder[goalSize];
     int idx = 0;
-    for (int j=0; j<minDistances.length; j++) {
+    for (int j = 0; j < minDistances.length; j++) {
       if (minDistances[j] != -1) {
         ret[idx++] = tmpDemand[j];
       }

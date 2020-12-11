@@ -2,12 +2,18 @@ package no.kabina.kaboot.cabs;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.BDDMockito.given;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import no.kabina.kaboot.KabootApplication;
+import no.kabina.kaboot.cabs.Cab;
+import no.kabina.kaboot.cabs.CabController;
+import no.kabina.kaboot.cabs.CabPOJO;
+import no.kabina.kaboot.cabs.CabRepository;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -32,7 +38,7 @@ import java.util.Base64;
 @RunWith(SpringRunner.class)
 @WebMvcTest(CabController.class)
 @ActiveProfiles("test")
-public class CabControllerTests {
+public class ControllerTests {
 
     @Autowired
     private MockMvc mvc;
@@ -74,10 +80,18 @@ public class CabControllerTests {
 
     @Test
     public void whenGetNonExistingCab_thenReturns200() throws Exception {
+        given(cabRepo.findById(1)).willReturn(new Cab(0, Cab.CabStatus.ASSIGNED));
         mvc.perform(get("/cabs/1", 1L) // cab1 by cab0
             .header("Authorization", token)
             .contentType(MediaType.APPLICATION_JSON))
             .andExpect(status().isOk());
+    }
+
+    @Test
+    public void testPojo() throws Exception {
+        CabPOJO pojo = new CabPOJO(1, Cab.CabStatus.ASSIGNED);
+        assertThat(pojo != null).isTrue();
+        assertThat(pojo.getStatus() == Cab.CabStatus.ASSIGNED).isTrue();
     }
 
 }

@@ -47,20 +47,6 @@ public class StatService {
     return statRepo.save(stat);
   }
 
-  public Stat updateAvgIntVal(String key, int value) {
-    Stat stat = statRepo.findByName(key);
-    if (stat == null) {
-      Stat s = new Stat(key, value, 0);
-      return statRepo.save(s);
-    }
-    if (value > stat.getIntVal()) {
-      stat.setIntVal(value);
-      return statRepo.save(stat);
-    } else {
-      return stat;
-    }
-  }
-
   public Stat updateIntVal(String key, int value) {
     Stat stat = statRepo.findByName(key);
     if (stat == null) {

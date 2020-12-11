@@ -5,21 +5,32 @@ import no.kabina.kaboot.utils.AuthUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.security.core.Authentication;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 public class CabController {
-  private Logger logger = LoggerFactory.getLogger(CabController.class);
+  private final Logger logger = LoggerFactory.getLogger(CabController.class);
 
-  private CabRepository repository;
+  private final CabRepository repository;
 
   public CabController(CabRepository repository) {
     this.repository = repository;
   }
 
+  /**
+   *  Getting cab
+   * @param id ID
+   * @param auth authentication service
+   * @return Cab
+   */
   @GetMapping("/cabs/{id}")
   public Cab one(@PathVariable int id, Authentication auth) {
-    logger.info("GET cab=" + id);
+    logger.info("GET cab={}", id);
     //Long cabId = AuthUtils.getUserId(auth, "ROLE_CUSTOMER"); both roles should access
     // TODO: more authorisation ?
     Cab c = repository.findById(id);
@@ -44,7 +55,7 @@ public class CabController {
   }
 
   // TODO: temporary, should not be allowed for ROLE_CAB
-  @PostMapping(value="/cabs/") // , consumes = "application/json"boot
+  @PostMapping(value = "/cabs/") // , consumes = "application/json"boot
   public Cab insertCab(@RequestBody CabPOJO cab, Authentication auth) {
     logger.info("POST cab");
     Cab c = new Cab(cab.getLocation(), cab.getStatus());

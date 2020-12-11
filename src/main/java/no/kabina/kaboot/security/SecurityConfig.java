@@ -22,6 +22,7 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
             .antMatchers("/cabs").hasRole("CUSTOMER")
             .antMatchers("/orders").hasRole("CUSTOMER")
             .antMatchers("/routes").hasRole("CAB")
+            .antMatchers("/legs").hasRole("CAB")
             .antMatchers("/info").hasRole("ADMIN")
             .antMatchers("/schedulework").hasRole("ADMIN")
             .anyRequest().authenticated()

@@ -12,6 +12,9 @@ import javax.persistence.OneToMany;
 import java.util.HashSet;
 import java.util.Set;
 
+// MariaDB
+// mysql -u kabina -p -D kabina < customer-just-inserts.sql
+
 @Entity
 public class Customer {
     @Id

@@ -1,11 +1,5 @@
 package no.kabina.kaboot.routes;
 
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
-
-import java.nio.charset.StandardCharsets;
-import java.util.Base64;
-
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -17,10 +11,17 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.junit4.SpringRunner;
 import org.springframework.test.web.servlet.MockMvc;
 
+import java.nio.charset.StandardCharsets;
+import java.util.Base64;
+
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
 @RunWith(SpringRunner.class)
-@WebMvcTest(RouteController.class)
+@WebMvcTest(LegController.class)
 @ActiveProfiles("test")
-public class RouteControllerTests {
+public class LegControllerTests {
 
     @Autowired
     private MockMvc mvc;
@@ -40,7 +41,7 @@ public class RouteControllerTests {
         token = "Basic " + encodedAuth;
     }
 
- /*   @Test
+    @Test
     public void whenUpdate_thenReturns200() throws Exception {
         String body = "{\"status\": \"COMPLETE\"}";
         mvc.perform(put("/legs/1")
@@ -49,12 +50,12 @@ public class RouteControllerTests {
                 .content(body))
                 .andExpect(status().isOk());
     }
-*/
-    @Test
+
+  /*  @Test
     public void whenGetRoutes_thenReturns200() throws Exception {
         mvc.perform(get("/routes")
             .header("Authorization", token)
             .contentType(MediaType.APPLICATION_JSON))
             .andExpect(status().isOk());
-    }
+    }*/
 }

@@ -37,3 +37,4 @@ build/
 *.lck
 *.gz
 *.class
+logs

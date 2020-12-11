@@ -8,8 +8,6 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-
-import com.sun.istack.Pool;
 import no.kabina.kaboot.cabs.Cab;
 import no.kabina.kaboot.cabs.CabRepository;
 import no.kabina.kaboot.orders.TaxiOrder;
@@ -29,7 +27,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Component
 public class SchedulerService {
 
-  private Logger logger = LoggerFactory.getLogger(SchedulerService.class);
+  private final Logger logger = LoggerFactory.getLogger(SchedulerService.class);
 
   //final String SOLVER_CMD = "C:\\Python\\Python37\\python solver.py";
   final String SOLVER_CMD = "runpy.bat";
@@ -130,7 +128,7 @@ public class SchedulerService {
     int[] x = readSolversResult(cost.length);
     if (x.length != cost.length * cost.length) {
       logger.warn("Solver returned wrong data set");
-      // TODO: LCM should be called instead
+      // TODO: LCM should be called here
     } else {
       int assgnd = assignCustomers(x, cost, tempDemand, tempSupply, pl);
       logger.info("Customers assigned by solver: {}", assgnd);
