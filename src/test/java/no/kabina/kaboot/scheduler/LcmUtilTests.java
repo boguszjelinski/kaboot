@@ -31,11 +31,24 @@ public class LcmUtilTests {
     @Test
     public void testLcm() {
         final int size = 10;
-
         LcmOutput c = LcmUtil.lcm(cost, size);
-        assertThat(c.pairs.size()).isSameAs(size);
-        for (int i = 0; i< size; i++)
-            assertThat(c.pairs.get(i).cab).isSameAs(c.pairs.get(i).clnt);
+        assertThat(c.getPairs().size()).isSameAs(size);
+        for (int i = 0; i< size; i++) {
+            assertThat(c.getPairs().get(i).getCab()).isSameAs(c.getPairs().get(i).getClnt());
+            if (i > 0) {
+                assertThat(c.getPairs().get(i).getCab()).isNotSameAs(c.getPairs().get(i-1).getCab());
+                assertThat(c.getPairs().get(i).getClnt()).isNotSameAs(c.getPairs().get(i-1).getClnt());
+            }
+        }
+    }
+
+    @Test
+    public void testRemoveCols() {
+        final int cab = 1;
+        final int clnt = 2;
+        assertThat(cost[cab][clnt] < LcmUtil.BIG_COST).isTrue();
+        LcmUtil.removeColsAndRows(cost.length, cost, cab,clnt);
+        assertThat(cost[cab][clnt] - LcmUtil.BIG_COST).isSameAs(0);
     }
 
     @Test

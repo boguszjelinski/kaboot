@@ -15,5 +15,9 @@ org:
 
 kaboot:
   consts:
-    max-non-lcm: 0
+    max-non-lcm: 200
+    max-pool4: 300
+    max-pool3: 600
     max-stand: 50
+    scheduler:
+      online: true

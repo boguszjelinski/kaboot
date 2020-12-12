@@ -43,4 +43,33 @@ public class GcmUtilTests {
         for (int i = 0; i < size; i++)
             assertThat(o[i].getFromStand()).isSameAs(numbOfStands - size + i);
     }
+
+    @Test
+    public void testFindMinDistancesForDemand() {
+        int n = 2;
+        Cab[] cabs2 = new Cab[n];
+        TaxiOrder[] orders2 = new TaxiOrder[n];
+        for (int i=0; i < n; i++) {
+            cabs2[i] = new Cab(0, Cab.CabStatus.FREE);
+            orders2[i] = new TaxiOrder(10,12, 10, 10, true, TaxiOrder.OrderStatus.RECEIVED);
+        }
+        int [][] cost2 = LcmUtil.calculateCost(orders2, cabs2);
+
+        Integer[] o = GcmUtil.findMinDistancesForDemand(cost2);
+        assertThat(o.length).isSameAs(n);
+        for (int i= 0; i<o.length; i++)
+            assertThat(o[i].intValue() - LcmUtil.BIG_COST).isEqualTo(0);
+
+        for (int i=0; i < n; i++) {
+            cabs2[i] = new Cab(0, Cab.CabStatus.FREE);
+            orders2[i] = new TaxiOrder(1,12, 10, 10, true, TaxiOrder.OrderStatus.RECEIVED);
+        }
+        cost2 = LcmUtil.calculateCost(orders2, cabs2);
+        o = GcmUtil.findMinDistancesForDemand(cost2);
+        assertThat(o.length).isSameAs(n);
+        for (int i = 0; i<o.length; i++)
+            assertThat(o[i].intValue()).isSameAs(1);
+    }
+
+
 }

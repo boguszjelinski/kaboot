@@ -1,28 +1,35 @@
 package no.kabina.kaboot.routes;
 
 import java.util.List;
+import java.util.Optional;
 import no.kabina.kaboot.utils.AuthUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.Authentication;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 public class RouteController {
 
-  private Logger logger = LoggerFactory.getLogger(RouteController.class);
+  private final Logger logger = LoggerFactory.getLogger(RouteController.class);
 
   private final RouteRepository repository;
-  private final LegRepository legRepo;
 
-  public RouteController(RouteRepository repository, LegRepository legRepo) {
+  public RouteController(RouteRepository repository) {
     this.repository = repository;
-    this.legRepo = legRepo;
   }
 
-  // curl -v --user cab0:cab0 http://localhost:8080/routes
-  // {"id":0,"status":"ASSIGNED"}
+  /**
+   *  curl -v --user cab0:cab0 http://localhost:8080/routes
+   *  {"id":0,"status":"ASSIGNED"}
+   * @param auth auth
+   * @return one route
+   */
   @GetMapping(path = "/routes", produces = MediaType.APPLICATION_JSON_VALUE)
   public Route getValidRouteByCab(Authentication auth) {
     Long cabId = AuthUtils.getUserId(auth, "ROLE_CAB");
@@ -31,7 +38,6 @@ public class RouteController {
       return null;
     } else {
       Route r = routes.get(0);
-      //r.setCab(null);
       for (Leg l : r.getLegs()) {
         l.setRoute(null);
       }
@@ -43,7 +49,13 @@ public class RouteController {
   @PutMapping(value = "/routes/{id}", consumes = "application/json")
   public String updateLeg(@PathVariable Long id, @RequestBody RoutePojo route, Authentication auth) {
     logger.info("PUT route={}", id);
-    Route r = repository.findById(id).get();
+    Route r = null;
+    Optional<Route> ro = repository.findById(id);
+    if (ro.isEmpty()) {
+      logger.info("No such route={}", id);
+      return null;
+    }
+    r = ro.get();
 
     Long usrId = AuthUtils.getUserId(auth, "ROLE_CAB");
     if (usrId.longValue() != r.getCab().getId()) { // now it is that simple - cab_id == usr_id
@@ -55,10 +67,6 @@ public class RouteController {
   }
 
   List<Route> retrieveByCabIdAndStatus(Long cabId, Route.RouteStatus status) {
-    List<Route> routes = repository.findByCabIdAndStatus(cabId, status);
-    /*   for (Route r: routes) {
-       r.setLegs(legRepo.findByRouteId(r.getId()));
-    }*/
-    return routes;
+    return repository.findByCabIdAndStatus(cabId, status);
   }
 }

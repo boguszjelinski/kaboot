@@ -22,25 +22,29 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Transactional;
 
 @Component
 public class SchedulerService {
 
   private final Logger logger = LoggerFactory.getLogger(SchedulerService.class);
 
-  //final String SOLVER_CMD = "C:\\Python\\Python37\\python solver.py";
-  final String SOLVER_CMD = "runpy.bat";
-  final String SOLVER_OUT_FILE = "solv_out.txt";
+  static final String SOLVER_CMD = "runpy.bat"; // C:\\Python\\Python37\\python solver.py
+  static final String SOLVER_OUT_FILE = "solv_out.txt";
+  static final String AVG_ORDER_ASSIGN_TIME = "avg_order_assign_time";
+  static final String AVG_ORDER_PICKUP_TIME = "avg_order_pickup_time";
+  static final String AVG_ORDER_COMPLETE_TIME = "avg_order_complete_time";
+  static final String AVG_POOL_TIME = "avg_pool_time";
+  static final String AVG_SOLVER_TIME = "avg_solver_time";
+  static final String AVG_SHEDULER_TIME = "avg_sheduler_time";
 
   @Value("${kaboot.consts.max-pool4}")
-  private int MAX_4POOL; // TODO: it is not that simple, we need a model here: size, max wait, ...
+  private int max4Pool; // TASK: it is not that simple, we need a model here: size, max wait, ...
 
   @Value("${kaboot.consts.max-pool3}")
-  private int MAX_3POOL;
+  private int max3Pool;
 
   @Value("${kaboot.consts.max-non-lcm}")
-  private int MAX_SOLVER_SIZE; // how big can a solver model be; 0 = no solver at all
+  private int maxSolverSize; // how big can a solver model be; 0 = no solver at all
 
   @Value("${kaboot.scheduler.online}")
   private boolean isOnline;
@@ -64,8 +68,8 @@ public class SchedulerService {
   //@Job(name = "Taxi scheduler", retries = 2)
   public void findPlan() {
     try {
-      int[][] cost; //= new int[0][0];
-      //UUID uuid = UUID.randomUUID();  // TODO: to mark cabs and customers as assigned to this instance of sheduler
+      int[][] cost;
+      //UUID uuid = UUID.randomUUID();  // TASK: to mark cabs and customers as assigned to this instance of sheduler
       // first update some statistics
       updateAvgStats();
       long startSheduler = System.currentTimeMillis();
@@ -74,25 +78,28 @@ public class SchedulerService {
       if (tmpModel == null) {
         return;
       }
-      if (tmpModel.supply.length > 0 && tmpModel.demand.length > 0 && isOnline) {
+      TaxiOrder[] demand = tmpModel.getDemand();
+      Cab[] supply = tmpModel.getSupply();
 
-        PoolElement[] pl = generatePool(tmpModel.demand);
-        tmpModel.demand = PoolUtil.findFirstLegInPoolOrLone(pl, tmpModel.demand); // only the first leg will be sent to solver
-        logger.info("Demand after pooling: {}", tmpModel.demand.length);
-        cost = LcmUtil.calculateCost(tmpModel.demand, tmpModel.supply);
+      if (supply.length > 0 && demand.length > 0 && isOnline) {
+
+        PoolElement[] pl = generatePool(demand);
+        demand = PoolUtil.findFirstLegInPoolOrLone(pl, demand); // only the first leg will be sent to solver
+        logger.info("Demand after pooling: {}", demand.length);
+        cost = LcmUtil.calculateCost(demand, supply);
 
         statSrvc.updateMaxIntVal("max_model_size", cost.length);
-        if (tmpModel.demand.length > MAX_SOLVER_SIZE && tmpModel.supply.length > MAX_SOLVER_SIZE) { // too big to send to solver, it has to be cut by LCM
+        if (demand.length > maxSolverSize && supply.length > maxSolverSize) { // too big to send to solver, it has to be cut by LCM
           // both sides has to be bigger,
-          TempModel tempModel = runLcm(tmpModel.supply, tmpModel.demand, cost, pl);
+          TempModel tempModel = runLcm(supply, demand, cost, pl);
           if (tempModel == null) {
             return;
           }
-            // to be sent to solver
-          logger.info("After LCM: demand={}, supply={}", tmpModel.demand.length, tmpModel.supply.length);
-          cost = LcmUtil.calculateCost(tmpModel.demand, tmpModel.supply);
+          // to be sent to solver
+          logger.info("After LCM: demand={}, supply={}", demand.length, supply.length);
+          cost = LcmUtil.calculateCost(demand, supply);
         }
-        runSolver(tmpModel.supply, tmpModel.demand, cost, pl);
+        runSolver(supply, demand, cost, pl);
         updateStats("sheduler_time", startSheduler);
       }
     } catch (Exception e) {
@@ -104,21 +111,21 @@ public class SchedulerService {
    * Takes values stored in internal lists and stores in DB
    */
   private void updateAvgStats() {
-    statSrvc.updateIntVal("avg_order_assign_time", statSrvc.countAverage("avg_order_assign_time")); // TODO: in the future move it where it is counted once after simulation
-    statSrvc.updateIntVal("avg_order_pickup_time", statSrvc.countAverage("avg_order_pickup_time"));
-    statSrvc.updateIntVal("avg_order_complet_time", statSrvc.countAverage("avg_order_complete_time"));
-    statSrvc.updateIntVal("avg_pool_time", statSrvc.countAverage("avg_pool_time"));
-    statSrvc.updateIntVal("avg_solver_time", statSrvc.countAverage("avg_solver_time"));
-    statSrvc.updateIntVal("avg_sheduler_time", statSrvc.countAverage("avg_sheduler_time"));
+    statSrvc.updateIntVal(AVG_ORDER_ASSIGN_TIME, statSrvc.countAverage(AVG_ORDER_ASSIGN_TIME)); // TASK: in the future move it where it is counted once after simulation
+    statSrvc.updateIntVal(AVG_ORDER_PICKUP_TIME, statSrvc.countAverage(AVG_ORDER_PICKUP_TIME));
+    statSrvc.updateIntVal(AVG_ORDER_COMPLETE_TIME, statSrvc.countAverage(AVG_ORDER_COMPLETE_TIME));
+    statSrvc.updateIntVal(AVG_POOL_TIME, statSrvc.countAverage(AVG_POOL_TIME));
+    statSrvc.updateIntVal(AVG_SOLVER_TIME, statSrvc.countAverage(AVG_SOLVER_TIME));
+    statSrvc.updateIntVal(AVG_SHEDULER_TIME, statSrvc.countAverage(AVG_SHEDULER_TIME));
   }
 
-  private void runSolver(Cab[] tempSupply, TaxiOrder[] tempDemand, int[][] cost, PoolElement[] pl) {
-    if (cost.length > MAX_SOLVER_SIZE) { // still too big to send to solver, it has to be cut hard
-      if (tempSupply.length > MAX_SOLVER_SIZE) { // some cabs will not get passengers, they have to wait for new ones
-        tempSupply = GcmUtil.reduceSupply(cost, tempSupply, MAX_SOLVER_SIZE);
+  public void runSolver(Cab[] tempSupply, TaxiOrder[] tempDemand, int[][] cost, PoolElement[] pl) throws InterruptedException {
+    if (cost.length > maxSolverSize) { // still too big to send to solver, it has to be cut hard
+      if (tempSupply.length > maxSolverSize) { // some cabs will not get passengers, they have to wait for new ones
+        tempSupply = GcmUtil.reduceSupply(cost, tempSupply, maxSolverSize);
       }
-      if (tempDemand.length > MAX_SOLVER_SIZE) {
-        tempDemand = GcmUtil.reduceDemand(cost, tempDemand, MAX_SOLVER_SIZE);
+      if (tempDemand.length > maxSolverSize) {
+        tempDemand = GcmUtil.reduceDemand(cost, tempDemand, maxSolverSize);
       }
       cost = LcmUtil.calculateCost(tempDemand, tempSupply); // it writes input file for solver
     }
@@ -128,7 +135,7 @@ public class SchedulerService {
     int[] x = readSolversResult(cost.length);
     if (x.length != cost.length * cost.length) {
       logger.warn("Solver returned wrong data set");
-      // TODO: LCM should be called here
+      // TASK: LCM should be called here
     } else {
       int assgnd = assignCustomers(x, cost, tempDemand, tempSupply, pl);
       logger.info("Customers assigned by solver: {}", assgnd);
@@ -137,14 +144,14 @@ public class SchedulerService {
     // if not - the other one should get a chance
   }
 
-  private void runExternalSolver() {
+  private void runExternalSolver() throws InterruptedException {
     try {
-      // TODO: rm out file first
+      // TASK: rm out file first
       Process p = Runtime.getRuntime().exec(SOLVER_CMD);
       long startSolver = System.currentTimeMillis();
       p.waitFor();
       updateStats("solver_time", startSolver);
-    } catch (InterruptedException | IOException e) {
+    } catch (IOException e) {
       logger.warn("Exception while running solver: {}", e.getMessage());
     }
   }
@@ -157,7 +164,7 @@ public class SchedulerService {
     statSrvc.updateMaxIntVal("max_" + key, totalTime);
   }
 
-  private int[] readSolversResult(int nn) {
+  public int[] readSolversResult(int nn) {
     int[] x = new int[nn * nn];
     try (BufferedReader reader = new BufferedReader(new FileReader(SOLVER_OUT_FILE))) {
       String line = null;
@@ -213,7 +220,7 @@ public class SchedulerService {
    * @param demand
    * @return
    */
-  private PoolElement[] generatePool(TaxiOrder[] demand) {
+  public PoolElement[] generatePool(TaxiOrder[] demand) {
     final long startPool = System.currentTimeMillis();
     if (demand == null || demand.length < 2) {
       return new PoolElement[0];
@@ -221,16 +228,25 @@ public class SchedulerService {
     // with 4 passengers
     PoolElement[] ret;
     PoolElement[] pl4 = null;
-    if (demand.length < MAX_4POOL) {
+    if (demand.length < max4Pool) {
       final long startPool4 = System.currentTimeMillis();
       pl4 = PoolUtil.findPool(demand, 4); // four passengers: size^4 combinations (full search)
       updateStats("pool4_time", startPool4);
     }
     // with 3 passengers
+    ret = getPoolWith3(demand, pl4);
+    updateStats("pool_time", startPool);
+    // reduce tempDemand - 2nd+ passengers will not be sent to LCM or solver
+    logger.info("Pool size: {}", ret == null ? 0 : ret.length);
+    return ret;
+  }
+
+  private PoolElement[] getPoolWith3(TaxiOrder[] demand, PoolElement[] pl4) {
+    PoolElement[] ret;
     TaxiOrder[] demand3 = PoolUtil.findCustomersWithoutPool(pl4, demand);
     if (demand3 != null && demand3.length > 0) { // there is still an opportunity
       PoolElement[] pl3;
-      if (demand3.length < MAX_3POOL) { // not too big for three customers, let's find out!
+      if (demand3.length < max3Pool) { // not too big for three customers, let's find out!
         final long startPool3 = System.currentTimeMillis();
         pl3 = PoolUtil.findPool(demand3, 3);
         updateStats("pool3_time", startPool3);
@@ -243,40 +259,43 @@ public class SchedulerService {
         pl3 = pl4;
       }
       // with 2 passengers (this runs fast and no max is needed
-      TaxiOrder[] demand2 = PoolUtil.findCustomersWithoutPool(pl3, demand3);
-      if (demand2 != null && demand2.length > 0) {
-        PoolElement[] pl2 = PoolUtil.findPool(demand2, 2);
-        if (pl2.length == 0) {
-          ret = pl3;
-        } else {
-          ret = ArrayUtils.addAll(pl2, pl3);
-        }
-      } else {
-        ret = pl3;
-      }
+      ret = getPoolWith2(demand3, pl3);
     } else {
       ret = pl4;
     }
-    updateStats("pool_time", startPool);
-    // reduce tempDemand - 2nd+ passengers will not be sent to LCM or solver
-    logger.info("Pool size: {}", ret == null ? 0 : ret.length);
     return ret;
   }
 
-  private TempModel runLcm(Cab[] supply, TaxiOrder[] demand, int[][] cost, PoolElement[] pl) {
+  private PoolElement[] getPoolWith2(TaxiOrder[] demand3, PoolElement[] pl3) {
+    PoolElement[] ret;
+    TaxiOrder[] demand2 = PoolUtil.findCustomersWithoutPool(pl3, demand3);
+    if (demand2 != null && demand2.length > 0) {
+      PoolElement[] pl2 = PoolUtil.findPool(demand2, 2);
+      if (pl2.length == 0) {
+        ret = pl3;
+      } else {
+        ret = ArrayUtils.addAll(pl2, pl3);
+      }
+    } else {
+      ret = pl3;
+    }
+    return ret;
+  }
+
+
+  public TempModel runLcm(Cab[] supply, TaxiOrder[] demand, int[][] cost, PoolElement[] pl) {
 
     final long startLcm = System.currentTimeMillis();
     // =========== LCM ==========
     statSrvc.updateMaxIntVal("max_lcm_size", cost.length);
-    LcmOutput out = LcmUtil.lcm(cost, Math.min(demand.length, supply.length) - MAX_SOLVER_SIZE);
+    LcmOutput out = LcmUtil.lcm(cost, Math.min(demand.length, supply.length) - maxSolverSize);
 
     // do we need this check, really
-    if (out.minVal == LcmUtil.bigCost) { // no input for the solver; probably only when MAX_SOLVER_SIZE=0
-      logger.info("out.minVal == LcmUtil.bigCost");
-      return null;
+    if (out.getMinVal() == LcmUtil.BIG_COST) { // no input for the solver; probably only when MAX_SOLVER_SIZE=0
+      logger.info("No input for solver, out.minVal == LcmUtil.bigCost"); // should we return here?
     }
 
-    List<LcmPair> pairs = out.pairs;
+    List<LcmPair> pairs = out.getPairs();
     logger.info("LCM pairs: {}", pairs.size());
 
     statSrvc.incrementIntVal("total_lcm_used");
@@ -292,7 +311,7 @@ public class SchedulerService {
     // go thru LCM response (which are indexes in tempDemand and tempSupply)
     int sum = 0;
     for (LcmPair pair : pairs) {
-      sum += assignCustomerToCab(demand[pair.clnt], supply[pair.cab], pl);
+      sum += assignCustomerToCab(demand[pair.getClnt()], supply[pair.getCab()], pl);
     }
     logger.info("Customers assigned by LCM: {}", sum);
 
@@ -315,7 +334,7 @@ public class SchedulerService {
 
     for (int s = 0; s < tmpSupply.length; s++) {
       for (int c = 0; c < tmpDemand.length; c++) {
-        if (x[nn * s + c] == 1 && cost[s][c] < LcmUtil.bigCost) { // not a fake assignment (to balance the model)
+        if (x[nn * s + c] == 1 && cost[s][c] < LcmUtil.BIG_COST) { // not a fake assignment (to balance the model)
           count += assignCustomerToCab(tmpDemand[c], tmpSupply[s], pool);
         }
       }
@@ -330,8 +349,7 @@ public class SchedulerService {
    * @param pool
    * @return  number of assigned customers
    */
-  @Transactional  // TODO: it isn't transactional
-  private int assignCustomerToCab(TaxiOrder order, Cab cab, PoolElement[] pool) {
+  private int assignCustomerToCab(TaxiOrder order, Cab cab, PoolElement[] pool) { // TASK: it isn't transactional
     // update CAB
     cab.setStatus(Cab.CabStatus.ASSIGNED);
     cabRepository.save(cab);
@@ -352,30 +370,7 @@ public class SchedulerService {
       if (e.cust[0].id.equals(order.id)) { // yeap, this id is in a pool
         // checking number
         // save pick-up phase
-        int c = 0;
-        for (; c < e.numbOfCust - 1; c++) {
-          leg = null;
-          if (e.cust[c].fromStand != e.cust[c + 1].fromStand) { // there is movement
-            leg = new Leg(e.cust[c].fromStand, e.cust[c + 1].fromStand, legId++, Route.RouteStatus.ASSIGNED);
-            saveLeg(leg, route);
-          }
-          assignOrder(leg, e.cust[c], cab, route);
-        }
-        leg = null;
-        // save drop-off phase
-        if (e.cust[c].fromStand != e.cust[c + 1].toStand) {
-          leg = new Leg(e.cust[c].fromStand, e.cust[c + 1].toStand, legId++, Route.RouteStatus.ASSIGNED);
-          leg = saveLeg(leg, route);
-        }
-        assignOrder(leg, e.cust[c], cab, route);
-        //
-        for (c++; c < 2 * e.numbOfCust - 1; c++) {
-          if (e.cust[c].toStand != e.cust[c + 1].toStand) {
-            leg = new Leg(e.cust[c].toStand, e.cust[c + 1].toStand, legId++, Route.RouteStatus.ASSIGNED);
-            saveLeg(leg, route);
-          }
-          // here we don't update TaxiOrder
-        }
+        legId = assignOrdersAndSaveLegs(cab, route, legId, e);
         return e.numbOfCust;
       }
     }
@@ -384,6 +379,35 @@ public class SchedulerService {
     leg = saveLeg(leg, route);
     assignOrder(leg, order, cab, route);
     return 1; // one customer
+  }
+
+  private int assignOrdersAndSaveLegs(Cab cab, Route route, int legId, PoolElement e) {
+    Leg leg;
+    int c = 0;
+    for (; c < e.numbOfCust - 1; c++) {
+      leg = null;
+      if (e.cust[c].fromStand != e.cust[c + 1].fromStand) { // there is movement
+        leg = new Leg(e.cust[c].fromStand, e.cust[c + 1].fromStand, legId++, Route.RouteStatus.ASSIGNED);
+        saveLeg(leg, route);
+      }
+      assignOrder(leg, e.cust[c], cab, route);
+    }
+    leg = null;
+    // save drop-off phase
+    if (e.cust[c].fromStand != e.cust[c + 1].toStand) {
+      leg = new Leg(e.cust[c].fromStand, e.cust[c + 1].toStand, legId++, Route.RouteStatus.ASSIGNED);
+      leg = saveLeg(leg, route);
+    }
+    assignOrder(leg, e.cust[c], cab, route);
+    //
+    for (c++; c < 2 * e.numbOfCust - 1; c++) {
+      if (e.cust[c].toStand != e.cust[c + 1].toStand) {
+        leg = new Leg(e.cust[c].toStand, e.cust[c + 1].toStand, legId++, Route.RouteStatus.ASSIGNED);
+        saveLeg(leg, route);
+      }
+      // here we don't update TaxiOrder
+    }
+    return legId;
   }
 
   private Leg saveLeg(Leg l, Route r) {
@@ -402,19 +426,19 @@ public class SchedulerService {
       return;
     }
     if (curr.get().getStatus() == TaxiOrder.OrderStatus.CANCELLED) { // customer cancelled while sheduler was working
-      return; // TODO: the whole route should be adjusted, a stand maybe ommited
+      return; // TASK: the whole route should be adjusted, a stand maybe ommited
     }
-    // TODO: maybe 'curr' should be used later on, not 'o', to imbrace some more changes
+    // TASK: maybe 'curr' should be used later on, not 'o', to imbrace some more changes
     if (l != null) {
       o.setLeg(l);
     }
     Duration duration = Duration.between(o.getRcvdTime(), LocalDateTime.now());
-    statSrvc.addAverageElement("avg_order_assign_time", duration.getSeconds());
+    statSrvc.addAverageElement(AVG_ORDER_ASSIGN_TIME, duration.getSeconds());
 
     o.setStatus(TaxiOrder.OrderStatus.ASSIGNED);
     o.setCab(c);
     o.setRoute(r);
-    // TODO: order.eta to be set
+    // TASK: order.eta to be set
     taxiOrderRepository.save(o);
   }
 
@@ -423,13 +447,13 @@ public class SchedulerService {
    * @param demand
    * @return array of orders that are still valid
    */
-  private TaxiOrder[] expireRequests (TaxiOrder[] demand) {
+  private TaxiOrder[] expireRequests(TaxiOrder[] demand) {
     List<TaxiOrder> newDemand = new ArrayList<>();
 
     LocalDateTime time = LocalDateTime.now();
     for (TaxiOrder o : demand) {
       long minutes = Duration.between(time, o.getRcvdTime()).getSeconds()/60;
-      if (minutes > o.getMaxWait()) { // TODO: maybe scheduler should have its own, global MAX WAIT
+      if (minutes > o.getMaxWait()) { // TASK: maybe scheduler should have its own, global MAX WAIT
         logger.info("Customer={} refused, max wait exceeded", o.id);
         o.setStatus(TaxiOrder.OrderStatus.REFUSED);
         taxiOrderRepository.save(o);

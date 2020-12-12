@@ -6,7 +6,6 @@ import no.kabina.kaboot.customers.CustomerRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class TaxiOrderService {
@@ -20,7 +19,6 @@ public class TaxiOrderService {
     this.customerRepository = customerRepository;
   }
 
-  @Transactional
   public TaxiOrder saveTaxiOrder(TaxiOrder order, Long custId) {
     Optional<Customer> cust = customerRepository.findById(custId);
     if (cust.isEmpty()) {
@@ -31,7 +29,6 @@ public class TaxiOrderService {
     return repository.save(order);
   }
 
-  @Transactional
   public TaxiOrder updateTaxiOrder(TaxiOrder order, Long custId) {
     Optional<Customer> cust = customerRepository.findById(custId);
     if (cust.isEmpty() || cust.get().getId().longValue() != order.getCustomer().getId().longValue()) { //not authorised

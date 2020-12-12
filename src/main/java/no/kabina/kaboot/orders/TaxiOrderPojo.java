@@ -20,20 +20,24 @@ public class TaxiOrderPojo { // because SonarLint complained
   }
 
   public int getFromStand() {
-        return fromStand;
-    }
+    return fromStand;
+  }
+
   public int getToStand() {
-        return toStand;
-    }
+    return toStand;
+  }
+
   public int getMaxWait() {
-        return maxWait;
-    }
+    return maxWait;
+  }
+
   public int getMaxLoss() {
-        return maxLoss;
-    }
+    return maxLoss;
+  }
+
   public boolean isShared() {
-        return shared;
-    }
+    return shared;
+  }
 
   public void setStatus(TaxiOrder.OrderStatus status) {
     this.status = status;

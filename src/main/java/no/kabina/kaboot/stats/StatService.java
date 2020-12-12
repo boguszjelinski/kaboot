@@ -1,10 +1,9 @@
 package no.kabina.kaboot.stats;
 
-import org.springframework.stereotype.Component;
-
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import org.springframework.stereotype.Component;
 
 @Component
 public class StatService {
@@ -14,7 +13,7 @@ public class StatService {
 
   StatService(StatRepository repo) {
     this.statRepo = repo;
-    avgElements = new HashMap<String, List<Long>>();
+    avgElements = new HashMap<>(); // String, List<Long>
   }
 
     /**
@@ -88,7 +87,7 @@ public class StatService {
       return 0;
     }
     int sum = list.stream().mapToInt(Long::intValue).sum();
-    if (list.size() == 0) {
+    if (list.isEmpty()) {
       return -1;
     } else {
       return sum / list.size();

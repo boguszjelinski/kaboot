@@ -14,6 +14,12 @@ public class Stat {
 
   protected Stat() { }
 
+  /**
+   *
+   * @param name key
+   * @param intVal integer
+   * @param dblVal double
+   */
   public Stat(String name, int intVal, double dblVal) {
     this.name = name;
     this.intVal = intVal;
@@ -44,20 +50,3 @@ public class Stat {
     this.dblVal = dblVal;
   }
 }
-/*
-// METRICS
-	total_dropped
-	total_pickup_time
-	total_pickup_numb
-	total_simul_time
-	max_solver_time
-	max_LCM_time
-	total_LCM_used
-	max_model_size
-	max_solver_size
-	max_POOL_time
-	max_POOL_MEM_size
-	max_POOL_size
-	total_second_passengers
-    INSERT INTO STAT (id, name, value) VALUES (0,"max_model_size",0);
- */

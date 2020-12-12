@@ -36,31 +36,31 @@ public class StatsTests {
         statService.addAverageElement("key",1L);
         statService.addAverageElement("key",3L);
         int avg = statService.countAverage("key");
-        assertThat(avg == 2).isTrue();
+        assertThat(avg).isEqualTo(2);
     }
 
     @Test
     public void testUpdateMaxInt() {
         Stat stat = statService.updateMaxIntVal("key", 2);
-        assertThat(stat.getIntVal() == 2).isTrue();
+        assertThat(stat.getIntVal()).isEqualTo(2);
     }
 
     @Test
     public void testAddToIntVal() {
         Stat stat = statService.addToIntVal("key", 1);
-        assertThat(stat.getIntVal() == 2).isTrue();
+        assertThat(stat.getIntVal()).isEqualTo(2);
     }
 
     @Test
     public void testIncrementIntVal() {
         Stat stat = statService.incrementIntVal("key");
-        assertThat(stat.getIntVal() == 2).isTrue();
+        assertThat(stat.getIntVal()).isEqualTo(2);
     }
 
     @Test
     public void testUpdateIntVal() {
         Stat stat = statService.updateIntVal("key", 2);
-        assertThat(stat.getIntVal() == 2).isTrue();
+        assertThat(stat.getIntVal()).isEqualTo(2);
     }
 
     @Test
@@ -69,9 +69,9 @@ public class StatsTests {
         stat.setName("name");
         stat.setIntVal(1);
         stat.setDblVal(1.0);
-        assertThat("name".equals(stat.getName())).isTrue();
-        assertThat(stat.getIntVal() == 1).isTrue();
-        assertThat(stat.getDblVal() == 1.0).isTrue();
+        assertThat(stat.getName()).isEqualTo("name");
+        assertThat(stat.getIntVal()).isEqualTo(1);
+        assertThat(stat.getDblVal()).isEqualTo(1.0);
     }
 
 }

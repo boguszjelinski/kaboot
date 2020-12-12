@@ -4,7 +4,6 @@ import no.kabina.kaboot.scheduler.SchedulerService;
 import org.jobrunr.configuration.JobRunr;
 import org.jobrunr.jobs.mappers.JobMapper;
 import org.jobrunr.scheduling.BackgroundJob;
-import org.jobrunr.scheduling.JobScheduler;
 import org.jobrunr.scheduling.cron.Cron;
 import org.jobrunr.storage.InMemoryStorageProvider;
 import org.jobrunr.storage.StorageProvider;
@@ -37,7 +36,7 @@ public class KabootApplication {
   @Bean
   @Profile("!test")
   public CommandLineRunner demo() {
-    return (args) -> {
+    return args -> {
       BackgroundJob.scheduleRecurrently(
               "find-plan",
               SchedulerService::findPlan,
@@ -49,6 +48,6 @@ public class KabootApplication {
 
   public static void main(String[] args) {
     SpringApplication.run(KabootApplication.class, args);
-
   }
+
 }

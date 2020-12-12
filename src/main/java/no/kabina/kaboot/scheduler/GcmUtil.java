@@ -8,30 +8,23 @@ import org.slf4j.LoggerFactory;
 // Greatest Cost - finding cabs with greatest distance to limit the size of solver
 public class GcmUtil {
 
+  private GcmUtil() {} // hiding public
+
   private static final Logger logger = LoggerFactory.getLogger(GcmUtil.class);
 
-    /** Find maximum minimums - get rid of Cabs which are too distant
-     *
-     * @param cost
-     * @param tmpSupply current set of cabs to be cut
-     * @param goalSize expected size of output array
-     */
+  /** Find maximum minimums - get rid of Cabs which are too distant
+  *
+  * @param cost
+  * @param tmpSupply current set of cabs to be cut
+  * @param goalSize expected size of output array
+  */
   public static Cab[] reduceSupply(int[][] cost, Cab[] tmpSupply, int goalSize) {
     if (tmpSupply.length <= goalSize) {
       return tmpSupply; // nothing to do
     }
 
-    Integer[] minDistances = new Integer[cost.length];
+    Integer[] minDistances = findMinDistancesForSupply(cost);
 
-    for (int s = 0; s < cost.length; s++) {
-      int minVal = LcmUtil.bigCost;
-      for (int d = 0; d < cost.length; d++) {
-        if (cost[s][d] < minVal) {
-          minVal = cost[s][d];
-        }
-      }
-      minDistances[s] = minVal;
-    }
     // finding max values and getting rid of them
     for (int x = 0; x < tmpSupply.length - goalSize; x++) { // repeat so many times
       int idx = 0;
@@ -43,33 +36,25 @@ public class GcmUtil {
 
     Cab[] ret = new Cab[goalSize];
     int idx = 0;
-    for (int j=0; j<minDistances.length; j++) {
+    for (int j = 0; j < minDistances.length; j++) {
       if (minDistances[j] != -1) {
         ret[idx++] = tmpSupply[j];
       }
     }
     if (idx != goalSize) {
-      logger.warn("there was -1 in table earlier - change this marker to -1234567890"); // TODO
+      logger.warn("there was -1 in table earlier - change this marker to -1234567890"); // TASK
     }
     return ret;
   }
 
   public static TaxiOrder[] reduceDemand(int[][] cost, TaxiOrder[] tmpDemand, int goalSize) {
+
     if (tmpDemand.length <= goalSize) {
       return tmpDemand; // nothing to do
     }
 
-    Integer[] minDistances = new Integer[cost.length];
+    Integer[] minDistances = findMinDistancesForDemand(cost);
 
-    for (int d = 0; d < cost.length; d++) {
-      int minVal = LcmUtil.bigCost;
-      for (int s = 0; s < cost.length; s++) {
-        if (cost[s][d] < minVal) {
-          minVal = cost[s][d];
-        }
-      }
-      minDistances[d] = minVal;
-    }
     // finding max values and getting rid of them
     for (int x = 0; x < tmpDemand.length - goalSize; x++) { // repeat so many times
       int idx = 0;
@@ -87,8 +72,39 @@ public class GcmUtil {
       }
     }
     if (idx != goalSize) {
-      logger.warn("there was -1 in table earlier - change this marker to -1234567890"); // TODO
+      logger.warn("there was -1 in table earlier - change this marker to -1234567890"); // TASK
     }
     return ret;
+  }
+
+  public static Integer[] findMinDistancesForDemand(int[][] cost) {
+
+    Integer[] minDistances = new Integer[cost.length];
+
+    for (int d = 0; d < cost.length; d++) {
+      int minVal = LcmUtil.BIG_COST;
+      for (int[] ints : cost) {
+        if (ints[d] < minVal) {
+          minVal = ints[d];
+        }
+      }
+      minDistances[d] = minVal;
+    }
+    return minDistances;
+  }
+
+  public static Integer[] findMinDistancesForSupply(int[][] cost) {
+    Integer[] minDistances = new Integer[cost.length];
+
+    for (int s = 0; s < cost.length; s++) {
+      int minVal = LcmUtil.BIG_COST;
+      for (int d = 0; d < cost.length; d++) {
+        if (cost[s][d] < minVal) {
+          minVal = cost[s][d];
+        }
+      }
+      minDistances[s] = minVal;
+    }
+    return minDistances;
   }
 }

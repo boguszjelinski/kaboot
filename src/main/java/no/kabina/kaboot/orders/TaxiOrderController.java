@@ -4,7 +4,6 @@ import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
-import no.kabina.kaboot.routes.Route;
 import no.kabina.kaboot.stats.StatService;
 import no.kabina.kaboot.utils.AuthUtils;
 import org.slf4j.Logger;
@@ -21,7 +20,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class TaxiOrderController {
 
   private final Logger logger = LoggerFactory.getLogger(TaxiOrderController.class);
-
+  private static final String ROLE_CUSTOMER = "ROLE_CUSTOMER";
   private final TaxiOrderRepository repository;
   private final TaxiOrderService service;
   private final StatService statSrvc;
@@ -35,13 +34,19 @@ public class TaxiOrderController {
   @GetMapping("/orders/{id}")
   public TaxiOrder one(@PathVariable int id, Authentication auth) {
     logger.info("GET order={}", id);
-    Long cabId = AuthUtils.getUserId(auth, "ROLE_CUSTOMER");
+
+    Long custId = AuthUtils.getUserId(auth, ROLE_CUSTOMER);
     TaxiOrder to = repository.findById(id);
     if (to == null) {
+      logger.warn("No such order: {}", id);
       return null;
     }
-    Route r = to.getRoute(); // don't be lazy
-      // TODO: authorisation - customer can only see its own orders
+    if (to.getCustomer().getId().equals(custId)) {
+      logger.warn("Customer {} not allowed to see order {}", custId, id);
+      return null;
+    }
+    //Route r = to.getRoute(); // don't be lazy
+    // TASK: authorisation - customer can only see its own orders
     if (to.getRoute() != null) {
       to.getRoute().setLegs(null); // too much detail
       // but we need 'cab' from route
@@ -61,10 +66,10 @@ public class TaxiOrderController {
   //  curl -d '{"fromStand":0, "toStand": 1, "maxWait":1, "maxLoss": 30, "shared": true}' -H 'Content-Type: application/json' http://localhost:8080/orders
   @PostMapping(value = "/orders", consumes = "application/json")
   public TaxiOrder newTaxiOrder(@RequestBody TaxiOrderPojo newTaxiOrder, Authentication auth) {
-    // TODO: should fail if another order is RECEIVED
+    // TASK: should fail if another order is RECEIVED
     logger.info("POST order");
-    Long roleCustomer = AuthUtils.getUserId(auth, "ROLE_CUSTOMER");
-    if (roleCustomer == null) {
+    Long custId = AuthUtils.getUserId(auth, ROLE_CUSTOMER);
+    if (custId == null) {
       return null; // not authorised
     }
     if (newTaxiOrder.fromStand == newTaxiOrder.toStand) { // a joker
@@ -75,7 +80,7 @@ public class TaxiOrderController {
     order.setEta(-1);
     order.setMaxWait(20);
     order.setInPool(false);
-    return service.saveTaxiOrder(order, roleCustomer);
+    return service.saveTaxiOrder(order, custId);
   }
 
   /** goal is to update status
@@ -88,7 +93,7 @@ public class TaxiOrderController {
   @PutMapping(value="/orders/{id}", consumes = "application/json")
   public String updateTaxiOrder(@PathVariable Long id, @RequestBody TaxiOrderPojo newTaxiOrder, Authentication auth) {
     logger.info("PUT order={}", id);
-    Long usrId = AuthUtils.getUserId(auth, "ROLE_CUSTOMER");
+    Long usrId = AuthUtils.getUserId(auth, ROLE_CUSTOMER);
     if (usrId == null) {
       return null; // not authorised
     }

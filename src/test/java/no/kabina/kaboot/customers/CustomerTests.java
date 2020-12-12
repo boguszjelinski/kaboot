@@ -11,6 +11,6 @@ public class CustomerTests {
     @Test
     public void test1() throws Exception {
         Customer cust = new Customer();
-        assertThat(cust != null).isTrue();
+        assertThat(cust).isNotNull();
     }
 }

@@ -1,22 +1,22 @@
 package no.kabina.kaboot.routes;
 
+import java.util.Optional;
 import no.kabina.kaboot.utils.AuthUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.security.core.Authentication;
-import org.springframework.web.bind.annotation.*;
-
-import java.util.Optional;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 public class LegController {
   private final Logger logger = LoggerFactory.getLogger(LegController.class);
   private final LegRepository legRepo;
-  private final RouteRepository routeRepository;
 
-  public LegController(RouteRepository routeRepository, LegRepository legRepo) {
+  public LegController(LegRepository legRepo) {
     this.legRepo = legRepo;
-    this.routeRepository = routeRepository;
   }
 
   /** mainly to mark COMPLETED and to bill the customer

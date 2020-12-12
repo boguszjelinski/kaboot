@@ -1,7 +1,5 @@
 package no.kabina.kaboot.cabs;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.BDDMockito.given;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -9,22 +7,15 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import no.kabina.kaboot.KabootApplication;
-import no.kabina.kaboot.cabs.Cab;
-import no.kabina.kaboot.cabs.CabController;
-import no.kabina.kaboot.cabs.CabPOJO;
-import no.kabina.kaboot.cabs.CabRepository;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.junit4.SpringRunner;
-import org.springframework.test.context.web.WebAppConfiguration;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.nio.charset.StandardCharsets;
@@ -89,9 +80,9 @@ public class ControllerTests {
 
     @Test
     public void testPojo() throws Exception {
-        CabPOJO pojo = new CabPOJO(1, Cab.CabStatus.ASSIGNED);
-        assertThat(pojo != null).isTrue();
-        assertThat(pojo.getStatus() == Cab.CabStatus.ASSIGNED).isTrue();
+        CabPojo pojo = new CabPojo(1, Cab.CabStatus.ASSIGNED);
+        assertThat(pojo).isNotNull();
+        assertThat(pojo.getStatus()).isSameAs(Cab.CabStatus.ASSIGNED);
     }
 
 }

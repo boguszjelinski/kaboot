@@ -3,11 +3,19 @@ package no.kabina.kaboot.scheduler;
 import java.util.List;
 
 public class LcmOutput {
-    public List<LcmPair> pairs;
-    public int minVal;
+  private List<LcmPair> pairs;
+  private int minVal;
 
-    public LcmOutput(List<LcmPair> pairs, int minVal) {
-        this.pairs = pairs;
-        this.minVal = minVal;
-    }
+  public LcmOutput(List<LcmPair> pairs, int minVal) {
+    this.pairs = pairs;
+    this.minVal = minVal;
+  }
+
+  public List<LcmPair> getPairs() {
+    return pairs;
+  }
+
+  public int getMinVal() {
+    return minVal;
+  }
 }

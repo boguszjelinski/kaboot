@@ -32,15 +32,16 @@ public class CabController {
   public Cab one(@PathVariable int id, Authentication auth) {
     logger.info("GET cab={}", id);
     //Long cabId = AuthUtils.getUserId(auth, "ROLE_CUSTOMER"); both roles should access
-    // TODO: more authorisation ?
+    // TASK: more authorisation ?
     Cab c = repository.findById(id);
     c.setItems(null); // omit this in JSON
     return c;
   }
 
   @PutMapping(value = "/cabs/{id}", consumes = "application/json")
-  public String updateCab(@PathVariable Long id, @RequestBody Cab cab, Authentication auth) {
+  public String updateCab(@PathVariable Long id, @RequestBody CabPojo cabIn, Authentication auth) {
     logger.info("PUT cab={}", id);
+    Cab cab = new Cab(cabIn.getLocation(), cabIn.getStatus());
     cab.setId(id);
     Long usrId = AuthUtils.getUserId(auth, "ROLE_CAB");
     if (usrId.longValue() != cab.getId().longValue()) { // now it is that simple - cab_id == usr_id
@@ -54,9 +55,9 @@ public class CabController {
     return "OK";
   }
 
-  // TODO: temporary, should not be allowed for ROLE_CAB
+  // TASK: temporary, should not be allowed for ROLE_CAB
   @PostMapping(value = "/cabs/") // , consumes = "application/json"boot
-  public Cab insertCab(@RequestBody CabPOJO cab, Authentication auth) {
+  public Cab insertCab(@RequestBody CabPojo cab, Authentication auth) {
     logger.info("POST cab");
     Cab c = new Cab(cab.getLocation(), cab.getStatus());
     return repository.save(c);

@@ -19,9 +19,9 @@ import no.kabina.kaboot.routes.Route;
 @Entity
 public class TaxiOrder {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.AUTO)
-    public Long id;
+  @Id
+  @GeneratedValue(strategy = GenerationType.AUTO)
+  public Long id;
 
   protected TaxiOrder.OrderStatus status;
   public int fromStand;

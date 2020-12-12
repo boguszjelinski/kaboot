@@ -16,14 +16,12 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
 
   @Override
   protected void configure(HttpSecurity http) throws Exception {
-        http
-            .authorizeRequests()
-            .antMatchers("/cabs").hasRole("CAB")
-            .antMatchers("/cabs").hasRole("CUSTOMER")
-            .antMatchers("/orders").hasRole("CUSTOMER")
-            .antMatchers("/routes").hasRole("CAB")
-            .antMatchers("/legs").hasRole("CAB")
-            .antMatchers("/info").hasRole("ADMIN")
+    http.authorizeRequests()
+                .antMatchers("/cabs").hasAnyRole("CAB","CUSTOMER")
+                .antMatchers("/info").hasRole("ADMIN")
+                .antMatchers("/legs").hasRole("CAB")
+                .antMatchers("/orders").hasRole("CUSTOMER")
+                .antMatchers("/routes").hasRole("CAB")
             .antMatchers("/schedulework").hasRole("ADMIN")
             .anyRequest().authenticated()
             .and().csrf().disable()
@@ -34,18 +32,21 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
             .sessionManagement().sessionCreationPolicy(SessionCreationPolicy.STATELESS);
   }
 
+  @Override
+  protected void configure(AuthenticationManagerBuilder auth) throws Exception {
+    auth.userDetailsService(userDetailsService()).passwordEncoder(passwordEncoder());
+  }
+
+  @Override
   @Bean
   public UserDetailsService userDetailsService() {
     return new UserDetailsServiceImp();
   }
+
 
   @Bean
   public BCryptPasswordEncoder passwordEncoder() {
     return new BCryptPasswordEncoder();
   }
 
-  @Override
-  protected void configure(AuthenticationManagerBuilder auth) throws Exception {
-    auth.userDetailsService(userDetailsService()).passwordEncoder(passwordEncoder());
-  }
 }
