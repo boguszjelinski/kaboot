@@ -14,6 +14,8 @@ import org.springframework.test.web.servlet.MockMvc;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.BDDMockito.given;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -42,9 +44,20 @@ public class LegControllerTests {
     }
 
     @Test
-    public void whenUpdate_thenReturns200() throws Exception {
+    public void whenUpdateInvalidId_thenReturns200() throws Exception {
         String body = "{\"status\": \"COMPLETE\"}";
         mvc.perform(put("/legs/1")
+                .header("Authorization", token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(body))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    public void whenUpdateValidId_thenReturns200() throws Exception {
+        given(legRepo.findById(123L)).willReturn(java.util.Optional.of(new Leg()));
+        String body = "{\"status\": \"COMPLETE\"}";
+        mvc.perform(put("/legs/123")
                 .header("Authorization", token)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(body))
@@ -58,4 +71,25 @@ public class LegControllerTests {
             .contentType(MediaType.APPLICATION_JSON))
             .andExpect(status().isOk());
     }*/
+
+    @Test
+    public void whenPojoMeansBusiness() throws Exception {
+        LegPojo leg = new LegPojo(Route.RouteStatus.COMPLETE);
+        leg.setStatus(Route.RouteStatus.ASSIGNED);
+        assertThat(leg.getStatus()).isSameAs(Route.RouteStatus.ASSIGNED);
+    }
+
+    @Test
+    public void whenEntityMeansBusiness() throws Exception {
+        Leg leg = new Leg(0,1,2, Route.RouteStatus.COMPLETE);
+        leg.setRoute(null);
+        leg.setId(0L);
+        leg.setStatus(Route.RouteStatus.ASSIGNED);
+        assertThat(leg.getStatus()).isSameAs(Route.RouteStatus.ASSIGNED);
+        assertThat(leg.getFromStand()).isSameAs(0);
+        assertThat(leg.getToStand()).isSameAs(1);
+        assertThat(leg.getPlace()).isSameAs(2);
+        assertThat(leg.getRoute()).isNull();
+        assertThat(leg.getStatus()).isSameAs(Route.RouteStatus.ASSIGNED);
+    }
 }

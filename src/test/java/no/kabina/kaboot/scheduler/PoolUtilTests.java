@@ -11,7 +11,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class PoolUtilTests {
 
     private TaxiOrder[] orders;
-    private final int numbOfStands = 50;
+    private final int numbOfStands = 30;
 
     @Before
     public void before() {
@@ -23,8 +23,15 @@ public class PoolUtilTests {
 
     @Test
     public void testPool() {
-        PoolElement[] pool = PoolUtil.findPool(orders, 3);
-        assertThat(pool.length).isSameAs(16);
+        PoolUtil util = new PoolUtil();
+        PoolElement[] pool = util.findPool(orders, 3);
+        assertThat(pool.length).isSameAs(9);
     }
 
+    @Test
+    public void testPool4() {
+        PoolUtil util = new PoolUtil();
+        PoolElement[] pool = util.findPool(orders, 4);
+        assertThat(pool.length).isSameAs(7);
+    }
 }

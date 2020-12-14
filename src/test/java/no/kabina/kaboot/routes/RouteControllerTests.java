@@ -1,11 +1,14 @@
 package no.kabina.kaboot.routes;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.BDDMockito.given;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 
+import no.kabina.kaboot.cabs.Cab;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -40,21 +43,56 @@ public class RouteControllerTests {
         token = "Basic " + encodedAuth;
     }
 
- /*   @Test
-    public void whenUpdate_thenReturns200() throws Exception {
+    @Test
+    public void whenUpdateInvalidRoute_thenReturns200() throws Exception {
         String body = "{\"status\": \"COMPLETE\"}";
-        mvc.perform(put("/legs/1")
+        mvc.perform(put("/routes/1")
                 .header("Authorization", token)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(body))
                 .andExpect(status().isOk());
     }
-*/
+
+    @Test
+    public void whenUpdateValidRoute_thenReturns200() throws Exception {
+        Route r = new Route();
+        Cab c = new Cab(1, Cab.CabStatus.ASSIGNED);
+        c.setId(0L);
+        r.setCab(c);
+        given(routeRepo.findById(123L)).willReturn(java.util.Optional.of(r));
+        String body = "{\"status\": \"COMPLETE\"}";
+        mvc.perform(put("/routes/123")
+                .header("Authorization", token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(body))
+                .andExpect(status().isOk());
+    }
+
     @Test
     public void whenGetRoutes_thenReturns200() throws Exception {
         mvc.perform(get("/routes")
             .header("Authorization", token)
             .contentType(MediaType.APPLICATION_JSON))
             .andExpect(status().isOk());
+    }
+
+    @Test
+    public void whenPojoMeansBusiness() throws Exception {
+        RoutePojo pojo = new RoutePojo();
+        pojo.setStatus(Route.RouteStatus.COMPLETE);
+        assertThat(pojo.getStatus()).isSameAs(Route.RouteStatus.COMPLETE);
+        pojo = new RoutePojo(Route.RouteStatus.ASSIGNED);
+        assertThat(pojo.getStatus()).isSameAs(Route.RouteStatus.ASSIGNED);
+    }
+
+    @Test
+    public void whenEntityMeansBusiness() throws Exception {
+        Route pojo = new Route();
+        pojo.setStatus(Route.RouteStatus.COMPLETE);
+        pojo.setLegs(null);
+        pojo.setCab(null);
+        assertThat(pojo.getStatus()).isSameAs(Route.RouteStatus.COMPLETE);
+        assertThat(pojo.getLegs()).isNull();
+        assertThat(pojo.getCab()).isNull();
     }
 }

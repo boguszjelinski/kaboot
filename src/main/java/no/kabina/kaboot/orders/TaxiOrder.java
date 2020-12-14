@@ -14,7 +14,8 @@ import no.kabina.kaboot.customers.Customer;
 import no.kabina.kaboot.routes.Leg;
 import no.kabina.kaboot.routes.Route;
 
-// insert into taxi_order (id, from_stand, to_stand, max_wait, max_loss, shared) values (0,1,2,10,30,true)
+// insert into taxi_order (id, from_stand, to_stand, max_wait, max_loss, shared)
+// values (0,1,2,10,30,true)
 
 @Entity
 public class TaxiOrder {
@@ -72,7 +73,7 @@ public class TaxiOrder {
   @ManyToOne(optional = true, fetch = FetchType.LAZY)
   @JoinColumn(name = "leg_id", nullable = true)
   private Leg leg;  // an order can be pick-up by one task, but one task can pick up MANY orders/customers
-                        // this foreign key will give the driver information whom to pick up and where to drop-off
+  // this foreign key will give the driver information whom to pick up and where to drop-off
 
   @ManyToOne(optional = true, fetch = FetchType.LAZY)
   @JoinColumn(name = "route_id", nullable = true)

@@ -228,27 +228,29 @@ public class SchedulerService {
     // with 4 passengers
     PoolElement[] ret;
     PoolElement[] pl4 = null;
+    PoolUtil util = new PoolUtil();
+
     if (demand.length < max4Pool) {
       final long startPool4 = System.currentTimeMillis();
-      pl4 = PoolUtil.findPool(demand, 4); // four passengers: size^4 combinations (full search)
+      pl4 = util.findPool(demand, 4); // four passengers: size^4 combinations (full search)
       updateStats("pool4_time", startPool4);
     }
     // with 3 passengers
-    ret = getPoolWith3(demand, pl4);
+    ret = getPoolWith3(util, demand, pl4);
     updateStats("pool_time", startPool);
     // reduce tempDemand - 2nd+ passengers will not be sent to LCM or solver
     logger.info("Pool size: {}", ret == null ? 0 : ret.length);
     return ret;
   }
 
-  private PoolElement[] getPoolWith3(TaxiOrder[] demand, PoolElement[] pl4) {
+  private PoolElement[] getPoolWith3(PoolUtil util, TaxiOrder[] demand, PoolElement[] pl4) {
     PoolElement[] ret;
     TaxiOrder[] demand3 = PoolUtil.findCustomersWithoutPool(pl4, demand);
     if (demand3 != null && demand3.length > 0) { // there is still an opportunity
       PoolElement[] pl3;
       if (demand3.length < max3Pool) { // not too big for three customers, let's find out!
         final long startPool3 = System.currentTimeMillis();
-        pl3 = PoolUtil.findPool(demand3, 3);
+        pl3 = util.findPool(demand3, 3);
         updateStats("pool3_time", startPool3);
         if (pl3.length == 0) {
           pl3 = pl4;
@@ -259,18 +261,18 @@ public class SchedulerService {
         pl3 = pl4;
       }
       // with 2 passengers (this runs fast and no max is needed
-      ret = getPoolWith2(demand3, pl3);
+      ret = getPoolWith2(util, demand3, pl3);
     } else {
       ret = pl4;
     }
     return ret;
   }
 
-  private PoolElement[] getPoolWith2(TaxiOrder[] demand3, PoolElement[] pl3) {
+  private PoolElement[] getPoolWith2(PoolUtil util, TaxiOrder[] demand3, PoolElement[] pl3) {
     PoolElement[] ret;
     TaxiOrder[] demand2 = PoolUtil.findCustomersWithoutPool(pl3, demand3);
     if (demand2 != null && demand2.length > 0) {
-      PoolElement[] pl2 = PoolUtil.findPool(demand2, 2);
+      PoolElement[] pl2 = util.findPool(demand2, 2);
       if (pl2.length == 0) {
         ret = pl3;
       } else {
@@ -367,11 +369,11 @@ public class SchedulerService {
     // legs & routes are assigned to customers in Pool
     // if not assigned to a Pool we have to create a single-task route here
     for (PoolElement e : pool) { // PoolElement contains TaxiOrder IDs (primary keys)
-      if (e.cust[0].id.equals(order.id)) { // yeap, this id is in a pool
+      if (e.getCust()[0].id.equals(order.id)) { // yeap, this id is in a pool
         // checking number
         // save pick-up phase
-        legId = assignOrdersAndSaveLegs(cab, route, legId, e);
-        return e.numbOfCust;
+        assignOrdersAndSaveLegs(cab, route, legId, e);
+        return e.getNumbOfCust();
       }
     }
     // Pool not found
@@ -381,33 +383,32 @@ public class SchedulerService {
     return 1; // one customer
   }
 
-  private int assignOrdersAndSaveLegs(Cab cab, Route route, int legId, PoolElement e) {
+  private void assignOrdersAndSaveLegs(Cab cab, Route route, int legId, PoolElement e) {
     Leg leg;
     int c = 0;
-    for (; c < e.numbOfCust - 1; c++) {
+    for (; c < e.getNumbOfCust() - 1; c++) {
       leg = null;
-      if (e.cust[c].fromStand != e.cust[c + 1].fromStand) { // there is movement
-        leg = new Leg(e.cust[c].fromStand, e.cust[c + 1].fromStand, legId++, Route.RouteStatus.ASSIGNED);
+      if (e.getCust()[c].fromStand != e.getCust()[c + 1].fromStand) { // there is movement
+        leg = new Leg(e.getCust()[c].fromStand, e.getCust()[c + 1].fromStand, legId++, Route.RouteStatus.ASSIGNED);
         saveLeg(leg, route);
       }
-      assignOrder(leg, e.cust[c], cab, route);
+      assignOrder(leg, e.getCust()[c], cab, route);
     }
     leg = null;
     // save drop-off phase
-    if (e.cust[c].fromStand != e.cust[c + 1].toStand) {
-      leg = new Leg(e.cust[c].fromStand, e.cust[c + 1].toStand, legId++, Route.RouteStatus.ASSIGNED);
+    if (e.getCust()[c].fromStand != e.getCust()[c + 1].toStand) {
+      leg = new Leg(e.getCust()[c].fromStand, e.getCust()[c + 1].toStand, legId++, Route.RouteStatus.ASSIGNED);
       leg = saveLeg(leg, route);
     }
-    assignOrder(leg, e.cust[c], cab, route);
+    assignOrder(leg, e.getCust()[c], cab, route);
     //
-    for (c++; c < 2 * e.numbOfCust - 1; c++) {
-      if (e.cust[c].toStand != e.cust[c + 1].toStand) {
-        leg = new Leg(e.cust[c].toStand, e.cust[c + 1].toStand, legId++, Route.RouteStatus.ASSIGNED);
+    for (c++; c < 2 * e.getNumbOfCust() - 1; c++) {
+      if (e.getCust()[c].toStand != e.getCust()[c + 1].toStand) {
+        leg = new Leg(e.getCust()[c].toStand, e.getCust()[c + 1].toStand, legId++, Route.RouteStatus.ASSIGNED);
         saveLeg(leg, route);
       }
       // here we don't update TaxiOrder
     }
-    return legId;
   }
 
   private Leg saveLeg(Leg l, Route r) {

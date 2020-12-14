@@ -40,25 +40,53 @@ public class StatsTests {
     }
 
     @Test
-    public void testUpdateMaxInt() {
+    public void testUpdateMaxInt_WhenKeyFound() {
         Stat stat = statService.updateMaxIntVal("key", 2);
         assertThat(stat.getIntVal()).isEqualTo(2);
     }
 
     @Test
-    public void testAddToIntVal() {
+    public void testUpdateMaxInt_WhenKeyNotFound() {
+        given(statRepo.findByName("key")).willReturn(null);
+        Stat stat = statService.updateMaxIntVal("key", 2);
+        assertThat(stat.getIntVal()).isEqualTo(2);
+    }
+
+    @Test
+    public void testAddToIntVal_WhenKeyFound() {
         Stat stat = statService.addToIntVal("key", 1);
         assertThat(stat.getIntVal()).isEqualTo(2);
     }
 
     @Test
-    public void testIncrementIntVal() {
+    public void testAddToIntVal_WhenKeyNotFound() {
+        given(statRepo.findByName("key")).willReturn(null);
+        Stat stat = statService.addToIntVal("key", 1);
+        assertThat(stat.getIntVal()).isEqualTo(2);
+    }
+
+    @Test
+    public void testIncrementIntVal_WhenKeyFound() {
         Stat stat = statService.incrementIntVal("key");
         assertThat(stat.getIntVal()).isEqualTo(2);
     }
 
     @Test
-    public void testUpdateIntVal() {
+    public void testIncrementIntVal_WhenKeyNotFound() {
+        given(statRepo.findByName("key")).willReturn(null);
+        Stat stat = statService.incrementIntVal("key");
+        assertThat(stat.getIntVal()).isEqualTo(2);
+    }
+
+    @Test
+    public void testUpdateIntVal_WnenKeyFound() {
+        Stat stat = statService.updateIntVal("key", 2);
+        assertThat(stat.getIntVal()).isEqualTo(2);
+    }
+
+    @Test
+    public void testUpdateIntVal_WnenKeyNotFound() {
+        given(statRepo.findByName("key")).willReturn(null);
         Stat stat = statService.updateIntVal("key", 2);
         assertThat(stat.getIntVal()).isEqualTo(2);
     }

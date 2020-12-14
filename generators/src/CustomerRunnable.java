@@ -40,24 +40,24 @@ class CustomerRunnable implements Runnable {
         */
         // send to dispatcher that we need a cab
         // order id returned
-
-        logger.info("Is alive cust_id=" + d.id + ", from=" + d.from + ", to=" +d.to);
-        Demand order = saveOrder("POST", d); //          order = d; but now ith has entity id
+        int cust_id = d.id; 
+        logger.info("Is alive cust_id=" + cust_id + ", from=" + d.from + ", to=" +d.to);
+        Demand order = saveOrder("POST", d, cust_id); //          order = d; but now ith has entity id
         if (order == null) {
-            logger.info("Unable to request a cab, cust_id=" + d.id);
+            logger.info("Unable to request a cab, cust_id=" + cust_id);
             return;
         }
-      
+        int order_id = order.id;
         //Demand order = new Demand(113579, 10, 6, 0, 10);
-        logger.info("Cab requested, order_id=" + order.id);
+        logger.info("Cab requested, cust_id=" + cust_id + ", order_id=" + order_id);
         // just give kaboot a while to think about it
         // pool ? cab? ETA ?
         Utils.waitSecs(90); // just give the solver some time
         for (int t=0; t<MAX_WAIT_FOR_RESPONSE * 2; t++) {
             Utils.waitSecs(30); 
-            order = getOrder(d.id, order.id);
+            order = getOrder(cust_id, order_id);
             if (order == null) {
-                logger.info("Serious error, order not found, d.id=" + d.id);
+                logger.info("Serious error, order not found, cust_id=" + cust_id+ ", order_id=" + order_id +",");
                 return;
             }
             if (order.status == OrderStatus.ASSIGNED)  {
@@ -71,28 +71,28 @@ class CustomerRunnable implements Runnable {
             ) { // Kaboot has not answered, too busy
             // complain
             if (order == null) {
-                logger.info("Waited in vain, no answer: cust_id=" + d.id);
+                logger.info("Waited in vain, no answer: cust_id=" + cust_id + ", order_id=" + order_id +",");
             } else {
-                logger.info("Waited in vain, no assignment: cust_id=" + d.id + ", order_id=" + order.id +",");
+                logger.info("Waited in vain, no assignment: cust_id=" + cust_id + ", order_id=" + order_id +",");
             }
             order.status = OrderStatus.CANCELLED; // just not to kill scheduler
-            saveOrder("PUT", order); 
+            saveOrder("PUT", order, cust_id); 
             return;
         }
-        logger.info("Assigned: cust_id=" + d.id + ", order_id=" + order.id +",");
+        logger.info("Assigned: cust_id=" + cust_id + ", order_id=" + order_id +", cab_id=" + order.cab_id + ",");
         /*if (order.eta > d.at + MAX_WAIT_FOR_CAB) {
             // complain
-            logger.info("I can't wait that long: cust_id=" + d.id);
+            logger.info("I can't wait that long: cust_id=" + cust_id);
             return;
         }
         */
         order.status = OrderStatus.ACCEPTED;
-        saveOrder("PUT", order); // PUT = update
-
+        saveOrder("PUT", order, cust_id); // PUT = update
+        logger.info("Accepted, waiting for that cab: cust_id=" + cust_id + ", order_id=" + order_id + ", cab_id=" + order.cab_id + ",");
         boolean arrived = false;
         for (int t=0; t<MAX_WAIT_FOR_CAB * 4 ; t++) { // *4 as 15 secs below
             Utils.waitSecs(15);
-            Cab cab = getCab("cabs/", d.id, order.cab_id);
+            Cab cab = getCab("cabs/", cust_id, order.cab_id);
             if (cab.location == d.from) {
                 arrived = true;
                 break;
@@ -100,64 +100,64 @@ class CustomerRunnable implements Runnable {
         }
         if (!arrived) {
             // complain
-            logger.info("Cab has not arrived: cust_id=" + d.id + ", order_id=" + order.id + ", cab_id="
-                            + order.cab_id + ",");
+            logger.info("Cab has not arrived: cust_id=" + cust_id + ", order_id=" + order_id + ", cab_id=" + order.cab_id + ",");
             order.status = OrderStatus.CANCELLED; // just not to kill scheduler
-            saveOrder("PUT", order); 
+            saveOrder("PUT", order, cust_id); 
             return;
         }
         // authenticate to the cab - open the door?
+        logger.info("Picked up: cust_id=" + cust_id + ", order_id=" + order_id + ", cab_id=" + order.cab_id + ",");
         order.status = OrderStatus.PICKEDUP;
-        saveOrder("PUT", order); // PUT = update
+        saveOrder("PUT", order, cust_id); // PUT = update
         // take a trip
         int duration = 0; 
         final int CHECK_INTERVAL = 15; // secs
         for (; duration<MAX_TRIP_LEN * (60/CHECK_INTERVAL); duration++) {
             Utils.waitSecs(CHECK_INTERVAL);
-            /*order = getEntity("orders/", d.id, order.id);
+            /*order = getEntity("orders/", cust_id, order_id);
             if (order.status == OrderStatus.COMPLETE && order.cab_id != -1)  {
                 break;
             }*/
-            Cab cab = getCab("cabs/", d.id, order.cab_id);
+            Cab cab = getCab("cabs/", cust_id, order.cab_id);
             if (cab.location == d.to) {
-                logger.info("Arrived at " + d.to + ", cust_id=" +  d.id+ ", order_id=" + order.id + ", cab_id="
+                logger.info("Arrived at " + d.to + ", cust_id=" +  cust_id+ ", order_id=" + order_id + ", cab_id="
                                     + order.cab_id + ",");
                 order.status = OrderStatus.COMPLETE;
-                saveOrder("PUT", order); 
+                saveOrder("PUT", order, cust_id); 
                 break;
             }
         }
         if (duration >= MAX_TRIP_LEN * (60/CHECK_INTERVAL)) {
-            logger.info("Something wrong - customer has never reached the destination: cust_id=" + d.id
-                            + ", order_id=" + order.id + ", cab_id="+ order.cab_id + ",");
+            logger.info("Something wrong - customer has never reached the destination: cust_id=" + cust_id
+                            + ", order_id=" + order_id + ", cab_id="+ order.cab_id + ",");
         } else {
             // POOL CHECK
             if (order.inPool) { // TODO: this 
                 if (duration/(60/CHECK_INTERVAL) > (int) (abs(d.from - d.to) * MAX_POOL_LOSS + MAX_TRIP_LOSS)) {
                     // complain
-                    logger.info("Duration in pool was too long: cust_id=" + d.id
-                                    + ", order_id=" + order.id + ", cab_id=" + order.cab_id + ",");
+                    logger.info("Duration in pool was too long: cust_id=" + cust_id
+                                    + ", order_id=" + order_id + ", cab_id=" + order.cab_id + ",");
                 }
             } else { // not a carpool
                 if (duration/(60/CHECK_INTERVAL) > (int) (abs(d.from - d.to) + MAX_TRIP_LOSS)) {
                     // complain
-                    logger.info("Duration took too long: cust_id=" + d.id
-                                    + ", order_id=" + order.id + ", cab_id=" + order.cab_id + ",");
+                    logger.info("Duration took too long: cust_id=" + cust_id
+                                    + ", order_id=" + order_id + ", cab_id=" + order.cab_id + ",");
                 }
             }
         }
         if (order.status != OrderStatus.COMPLETE) {
             order.status = OrderStatus.CANCELLED; // just not to kill scheduler
-            logger.info("Status is not COMPLETE, cancelling the trip: cust_id=" + d.id
-                                    + ", order_id=" + order.id + ", cab_id=" + order.cab_id + ",");
-            saveOrder("PUT", order); 
+            logger.info("Status is not COMPLETE, cancelling the trip: cust_id=" + cust_id
+                                    + ", order_id=" + order_id + ", cab_id=" + order.cab_id + ",");
+            saveOrder("PUT", order, cust_id); 
         }
     }
 
-    private Demand saveOrder(String method, Demand d) {
+    private Demand saveOrder(String method, Demand d, int usr_id) {
         String json = "{\"fromStand\":" + d.from + ", \"toStand\": " + d.to + ", \"status\":\"" + d.status
-                            + "\", \"maxWait\":10, \"maxLoss\": 10, \"shared\": true}";
-        json = Utils.saveJSON(method, "orders", "cust" + d.id, d.id, json); // TODO: FAIL, this is not customer id
+                            + "\", \"maxWait\":20, \"maxLoss\": 10, \"shared\": true}";
+        json = Utils.saveJSON(method, "orders", "cust" + usr_id, d.id, json); // TODO: FAIL, this is not customer id
         return getOrderFromJson(json);
     }
   

@@ -2,7 +2,6 @@ package no.kabina.kaboot.orders;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
-import java.util.List;
 import java.util.Optional;
 import no.kabina.kaboot.stats.StatService;
 import no.kabina.kaboot.utils.AuthUtils;
@@ -41,7 +40,7 @@ public class TaxiOrderController {
       logger.warn("No such order: {}", id);
       return null;
     }
-    if (to.getCustomer().getId().equals(custId)) {
+    if (to.getCustomer() == null || !to.getCustomer().getId().equals(custId)) {
       logger.warn("Customer {} not allowed to see order {}", custId, id);
       return null;
     }
@@ -55,12 +54,6 @@ public class TaxiOrderController {
       to.getLeg().setRoute(null); // too much detail
     }
     return to;
-  }
-
-  @GetMapping("/orders")
-  public List<TaxiOrder> all() {
-    logger.info("GET all orders");
-    return repository.findAll();
   }
 
   //  curl -d '{"fromStand":0, "toStand": 1, "maxWait":1, "maxLoss": 30, "shared": true}' -H 'Content-Type: application/json' http://localhost:8080/orders
@@ -92,7 +85,7 @@ public class TaxiOrderController {
    */
   @PutMapping(value="/orders/{id}", consumes = "application/json")
   public String updateTaxiOrder(@PathVariable Long id, @RequestBody TaxiOrderPojo newTaxiOrder, Authentication auth) {
-    logger.info("PUT order={}", id);
+    logger.info("PUT order={}, status={}", id, newTaxiOrder.getStatus());
     Long usrId = AuthUtils.getUserId(auth, ROLE_CUSTOMER);
     if (usrId == null) {
       return null; // not authorised
@@ -107,9 +100,9 @@ public class TaxiOrderController {
     } else if (newTaxiOrder.status == TaxiOrder.OrderStatus.COMPLETE) {
       statSrvc.addAverageElement("avg_order_complete_time", duration.getSeconds());
     }
-    ord.get().setId(id);
-    ord.get().setStatus(newTaxiOrder.status);
-    service.updateTaxiOrder(ord.get(), usrId);
+    ord.get().setStatus(newTaxiOrder.getStatus()); // we care only about status for now
+    logger.debug("Updating order={}, status={}", ord.get().getId(), ord.get().getStatus());
+    service.updateTaxiOrder(ord.get());
     return "OK";
   }
 }

@@ -53,7 +53,8 @@ public class SchedulerServiceTests {
             orders[i] = new TaxiOrder(i %2, (i+1)%2,20,20, true, TaxiOrder.OrderStatus.RECEIVED);
             orders[i].setId((long)i);
         }
-        PoolElement[] pool = PoolUtil.findPool(orders, 3);
+        PoolUtil util = new PoolUtil();
+        PoolElement[] pool = util.findPool(orders, 3);
         assertThat(pool.length).isSameAs(16);
         TaxiOrder[] demand = PoolUtil.findFirstLegInPoolOrLone(pool, orders);
         assertThat(demand.length).isSameAs(17);
@@ -83,5 +84,11 @@ public class SchedulerServiceTests {
         PoolElement[] pool = service.generatePool(orders);
         assertThat(pool.length).isSameAs(5);
     }
+
+    @Test
+    public void testPlan() {
+        service.findPlan();
+    }
+
 
 }

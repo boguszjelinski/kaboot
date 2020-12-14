@@ -18,18 +18,15 @@ public class PoolUtil {
   public static final int POOL_MAX_WAIT_TIME = 2; // how many 'minutes' (time entities) want a passenger to wait for a cab
   static final double MAX_LOSS = 1.01; // 1.3 would mean that one can accept a trip to take 30% time more than being transported alone
 
-  static TaxiOrder[] demand;
-  static int [][]cost  = new int[MAX_NUMB_STANDS][MAX_NUMB_STANDS];
-  static int []pickup  = new int[MAX_IN_POOL]; // will have numbers of customers
-  static int []dropoff = new int[MAX_IN_POOL]; // will have indexes to 'pickup' table
-  public static int custInPool;  // how many passengers can a cab take
-  static List<PoolElement> poolList = new ArrayList<>();
+  TaxiOrder[] demand;
+  int [][]cost;
+  int []pickup  = new int[MAX_IN_POOL]; // will have numbers of customers
+  int []dropoff = new int[MAX_IN_POOL]; // will have indexes to 'pickup' table
+  List<PoolElement> poolList = new ArrayList<>();
 
-  private PoolUtil () {} // hiding default
-
-  private static void dropCustomers(int level) {
+  private void dropCustomers(int level, int custInPool) {
     if (level == custInPool) { // we now know how to pick up and drop-off customers
-      if (isHappy()) { // add to pool
+      if (isHappy(custInPool)) { // add to pool
         TaxiOrder[] orders = new TaxiOrder[custInPool + custInPool]; // pick-ups + drop-offs
         for (int c = 0; c < 2 * custInPool; c++) {
           orders[c] = null;
@@ -38,7 +35,7 @@ public class PoolUtil {
           orders[i] = demand[pickup[i]];
           orders[i + custInPool] = demand[pickup[dropoff[i]]];
         }
-        int poolCost = getPoolCost(0, custInPool - 1);
+        int poolCost = getPoolCost(0, custInPool - 1, custInPool);
         // that is an important decision - is this the 'goal' function to be optimized ?
 
         poolList.add(new PoolElement(orders, custInPool, poolCost));
@@ -51,14 +48,14 @@ public class PoolUtil {
         }
         dropoff[level] = c;
         // a drop-off more
-        dropCustomers(level + 1);
+        dropCustomers(level + 1, custInPool);
       }
     }
   }
 
-  private static boolean isHappy() {
+  private boolean isHappy(int custInPool) {
     for (int d = 0; d < custInPool; d++) { // checking if all 3(?) passengers get happy, starting from the one who gets dropped-off first
-      int poolCost = getPoolCost(dropoff[d], d);
+      int poolCost = getPoolCost(dropoff[d], d, custInPool);
       if (poolCost > cost[demand[pickup[dropoff[d]]].fromStand][demand[pickup[dropoff[d]]].toStand] * MAX_LOSS) {
         return false; // not happy
       }
@@ -66,7 +63,7 @@ public class PoolUtil {
     return true;
   }
 
-  private static int getPoolCost(int i2, int i3) {
+  private int getPoolCost(int i2, int i3, int custInPool) {
     int poolCost = 0;
     for (int i = i2; i < custInPool - 1; i++) { // cost of pick-up
       poolCost += cost[demand[pickup[i]].fromStand][demand[pickup[i + 1]].fromStand];
@@ -79,10 +76,10 @@ public class PoolUtil {
     return poolCost;
   }
 
-  private static void poolv2(int level, int numbCust) { // level of recursion = place in the pick-up queue
+  private void poolv2(int level, int numbCust, int custInPool) { // level of recursion = place in the pick-up queue
     if (level == custInPool) { // now we have all customers for a pool (proposal) and their order of pick-up
       // next is to generate combinations for the "drop-off" phase
-      dropCustomers(0);
+      dropCustomers(0, custInPool);
     } else {
       for (int c = 0; c < numbCust; c++) {
         // check if 'c' not in use in previous levels - "variation without repetition"
@@ -97,7 +94,7 @@ public class PoolUtil {
             continue;
           }
           // find the next customer
-          poolv2(level + 1, numbCust);
+          poolv2(level + 1, numbCust, custInPool);
         }
       }
     }
@@ -112,10 +109,10 @@ public class PoolUtil {
     return false;
   }
 
-  public static boolean isFound(PoolElement[] arr, int i, int j) {
+  public static boolean isFound(PoolElement[] arr, int i, int j, int custInPool) {
     for (int x = 0; x < custInPool; x++) {
       for (int y = 0; y < custInPool; y++) {
-        if (arr[j].cust[x] == arr[i].cust[y]) {
+        if (arr[j].getCust()[x] == arr[i].getCust()[y]) {
           return true;
         }
       }
@@ -123,46 +120,52 @@ public class PoolUtil {
     return false;
   }
 
-  public static PoolElement[] findPool(TaxiOrder[] dem, int inPool) {
-    poolList = new ArrayList<>();
-    custInPool = inPool;
-    demand = dem;
-
-    setCosts();
-    poolv2(0, dem.length);
+  /**
+   *
+   * @param dem
+   * @param inPool how many passengers can a cab take
+   * @return
+   */
+  public PoolElement[] findPool(TaxiOrder[] dem, int inPool) {
+    this.poolList = new ArrayList<>();
+    this.demand = dem;
+    this.cost = setCosts();
+    poolv2(0, demand.length, inPool);
     // sorting
     PoolElement[] arr = poolList.toArray(new PoolElement[0]);
     Arrays.sort(arr);
     // removin duplicates
     int i = 0;
     for (i = 0; i < arr.length; i++) {
-      if (arr[i].cost == -1) {
+      if (arr[i].getCost() == -1) {
         continue;
       }
       for (int j = i + 1; j < arr.length; j++) {
-        if (arr[j].cost != -1 // not invalidated; this check is for performance reasons
-                && isFound(arr, i, j)) {
-          arr[j].cost = -1; // duplicated
+        if (arr[j].getCost() != -1 // not invalidated; this check is for performance reasons
+                && isFound(arr, i, j, inPool)) {
+          arr[j].setCost(-1); // duplicated
         }
       }
     }
 
     List<PoolElement> ret = new ArrayList<>();
     for (i = 0; i < arr.length; i++) {
-      if (arr[i].cost != -1) {
+      if (arr[i].getCost() != -1) {
         ret.add(arr[i]);
       }
     }
     return ret.toArray(new PoolElement[0]);
   }
 
-  private static void setCosts() {
+  private static int[][] setCosts() {
+    int[][] costMatrix = new int[MAX_NUMB_STANDS][MAX_NUMB_STANDS];
     for (int i = 0; i < MAX_NUMB_STANDS; i++) {
       for (int j = i; j < MAX_NUMB_STANDS; j++) {
-        cost[j][i] = DistanceService.getDistance(j, i); // simplification of distance - stop9 is closer to stop7 than to stop1
-        cost[i][j] = cost[j][i];
+        costMatrix[j][i] = DistanceService.getDistance(j, i); // simplification of distance - stop9 is closer to stop7 than to stop1
+        costMatrix[i][j] = costMatrix[j][i];
       }
     }
+    return costMatrix;
   }
 
   public static TaxiOrder[] findFirstLegInPoolOrLone(PoolElement[] arr, TaxiOrder[] tempDemand) {
@@ -174,8 +177,8 @@ public class PoolUtil {
     for (TaxiOrder td : tempDemand) {
       boolean found = false;
       for (PoolElement a : arr) {
-        for (int j = 1; j < a.cust.length / 2; j++) { // 0: the first leg; /2 -> pickups + dropp-offs
-          if (a.cust[j].id.equals(td.id)) { // this customer will be picked up by another customer should not be sent tol solver
+        for (int j = 1; j < a.getCust().length / 2; j++) { // 0: the first leg; /2 -> pickups + dropp-offs
+          if (a.getCust()[j].id.equals(td.id)) { // this customer will be picked up by another customer should not be sent tol solver
             found = true;
             break;
           }
@@ -197,8 +200,8 @@ public class PoolUtil {
     for (TaxiOrder td : tempDemand) {
       boolean found = false;
       for (PoolElement a : arr) {
-        for (int j = 0; j < a.cust.length / 2; j++) { // 0: the first leg; /2 -> pickups + dropp-offs
-          if (a.cust[j].id.equals(td.id)) { // this customer will be picked up by another customer should not be sent tol solver
+        for (int j = 0; j < a.getCust().length / 2; j++) { // 0: the first leg; /2 -> pickups + dropp-offs
+          if (a.getCust()[j].id.equals(td.id)) { // this customer will be picked up by another customer should not be sent tol solver
             found = true;
             break;
           }
@@ -217,9 +220,9 @@ public class PoolUtil {
     for (LcmPair pair : pairs) {
       boolean found = false;
       for (PoolElement el : pl) {
-        if (el.cust[0].id.equals(tempDemand[pair.getClnt()].id)) { // this pool has been approved by LCM
+        if (el.getCust()[0].id.equals(tempDemand[pair.getClnt()].id)) { // this pool has been approved by LCM
           found = true;
-          assignedDemand.addAll(Arrays.asList(el.cust).subList(0, el.numbOfCust));
+          assignedDemand.addAll(Arrays.asList(el.getCust()).subList(0, el.getNumbOfCust()));
           break;
         }
       }

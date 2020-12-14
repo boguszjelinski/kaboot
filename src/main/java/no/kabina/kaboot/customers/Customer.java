@@ -23,9 +23,11 @@ public class Customer {
   @JoinColumn(name = "customer_id")
   private Set<TaxiOrder> items = new HashSet<>();
 
-  protected Customer() { }
-
   public Long getId() {
     return id;
+  }
+
+  public void setId(Long id) {
+    this.id = id;
   }
 }

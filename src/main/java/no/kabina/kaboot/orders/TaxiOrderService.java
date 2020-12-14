@@ -29,11 +29,7 @@ public class TaxiOrderService {
     return repository.save(order);
   }
 
-  public TaxiOrder updateTaxiOrder(TaxiOrder order, Long custId) {
-    Optional<Customer> cust = customerRepository.findById(custId);
-    if (cust.isEmpty() || cust.get().getId().longValue() != order.getCustomer().getId().longValue()) { //not authorised
-      return null;
-    }
+  public TaxiOrder updateTaxiOrder(TaxiOrder order) {
     return repository.save(order);
   }
 }

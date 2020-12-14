@@ -36,7 +36,8 @@ public class LegController {
       return null;
     }
     Long usrId = AuthUtils.getUserId(auth, "ROLE_CAB");
-    if (usrId.longValue() != l.getRoute().getCab().getId()) { // now it is that simple - cab_id == usr_id
+    if (l.getRoute() == null || l.getRoute().getCab() == null ||
+          usrId.longValue() != l.getRoute().getCab().getId()) { // now it is that simple - cab_id == usr_id
       return null;
     }
     l.setStatus(leg.getStatus());

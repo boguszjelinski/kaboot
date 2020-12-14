@@ -29,7 +29,7 @@ public class Cab {
   private int location; // updated while in route
   private CabStatus status;
 
-  protected Cab() { }
+  public Cab() {}
 
   public Cab(int loc, CabStatus status) {
     this.location = loc;

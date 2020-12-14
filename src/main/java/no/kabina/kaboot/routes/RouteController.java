@@ -47,7 +47,7 @@ public class RouteController {
 
   // mainly to mark COMPLETED and to bill the customer
   @PutMapping(value = "/routes/{id}", consumes = "application/json")
-  public String updateLeg(@PathVariable Long id, @RequestBody RoutePojo route, Authentication auth) {
+  public String updateRoute(@PathVariable Long id, @RequestBody RoutePojo route, Authentication auth) {
     logger.info("PUT route={}", id);
     Route r = null;
     Optional<Route> ro = repository.findById(id);

@@ -4,9 +4,9 @@ import no.kabina.kaboot.orders.TaxiOrder;
 import org.apache.commons.lang3.builder.HashCodeBuilder;
 
 public class PoolElement implements Comparable<PoolElement> {
-  public TaxiOrder[] cust;
-  public int numbOfCust; // pools with 2,3 or 4 passengers
-  public int cost;
+  private TaxiOrder[] cust;
+  private int numbOfCust; // pools with 2,3 or 4 passengers
+  private int cost;
 
   private PoolElement () {}
 

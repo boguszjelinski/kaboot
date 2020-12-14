@@ -35,6 +35,10 @@ public class TaxiOrderPojo { // because SonarLint complained
     return maxLoss;
   }
 
+  public TaxiOrder.OrderStatus getStatus() {
+    return status;
+  }
+
   public boolean isShared() {
     return shared;
   }
