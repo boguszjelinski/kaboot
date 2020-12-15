@@ -24,14 +24,27 @@ public class PoolUtilTests {
     @Test
     public void testPool() {
         PoolUtil util = new PoolUtil();
-        PoolElement[] pool = util.findPool(orders, 3);
+        PoolElement[] pool = util.checkPool(orders, 3);
         assertThat(pool.length).isSameAs(9);
     }
 
     @Test
     public void testPool4() {
         PoolUtil util = new PoolUtil();
-        PoolElement[] pool = util.findPool(orders, 4);
+        PoolElement[] pool = util.checkPool(orders, 4);
         assertThat(pool.length).isSameAs(7);
+    }
+
+    @Test
+    public void testPoolElement() {
+        PoolElement el = new PoolElement(null, 0, 0);
+        el.setCust(null);
+        el.setNumbOfCust(1);
+        assertThat(el.getCust()).isNull();
+        assertThat(el.getNumbOfCust()).isSameAs(1);
+        assertThat(el.equals(null)).isNotEqualTo(true);
+        assertThat(el.equals(new PoolElement(null, 0, 1))).isNotEqualTo(true);
+        assertThat(el.hashCode()).isNotSameAs(-1);
+
     }
 }

@@ -76,7 +76,7 @@ public class TaxiOrderControllerTests {
     @Test
     public void whenGetNonExistingOrder_thenReturns200() throws Exception {
         given(repository.findById(1)).willReturn(new TaxiOrder(15,16,10,10, true, TaxiOrder.OrderStatus.ASSIGNED));
-        mvc.perform(get("/orders/0", 0L)
+        mvc.perform(get("/orders/{id}", 0L)
             .header("Authorization", token)
             .contentType(MediaType.APPLICATION_JSON))
             .andExpect(status().isOk());
@@ -84,7 +84,7 @@ public class TaxiOrderControllerTests {
 
     @Test
     public void TestController_whenNotAuthorised() throws Exception {
-        mvc.perform(get("/schedulework", 0L)
+        mvc.perform(get("/schedulework")
                 .header("Authorization", token)
                 .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().is4xxClientError());

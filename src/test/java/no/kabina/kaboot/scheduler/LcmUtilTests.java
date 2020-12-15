@@ -47,7 +47,7 @@ public class LcmUtilTests {
         final int cab = 1;
         final int clnt = 2;
         assertThat(cost[cab][clnt] < LcmUtil.BIG_COST).isTrue();
-        LcmUtil.removeColsAndRows(cost.length, cost, cab,clnt);
+        LcmUtil.removeColsAndRows(cost, cab,clnt);
         assertThat(cost[cab][clnt] - LcmUtil.BIG_COST).isSameAs(0);
     }
 

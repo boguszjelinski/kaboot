@@ -93,4 +93,12 @@ public class StatService {
       return sum / list.size();
     }
   }
+
+  public void updateMaxAndAvgStats(String key, long startTime) {
+    long endTime = System.currentTimeMillis();
+    int totalTime = (int) ((endTime - startTime) / 1000F);
+
+    addAverageElement("avg_" + key, (long) totalTime);
+    updateMaxIntVal("max_" + key, totalTime);
+  }
 }

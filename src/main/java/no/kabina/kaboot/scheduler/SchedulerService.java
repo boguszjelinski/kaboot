@@ -28,14 +28,14 @@ public class SchedulerService {
 
   private final Logger logger = LoggerFactory.getLogger(SchedulerService.class);
 
-  static final String SOLVER_CMD = "runpy.bat"; // C:\\Python\\Python37\\python solver.py
-  static final String SOLVER_OUT_FILE = "solv_out.txt";
-  static final String AVG_ORDER_ASSIGN_TIME = "avg_order_assign_time";
-  static final String AVG_ORDER_PICKUP_TIME = "avg_order_pickup_time";
-  static final String AVG_ORDER_COMPLETE_TIME = "avg_order_complete_time";
-  static final String AVG_POOL_TIME = "avg_pool_time";
-  static final String AVG_SOLVER_TIME = "avg_solver_time";
-  static final String AVG_SHEDULER_TIME = "avg_sheduler_time";
+  public static final String SOLVER_CMD = "runpy.bat"; // C:\\Python\\Python37\\python solver.py
+  public static final String SOLVER_OUT_FILE = "solv_out.txt";
+  public static final String AVG_ORDER_ASSIGN_TIME = "avg_order_assign_time";
+  public static final String AVG_ORDER_PICKUP_TIME = "avg_order_pickup_time";
+  public static final String AVG_ORDER_COMPLETE_TIME = "avg_order_complete_time";
+  public static final String AVG_POOL_TIME = "avg_pool_time";
+  public static final String AVG_SOLVER_TIME = "avg_solver_time";
+  public static final String AVG_SHEDULER_TIME = "avg_sheduler_time";
 
   @Value("${kaboot.consts.max-pool4}")
   private int max4Pool; // TASK: it is not that simple, we need a model here: size, max wait, ...
@@ -65,45 +65,45 @@ public class SchedulerService {
     this.statSrvc = statService;
   }
 
+  /** 1) get the data from DB
+  *   2) find a (sub)optimal plan
+  *   3) write this plan to DB
+  */
   //@Job(name = "Taxi scheduler", retries = 2)
   public void findPlan() {
-    try {
-      int[][] cost;
-      //UUID uuid = UUID.randomUUID();  // TASK: to mark cabs and customers as assigned to this instance of sheduler
-      // first update some statistics
-      updateAvgStats();
-      long startSheduler = System.currentTimeMillis();
-      // create demand for the solver
-      TempModel tmpModel = prepareData();
-      if (tmpModel == null) {
-        return;
-      }
-      TaxiOrder[] demand = tmpModel.getDemand();
-      Cab[] supply = tmpModel.getSupply();
+    int[][] cost;
+    //UUID uuid = UUID.randomUUID();  // TASK: to mark cabs and customers as assigned to this instance of sheduler
+    // first update some statistics
+    updateAvgStats();
+    long startSheduler = System.currentTimeMillis();
+    // create demand for the solver
+    TempModel tmpModel = prepareData(); // get current demand and supply available
+    if (tmpModel == null) {
+      return; // no suitable demand
+    }
+    TaxiOrder[] demand = tmpModel.getDemand();
+    Cab[] supply = tmpModel.getSupply();
 
-      if (supply.length > 0 && demand.length > 0 && isOnline) {
+    if (supply.length > 0 && demand.length > 0 && isOnline) {
 
-        PoolElement[] pl = generatePool(demand);
-        demand = PoolUtil.findFirstLegInPoolOrLone(pl, demand); // only the first leg will be sent to solver
-        logger.info("Demand after pooling: {}", demand.length);
+      PoolElement[] pl = generatePool(demand);
+      demand = PoolUtil.findFirstLegInPoolOrLone(pl, demand); // only the first leg will be sent to LCM or solver
+      logger.info("Demand after pooling: {}", demand.length);
+      // now build a balanced cost matrix for solver
+      cost = LcmUtil.calculateCost(demand, supply);
+
+      statSrvc.updateMaxAndAvgStats("model_size", cost.length);
+      if (demand.length > maxSolverSize && supply.length > maxSolverSize) { // too big to send to solver, it has to be cut by LCM
+        // both sides has to be bigger, if one is smaller than we will just reverse-LCM (GCM) on the bigger side
+        TempModel tempModel = runLcm(supply, demand, cost, pl);
+        demand = tempModel.getDemand();
+        supply = tempModel.getSupply();
+        // to be sent to solver
+        logger.info("After LCM: demand={}, supply={}", demand.length, supply.length);
         cost = LcmUtil.calculateCost(demand, supply);
-
-        statSrvc.updateMaxIntVal("max_model_size", cost.length);
-        if (demand.length > maxSolverSize && supply.length > maxSolverSize) { // too big to send to solver, it has to be cut by LCM
-          // both sides has to be bigger,
-          TempModel tempModel = runLcm(supply, demand, cost, pl);
-          if (tempModel == null) {
-            return;
-          }
-          // to be sent to solver
-          logger.info("After LCM: demand={}, supply={}", demand.length, supply.length);
-          cost = LcmUtil.calculateCost(demand, supply);
-        }
-        runSolver(supply, demand, cost, pl);
-        updateStats("sheduler_time", startSheduler);
       }
-    } catch (Exception e) {
-      logger.warn("{} {}", e.getMessage(), e.getCause());
+      runSolver(supply, demand, cost, pl);
+      statSrvc.updateMaxAndAvgStats("sheduler_time", startSheduler);
     }
   }
 
@@ -119,23 +119,34 @@ public class SchedulerService {
     statSrvc.updateIntVal(AVG_SHEDULER_TIME, statSrvc.countAverage(AVG_SHEDULER_TIME));
   }
 
-  public void runSolver(Cab[] tempSupply, TaxiOrder[] tempDemand, int[][] cost, PoolElement[] pl) throws InterruptedException {
-    if (cost.length > maxSolverSize) { // still too big to send to solver, it has to be cut hard
-      if (tempSupply.length > maxSolverSize) { // some cabs will not get passengers, they have to wait for new ones
+  /**
+   * run linear solver (python script for now)
+   * @param tempSupply cabs
+   * @param tempDemand orders
+   * @param cost matrix
+   * @param pl pool - some more customer orders here
+   */
+  public void runSolver(Cab[] tempSupply, TaxiOrder[] tempDemand, int[][] cost, PoolElement[] pl) {
+    if (cost.length > maxSolverSize) {
+      // still too big to send to solver, it has to be cut hard
+      if (tempSupply.length > maxSolverSize) {
+        // some cabs will not get passengers, they have to wait for new ones
         tempSupply = GcmUtil.reduceSupply(cost, tempSupply, maxSolverSize);
       }
       if (tempDemand.length > maxSolverSize) {
         tempDemand = GcmUtil.reduceDemand(cost, tempDemand, maxSolverSize);
       }
+      // recalculate cost matrix again
       cost = LcmUtil.calculateCost(tempDemand, tempSupply); // it writes input file for solver
     }
-    statSrvc.updateMaxIntVal("max_solver_size", cost.length);
+    statSrvc.updateMaxAndAvgStats("solver_size", cost.length);
     logger.info("Runnnig solver: demand={}, supply={}", tempDemand.length, tempSupply.length);
     runExternalSolver();
+    // read results from a file
     int[] x = readSolversResult(cost.length);
     if (x.length != cost.length * cost.length) {
       logger.warn("Solver returned wrong data set");
-      // TASK: LCM should be called here
+      // TASK: LCM should be called here !!!
     } else {
       int assgnd = assignCustomers(x, cost, tempDemand, tempSupply, pl);
       logger.info("Customers assigned by solver: {}", assgnd);
@@ -144,31 +155,30 @@ public class SchedulerService {
     // if not - the other one should get a chance
   }
 
-  private void runExternalSolver() throws InterruptedException {
+  private void runExternalSolver() {
     try {
       // TASK: rm out file first
       Process p = Runtime.getRuntime().exec(SOLVER_CMD);
       long startSolver = System.currentTimeMillis();
       p.waitFor();
-      updateStats("solver_time", startSolver);
+      statSrvc.updateMaxAndAvgStats("solver_time", startSolver);
     } catch (IOException e) {
+      logger.warn("IOException while running solver: {}", e.getMessage());
+    } catch (Exception e) {
       logger.warn("Exception while running solver: {}", e.getMessage());
     }
   }
 
-  private void updateStats(String key, long startTime) {
-    long endTime = System.currentTimeMillis();
-    int totalTime = (int) ((endTime - startTime) / 1000F);
-
-    statSrvc.addAverageElement("avg_" + key, (long) totalTime);
-    statSrvc.updateMaxIntVal("max_" + key, totalTime);
-  }
-
-  public int[] readSolversResult(int nn) {
-    int[] x = new int[nn * nn];
+  /**
+   *  read solver output from a file - generated by a Python script
+   * @param n size of cost the model
+   * @return vector with binary data - assignments
+   */
+  public int[] readSolversResult(int n) {
+    int[] x = new int[n * n];
     try (BufferedReader reader = new BufferedReader(new FileReader(SOLVER_OUT_FILE))) {
       String line = null;
-      for (int i = 0; i < nn * nn; i++) {
+      for (int i = 0; i < n * n; i++) {
         line = reader.readLine();
         if (line == null) {
           logger.warn("wrong output from solver");
@@ -184,7 +194,7 @@ public class SchedulerService {
   }
 
   private TempModel prepareData() {
-    // create demand for the solver
+    // read demand for the solver from DB
     TaxiOrder[] tempDemand =
             taxiOrderRepository.findByStatus(TaxiOrder.OrderStatus.RECEIVED).toArray(new TaxiOrder[0]);
     tempDemand = expireRequests(tempDemand); // mark "refused" if waited too long
@@ -193,7 +203,8 @@ public class SchedulerService {
       logger.info("No suitable demand");
       return null; // don't solve anything
     }
-
+    // collect available cabs from DB
+    // TASK: not only FREE, but these which will end up close enough
     Cab[] tempSupply = cabRepository.findByStatus(Cab.CabStatus.FREE).toArray(new Cab[0]);
     if (tempSupply.length == 0) {
       logger.info("No cabs available");
@@ -223,39 +234,39 @@ public class SchedulerService {
   public PoolElement[] generatePool(TaxiOrder[] demand) {
     final long startPool = System.currentTimeMillis();
     if (demand == null || demand.length < 2) {
+      // you can't have a pool with 1 order
       return new PoolElement[0];
     }
-    // with 4 passengers
-    PoolElement[] ret;
+    // try to put 4 passengers into one cab
     PoolElement[] pl4 = null;
     PoolUtil util = new PoolUtil();
 
-    if (demand.length < max4Pool) {
+    if (demand.length < max4Pool) { // pool4 takes a lot of time, it cannot analyze big data sets
       final long startPool4 = System.currentTimeMillis();
-      pl4 = util.findPool(demand, 4); // four passengers: size^4 combinations (full search)
-      updateStats("pool4_time", startPool4);
+      pl4 = util.checkPool(demand, 4); // four passengers: size^4 combinations (full search)
+      statSrvc.updateMaxAndAvgStats("pool4_time", startPool4);
     }
-    // with 3 passengers
-    ret = getPoolWith3(util, demand, pl4);
-    updateStats("pool_time", startPool);
+    // with 3 & 2 passengers, add plans with 4 passengers
+    PoolElement[] ret = getPoolWith3and2(util, demand, pl4);
+    statSrvc.updateMaxAndAvgStats("pool_time", startPool);
     // reduce tempDemand - 2nd+ passengers will not be sent to LCM or solver
     logger.info("Pool size: {}", ret == null ? 0 : ret.length);
     return ret;
   }
 
-  private PoolElement[] getPoolWith3(PoolUtil util, TaxiOrder[] demand, PoolElement[] pl4) {
+  private PoolElement[] getPoolWith3and2(PoolUtil util, TaxiOrder[] demand, PoolElement[] pl4) {
     PoolElement[] ret;
     TaxiOrder[] demand3 = PoolUtil.findCustomersWithoutPool(pl4, demand);
     if (demand3 != null && demand3.length > 0) { // there is still an opportunity
       PoolElement[] pl3;
       if (demand3.length < max3Pool) { // not too big for three customers, let's find out!
         final long startPool3 = System.currentTimeMillis();
-        pl3 = util.findPool(demand3, 3);
-        updateStats("pool3_time", startPool3);
+        pl3 = util.checkPool(demand3, 3);
+        statSrvc.updateMaxAndAvgStats("pool3_time", startPool3);
         if (pl3.length == 0) {
           pl3 = pl4;
         } else {
-          pl3 = ArrayUtils.addAll(pl3, pl4);
+          pl3 = ArrayUtils.addAll(pl3, pl4); // merge both
         }
       } else {
         pl3 = pl4;
@@ -272,7 +283,7 @@ public class SchedulerService {
     PoolElement[] ret;
     TaxiOrder[] demand2 = PoolUtil.findCustomersWithoutPool(pl3, demand3);
     if (demand2 != null && demand2.length > 0) {
-      PoolElement[] pl2 = util.findPool(demand2, 2);
+      PoolElement[] pl2 = util.checkPool(demand2, 2);
       if (pl2.length == 0) {
         ret = pl3;
       } else {
@@ -284,17 +295,22 @@ public class SchedulerService {
     return ret;
   }
 
-
+  /**
+   *
+   * @param supply
+   * @param demand
+   * @param cost
+   * @param pl
+   * @return  returns demand and supply for the solver, not assigned by LCM
+   */
   public TempModel runLcm(Cab[] supply, TaxiOrder[] demand, int[][] cost, PoolElement[] pl) {
 
     final long startLcm = System.currentTimeMillis();
-    // =========== LCM ==========
-    statSrvc.updateMaxIntVal("max_lcm_size", cost.length);
-    LcmOutput out = LcmUtil.lcm(cost, Math.min(demand.length, supply.length) - maxSolverSize);
 
-    // do we need this check, really
-    if (out.getMinVal() == LcmUtil.BIG_COST) { // no input for the solver; probably only when MAX_SOLVER_SIZE=0
-      logger.info("No input for solver, out.minVal == LcmUtil.bigCost"); // should we return here?
+    statSrvc.updateMaxAndAvgStats("lcm_size", cost.length);
+    LcmOutput out = LcmUtil.lcm(cost, Math.min(demand.length, supply.length) - maxSolverSize);
+    if (out == null) {
+      return new TempModel(supply, demand);
     }
 
     List<LcmPair> pairs = out.getPairs();
@@ -304,10 +320,11 @@ public class SchedulerService {
     long endLcm = System.currentTimeMillis();
     int totalLcmtime = (int) ((endLcm - startLcm) / 1000F);
 
-    statSrvc.updateMaxIntVal("max_lcm_time", totalLcmtime);
+    statSrvc.updateMaxAndAvgStats("lcm_time", totalLcmtime);
 
     if (pairs.isEmpty()) {
       logger.warn("critical -> a big model but LCM hasn't helped");
+      return new TempModel(supply, demand);
     }
     logger.info("LCM n_pairs={}", pairs.size());
     // go thru LCM response (which are indexes in tempDemand and tempSupply)
@@ -315,9 +332,13 @@ public class SchedulerService {
     for (LcmPair pair : pairs) {
       sum += assignCustomerToCab(demand[pair.getClnt()], supply[pair.getCab()], pl);
     }
-    logger.info("Customers assigned by LCM: {}", sum);
-
-    return PoolUtil.analyzeLcmAndPool(pairs, pl, demand, supply); // also produce input for the solver
+    logger.info("Number of customers assigned by LCM: {}", sum);
+    if (out.getMinVal() == LcmUtil.BIG_COST) { // no input for the solver; probably only when MAX_SOLVER_SIZE=0
+      logger.info("No input for solver, out.minVal == LcmUtil.bigCost"); // should we return here?
+      // TASK it does not sound reasonable to run solver under such circumstances
+    }
+    // also produce input for the solver
+    return new TempModel(LcmUtil.supplyForSolver(pairs, supply), LcmUtil.demandForSolver(pairs, demand));
   }
 
   /**

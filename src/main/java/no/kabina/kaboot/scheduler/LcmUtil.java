@@ -29,20 +29,20 @@ public class LcmUtil {
   * @param cost cost
   */
   public static LcmOutput lcm(int[][] cost, int howMany) { // 0 = no solver now
+    if (howMany < 1) { // we would like to find at least one
+      logger.warn("LCM asked to do nothing");
+      return null;
+    }
     int lcmMinVal = BIG_COST;
-    int n = cost.length;
-    int[][] costLcm = Arrays.stream(cost).map(int[]::clone).toArray(int[][]::new);
+    int[][] costLcm = Arrays.stream(cost).map(int[]::clone).toArray(int[][]::new); // clone, not to change the parameter
     List<LcmPair> pairs = new ArrayList<>();
-    int counter = 0;
-    boolean stop = false;
-    for (int i = 0; i < n && !stop; i++) { // we need to repeat the search (cut off rows/columns) 'n' times
+    for (int i = 0; i < howMany; i++) { // we need to repeat the search (cut off rows/columns) 'hoeMany' times
       lcmMinVal = BIG_COST;
       int smin = -1;
       int dmin = -1;
-      int s;
-      int d;
-      for (s = 0; s < n; s++) {
-        for (d = 0; d < n; d++) {
+      // now find the minimal element in the whole matrix
+      for (int s = 0; s < cost.length; s++) {
+        for (int d = 0; d < cost.length; d++) {
           if (costLcm[s][d] < lcmMinVal) {
             lcmMinVal = costLcm[s][d];
             smin = s;
@@ -51,45 +51,51 @@ public class LcmUtil {
         }
       }
       if (lcmMinVal == BIG_COST) {
-        break; // no more interesting stuff there, quit LCM
+        logger.info("LCM minimal cost is BIG_COST - no more interesting stuff here");
+        break;
       }
-      // assigning cab and the client
+      // binding cab to the customer order
       pairs.add(new LcmPair(smin, dmin));
 
-      // removing the column from further search by assigning big cost
-      removeColsAndRows(n, costLcm, smin, dmin);
-      counter++;
-      if (counter == howMany) {
-        stop = true; // rest will be covered by solver
-      }
+      // removing the column from further search by assigning a big cost
+      removeColsAndRows(costLcm, smin, dmin);
     }
-    return new LcmOutput(pairs, lcmMinVal);
+    return new LcmOutput(pairs, lcmMinVal); // lcmMinVal==BIG_COST indicating that solver is of no use
   }
 
-  public static void removeColsAndRows(int n, int[][] costLcm, int smin, int dmin) {
-    int s;
-    int d;
-    for (s = 0; s < n; s++) {
+  /**
+   * mark columns and rows as 'found', variable passed by reference !
+   * @param costLcm matrix
+   * @param smin cab index
+   * @param dmin order index
+   */
+  public static void removeColsAndRows(int[][] costLcm, int smin, int dmin) {
+    for (int s = 0; s < costLcm.length; s++) {
       costLcm[s][dmin] = BIG_COST;
     }
     // the same with the row
-    for (d = 0; d < n; d++) {
+    for (int d = 0; d < costLcm.length; d++) {
       costLcm[smin][d] = BIG_COST;
     }
   }
 
+  /**
+   * create a cost matrix for LCM and solver
+   * @param tmpDemand requests from customers
+   * @param tmpSupply cabs available
+   * @return matrix
+   */
   public static int[][] calculateCost(TaxiOrder[] tmpDemand, Cab[] tmpSupply) {
-    int n = 0;
     int c;
     int d;
     int numbSupply = tmpSupply.length;
     int numbDemand = tmpDemand.length;
-    n = Math.max(numbSupply, numbDemand); // checking max size for unbalanced scenarios
+    int n = Math.max(numbSupply, numbDemand); // checking max size for unbalanced scenarios
     if (n == 0) {
       return new int[0][0];
     }
     int[][] cost = new int[n][n];
-    // resetting cost table
+    // resetting cost table - all big
     for (c = 0; c < n; c++) {
       for (d = 0; d < n; d++) {
         cost[c][d] = BIG_COST;
@@ -97,14 +103,11 @@ public class LcmUtil {
     }
     for (c = 0; c < numbSupply; c++) {
       for (d = 0; d < numbDemand; d++) {
-        int dst = DistanceService.getDistance(tmpSupply[c].getLocation(), tmpDemand[d].fromStand);
-        if (dst <= tmpDemand[d].getMaxWait() - SCHEDULING_DURATION - PoolUtil.POOL_MAX_WAIT_TIME) {
-          // take this possibility only if reasonable time to pick-up a customer
-          // otherwise big_cost will stay in this cell
-          cost[c][d] = dst;
-        }
+        // check that cans and customers are in range is done in getRidOfDistantCabs & Customers
+        cost[c][d] = DistanceService.getDistance(tmpSupply[c].getLocation(), tmpDemand[d].fromStand);
       }
     }
+    // for the external solver only
     try (FileWriter fr = new FileWriter(new File(SOLVER_COST_FILE))) {
       fr.write(n + "\n");
       for (c = 0; c < n; c++) {
@@ -119,7 +122,12 @@ public class LcmUtil {
     return cost;
   }
 
-  // TASK: it is not wise to make this search here and in calculatCost
+  /**
+   * not reasonable to consider cabs, which nobody would accept
+   * @param demand customers orders
+   * @param supply cabs
+   * @return cabs
+   */
   public static Cab[] getRidOfDistantCabs(TaxiOrder[] demand, Cab[] supply) {
     List<Cab> list = new ArrayList<>();
     for (Cab cab : supply) {
@@ -135,6 +143,12 @@ public class LcmUtil {
     return list.toArray(new Cab[0]);
   }
 
+  /**
+   * not reasonable to consider customers without a cab in acceptable range
+   * @param demand customers orders
+   * @param supply cabs
+   * @return orders
+   */
   public static TaxiOrder[] getRidOfDistantCustomers(TaxiOrder[] demand, Cab[] supply) {
     List<TaxiOrder> list = new ArrayList<>();
     for (TaxiOrder taxiOrder : demand) {
@@ -148,5 +162,51 @@ public class LcmUtil {
       }
     }
     return list.toArray(new TaxiOrder[0]);
+  }
+
+  /**
+   * find customer orders that have not been assigned by LCM
+   * @param pairs lcm output
+   * @param tempDemand demand sent to LCM
+   * @return input to solver
+   */
+  public static TaxiOrder[] demandForSolver(List<LcmPair> pairs, TaxiOrder[] tempDemand) {
+    List<TaxiOrder> solverDemand = new ArrayList<>();
+    for (TaxiOrder o: tempDemand) {
+      boolean found = false;
+      for (LcmPair pair : pairs) {
+        if (o.id.equals(tempDemand[pair.getClnt()].id)) {
+          found = true;
+          break;
+        }
+      }
+      if (!found) {
+        solverDemand.add(o);
+      }
+    }
+    return solverDemand.toArray(new TaxiOrder[0]);
+  }
+
+  /**
+   * find cabs that have not been assigned by LCM
+   * @param pairs lcm output
+   * @param tempSupply cabs sent to LCM
+   * @return input to solver
+   */
+  public static Cab[] supplyForSolver(List<LcmPair> pairs, Cab[] tempSupply) {
+    List<Cab> solverSupply = new ArrayList<>();
+    for (Cab c : tempSupply) {
+      boolean found = false;
+      for (LcmPair pair : pairs) {
+        if (c.getId().equals(tempSupply[pair.getCab()].getId())) {
+          found = true;
+          break;
+        }
+      }
+      if (!found) {
+        solverSupply.add(c);
+      }
+    }
+    return solverSupply.toArray(new Cab[0]);
   }
 }

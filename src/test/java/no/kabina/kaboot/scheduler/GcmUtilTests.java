@@ -57,8 +57,7 @@ public class GcmUtilTests {
 
         Integer[] o = GcmUtil.findMinDistancesForDemand(cost2);
         assertThat(o.length).isSameAs(n);
-        for (int i= 0; i<o.length; i++)
-            assertThat(o[i].intValue() - LcmUtil.BIG_COST).isZero();
+        for (Integer value : o) assertThat(value.intValue()).isSameAs(10);
 
         for (int i=0; i < n; i++) {
             cabs2[i] = new Cab(0, Cab.CabStatus.FREE);
@@ -67,9 +66,6 @@ public class GcmUtilTests {
         cost2 = LcmUtil.calculateCost(orders2, cabs2);
         o = GcmUtil.findMinDistancesForDemand(cost2);
         assertThat(o.length).isSameAs(n);
-        for (int i = 0; i<o.length; i++)
-            assertThat(o[i].intValue()).isSameAs(1);
+        for (Integer integer : o) assertThat(integer.intValue()).isSameAs(1);
     }
-
-
 }
