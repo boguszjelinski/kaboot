@@ -1,4 +1,4 @@
-package no.kabina.kaboot.scheduler;
+package no.kabina.kaboot.dispatcher;
 
 import java.io.BufferedReader;
 import java.io.FileReader;

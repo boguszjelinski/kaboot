@@ -1,4 +1,4 @@
-package no.kabina.kaboot.scheduler;
+package no.kabina.kaboot.dispatcher;
 
 public class LcmPair {
   private int cab;

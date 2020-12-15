@@ -4,7 +4,7 @@ import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.Optional;
 
-import no.kabina.kaboot.scheduler.SchedulerService;
+import no.kabina.kaboot.dispatcher.SchedulerService;
 import no.kabina.kaboot.stats.StatService;
 import no.kabina.kaboot.utils.AuthUtils;
 import org.slf4j.Logger;

@@ -1,4 +1,4 @@
-package no.kabina.kaboot.scheduler;
+package no.kabina.kaboot.dispatcher;
 
 
 import no.kabina.kaboot.KabootApplication;

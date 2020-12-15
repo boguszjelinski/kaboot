@@ -1,6 +1,6 @@
 package no.kabina.kaboot;
 
-import no.kabina.kaboot.scheduler.SchedulerService;
+import no.kabina.kaboot.dispatcher.SchedulerService;
 import org.jobrunr.jobs.mappers.JobMapper;
 import org.jobrunr.scheduling.BackgroundJob;
 import org.jobrunr.scheduling.cron.Cron;

@@ -1,4 +1,4 @@
-package no.kabina.kaboot.scheduler;
+package no.kabina.kaboot.dispatcher;
 /* Author: Bogusz Jelinski
    A.D.: 2020
    Title: pool service

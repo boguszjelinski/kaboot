@@ -1,11 +1,11 @@
-package no.kabina.kaboot.scheduler;
+package no.kabina.kaboot.dispatcher;
 
 import no.kabina.kaboot.cabs.Cab;
 import no.kabina.kaboot.orders.TaxiOrder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-// Greatest Cost - finding cabs with greatest distance to limit the size of solver
+// Greatest Cost - finding cabs with greatest distance to limit the size of solver model
 public class GcmUtil {
 
   private GcmUtil() {} // hiding public

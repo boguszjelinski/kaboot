@@ -1,4 +1,4 @@
-package no.kabina.kaboot.scheduler;
+package no.kabina.kaboot.dispatcher;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
