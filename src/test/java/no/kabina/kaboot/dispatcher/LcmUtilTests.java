@@ -6,6 +6,9 @@ import org.junit.Before;
 import org.junit.Test;
 import org.springframework.test.context.ActiveProfiles;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import static org.assertj.core.api.Assertions.assertThat;
 
 @ActiveProfiles("test")
@@ -68,5 +71,23 @@ public class LcmUtilTests {
         o = LcmUtil.getRidOfDistantCustomers(orders, cabs);
         assertThat(c.length).isSameAs(0);
         assertThat(o.length).isSameAs(0);
+    }
+
+    @Test
+    public void testDemandForSolver() {
+        List<LcmPair> lcmPairList = new ArrayList<>();
+        lcmPairList.add(new LcmPair(0,0));
+        lcmPairList.add(new LcmPair(1,1));
+        TaxiOrder[] demand = new TaxiOrder[5];
+        for (int i = 0; i< demand.length; i++) {
+            demand[i] = new TaxiOrder();
+            demand[i].setId((long) i);
+        }
+        TaxiOrder[] r = LcmUtil.demandForSolver(lcmPairList, demand);
+        assertThat(r.length).isSameAs(3);
+        for (int i=0; i< r.length; i++) {
+            assertThat(r[i].getId()).isNotSameAs(0);
+            assertThat(r[i].getId()).isNotSameAs(1);
+        }
     }
 }

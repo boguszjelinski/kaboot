@@ -8,20 +8,21 @@ import javax.script.ScriptException;
 
 class CustomerRunnable implements Runnable {
 
-    final static Logger logger = Logger.getLogger("kaboot.simulator.customergenerator");
+    static final Logger logger = Logger.getLogger("kaboot.simulator.customergenerator");
    
-    final static int MAX_WAIT_FOR_RESPONSE = 3; // minutes; might be random in taxi_demand.txt
-    final static int MAX_WAIT_FOR_CAB = 10; // minutes; might be random in taxi_demand.txt
-    final static double MAX_POOL_LOSS = 1.30; // %; might be random in taxi_demand.txt
-    final static int MAX_TRIP_LOSS = 4; // minutes; just not be a jerk!
-    final static int MAX_TRIP_LEN = 30; // check gen_demand.py, +/- 4min, 
+    static final int MAX_WAIT_FOR_RESPONSE = 3; // minutes; might be random in taxi_demand.txt
+    static final int MAX_WAIT_FOR_CAB = 10; // minutes; might be random in taxi_demand.txt
+    static final double MAX_POOL_LOSS = 1.30; // %; might be random in taxi_demand.txt
+    static final int MAX_TRIP_LOSS = 4; // minutes; just not be a jerk!
+    static final int MAX_TRIP_LEN = 30; // check gen_demand.py, +/- 4min, 
+    static final int CHECK_INTERVAL = 15; // secs
 
     private Demand tOrder;
     private ScriptEngine engine;
 
     public CustomerRunnable(int[] order) {
-        this.tOrder = new Demand(order[0],order[1],order[2],order[3],order[4]);
-        this.tOrder.setStatus(OrderStatus.RECEIVED);
+        this.tOrder = new Demand(order[0], order[1], order[2], order[3], order[4]);
+        this.tOrder.setStatus(Utils.OrderStatus.RECEIVED);
         ScriptEngineManager sem = new ScriptEngineManager();
         this.engine = sem.getEngineByName("javascript");
     }
@@ -33,125 +34,141 @@ class CustomerRunnable implements Runnable {
     private void live(Demand d) {
         /*
             1. request a cab
-            2. loop/wait for an assignment - do you like it ?
+            2. wait for an assignment - do you like it ?
             3. wait for a cab
             4. take a trip
             5. mark the end
         */
         // send to dispatcher that we need a cab
         // order id returned
-        int cust_id = d.id; 
-        logger.info("Is alive cust_id=" + cust_id + ", from=" + d.from + ", to=" +d.to);
-        Demand order = saveOrder("POST", d, cust_id); //          order = d; but now ith has entity id
+        int custId = d.id; 
+        logger.info("Is alive cust_id=" + custId + ", from=" + d.from + ", to=" +d.to);
+        Demand order = saveOrder("POST", d, custId); //          order = d; but now ith has entity id
         if (order == null) {
-            logger.info("Unable to request a cab, cust_id=" + cust_id);
+            logger.info("Unable to request a cab, cust_id=" + custId);
             return;
         }
-        int order_id = order.id;
-        //Demand order = new Demand(113579, 10, 6, 0, 10);
-        logger.info("Cab requested, cust_id=" + cust_id + ", order_id=" + order_id);
+        int orderId = order.id;
+
+        log("Cab requested", custId, orderId);
         // just give kaboot a while to think about it
         // pool ? cab? ETA ?
         Utils.waitSecs(90); // just give the solver some time
-        for (int t=0; t<MAX_WAIT_FOR_RESPONSE * 2; t++) {
-            Utils.waitSecs(30); 
-            order = getOrder(cust_id, order_id);
-            if (order == null) {
-                logger.info("Serious error, order not found, cust_id=" + cust_id+ ", order_id=" + order_id +",");
-                return;
-            }
-            if (order.status == OrderStatus.ASSIGNED)  {
-                break;
-            }
-            //else logger.info("NOT ASSIGNED: " + ret);
-        }
+
+        order = waitForAssignment(custId, orderId);
         
-        if (order == null || order.status != OrderStatus.ASSIGNED
+        if (order == null || order.status != Utils.OrderStatus.ASSIGNED
             //|| ord.cab_id == -1
             ) { // Kaboot has not answered, too busy
             // complain
             if (order == null) {
-                logger.info("Waited in vain, no answer: cust_id=" + cust_id + ", order_id=" + order_id +",");
+                log("Waited in vain, no answer", custId, orderId);
             } else {
-                logger.info("Waited in vain, no assignment: cust_id=" + cust_id + ", order_id=" + order_id +",");
+                log("Waited in vain, no assignment", custId, orderId);
+                order.status = Utils.OrderStatus.CANCELLED; // just not to kill scheduler
+                saveOrder("PUT", order, custId); 
             }
-            order.status = OrderStatus.CANCELLED; // just not to kill scheduler
-            saveOrder("PUT", order, cust_id); 
             return;
         }
-        logger.info("Assigned: cust_id=" + cust_id + ", order_id=" + order_id +", cab_id=" + order.cab_id + ",");
-        /*if (order.eta > d.at + MAX_WAIT_FOR_CAB) {
+
+        log("Assigned", custId, orderId, order.cab_id);
+        
+        // TASK: check order.eta > d.at + MAX_WAIT_FOR_CAB) 
+        
+        order.status = Utils.OrderStatus.ACCEPTED;
+        saveOrder("PUT", order, custId); // PUT = update
+        log("Accepted, waiting for that cab", custId, orderId, order.cab_id);
+        
+        if (!hasArrived(custId, order.cab_id, d.from)) {
             // complain
-            logger.info("I can't wait that long: cust_id=" + cust_id);
+            log("Cab has not arrived", custId, orderId, order.cab_id);
+            order.status = Utils.OrderStatus.CANCELLED; // just not to kill scheduler
+            saveOrder("PUT", order, custId); 
             return;
         }
-        */
-        order.status = OrderStatus.ACCEPTED;
-        saveOrder("PUT", order, cust_id); // PUT = update
-        logger.info("Accepted, waiting for that cab: cust_id=" + cust_id + ", order_id=" + order_id + ", cab_id=" + order.cab_id + ",");
-        boolean arrived = false;
-        for (int t=0; t<MAX_WAIT_FOR_CAB * 4 ; t++) { // *4 as 15 secs below
-            Utils.waitSecs(15);
-            Cab cab = getCab("cabs/", cust_id, order.cab_id);
-            if (cab.location == d.from) {
-                arrived = true;
+       
+        takeATrip(custId, order); 
+      
+        if (order.status != Utils.OrderStatus.COMPLETE) {
+            order.status = Utils.OrderStatus.CANCELLED; // just not to kill scheduler
+            log("Status is not COMPLETE, cancelling the trip", custId, orderId, order.cab_id);
+            saveOrder("PUT", order, custId); 
+        }
+    }
+
+    private Demand waitForAssignment(int custId, int orderId) {
+        Demand order = null;
+        for (int t = 0; t < MAX_WAIT_FOR_RESPONSE * 2; t++) {
+            Utils.waitSecs(30); 
+            order = getOrder(custId, orderId);
+            if (order == null) {
+                log("Serious error, order not found", custId, orderId);
+                return null;
+            }
+            if (order.status == Utils.OrderStatus.ASSIGNED)  {
                 break;
             }
         }
-        if (!arrived) {
-            // complain
-            logger.info("Cab has not arrived: cust_id=" + cust_id + ", order_id=" + order_id + ", cab_id=" + order.cab_id + ",");
-            order.status = OrderStatus.CANCELLED; // just not to kill scheduler
-            saveOrder("PUT", order, cust_id); 
-            return;
+        return order;
+    }
+
+    private boolean hasArrived(int custId, int cabId, int from) {
+        for (int t=0; t<MAX_WAIT_FOR_CAB * 4 ; t++) { // *4 as 15 secs below
+            Utils.waitSecs(15);
+            Cab cab = getCab("cabs/", custId, cabId);
+            if (cab.location == from) {
+                return true;
+            }
         }
+        return false;
+    }
+
+    private void takeATrip(int custId, Demand order) {
         // authenticate to the cab - open the door?
-        logger.info("Picked up: cust_id=" + cust_id + ", order_id=" + order_id + ", cab_id=" + order.cab_id + ",");
-        order.status = OrderStatus.PICKEDUP;
-        saveOrder("PUT", order, cust_id); // PUT = update
-        // take a trip
+        log("Picked up", custId, order.id, order.cab_id);
+        order.status = Utils.OrderStatus.PICKEDUP;
+        saveOrder("PUT", order, custId); // PUT = update
+
         int duration = 0; 
-        final int CHECK_INTERVAL = 15; // secs
+       
         for (; duration<MAX_TRIP_LEN * (60/CHECK_INTERVAL); duration++) {
             Utils.waitSecs(CHECK_INTERVAL);
             /*order = getEntity("orders/", cust_id, order_id);
             if (order.status == OrderStatus.COMPLETE && order.cab_id != -1)  {
                 break;
             }*/
-            Cab cab = getCab("cabs/", cust_id, order.cab_id);
-            if (cab.location == d.to) {
-                logger.info("Arrived at " + d.to + ", cust_id=" +  cust_id+ ", order_id=" + order_id + ", cab_id="
-                                    + order.cab_id + ",");
-                order.status = OrderStatus.COMPLETE;
-                saveOrder("PUT", order, cust_id); 
+            Cab cab = getCab("cabs/", custId, order.cab_id);
+            if (cab.location == order.to) {
+                log("Arrived at " + order.to, custId, order.id, order.cab_id);
+                order.status = Utils.OrderStatus.COMPLETE;
+                saveOrder("PUT", order, custId); 
                 break;
             }
         }
+          
         if (duration >= MAX_TRIP_LEN * (60/CHECK_INTERVAL)) {
-            logger.info("Something wrong - customer has never reached the destination: cust_id=" + cust_id
-                            + ", order_id=" + order_id + ", cab_id="+ order.cab_id + ",");
+            log("Something wrong - customer has never reached the destination", custId, order.id, order.cab_id);
         } else {
-            // POOL CHECK
-            if (order.inPool) { // TODO: this 
-                if (duration/(60/CHECK_INTERVAL) > (int) (abs(d.from - d.to) * MAX_POOL_LOSS + MAX_TRIP_LOSS)) {
+            if (order.inPool) {
+                if (duration/(60/CHECK_INTERVAL) > (int) (abs(order.from - order.to) * MAX_POOL_LOSS + MAX_TRIP_LOSS)) {
                     // complain
-                    logger.info("Duration in pool was too long: cust_id=" + cust_id
-                                    + ", order_id=" + order_id + ", cab_id=" + order.cab_id + ",");
+                    log("Duration in pool was too long", custId, order.id, order.cab_id);
                 }
             } else { // not a carpool
-                if (duration/(60/CHECK_INTERVAL) > (int) (abs(d.from - d.to) + MAX_TRIP_LOSS)) {
+                if (duration/(60/CHECK_INTERVAL) > (int) (abs(order.from - order.to) + MAX_TRIP_LOSS)) {
                     // complain
-                    logger.info("Duration took too long: cust_id=" + cust_id
-                                    + ", order_id=" + order_id + ", cab_id=" + order.cab_id + ",");
+                    log("Duration took too long", custId, order.id, order.cab_id);
                 }
             }
         }
-        if (order.status != OrderStatus.COMPLETE) {
-            order.status = OrderStatus.CANCELLED; // just not to kill scheduler
-            logger.info("Status is not COMPLETE, cancelling the trip: cust_id=" + cust_id
-                                    + ", order_id=" + order_id + ", cab_id=" + order.cab_id + ",");
-            saveOrder("PUT", order, cust_id); 
-        }
+    }
+
+    public static void log(String msg, int custId, int orderId){
+        logger.info(msg + ", cust_id=" + custId+ ", order_id=" + orderId +",");
+    }
+
+    public static void log(String msg, int custId, int orderId, int cabId){
+        logger.info(msg + ", cust_id=" + custId+ ", order_id=" + orderId +", cab_id=" + cabId + ",");
     }
 
     private Demand saveOrder(String method, Demand d, int usr_id) {
@@ -160,153 +177,35 @@ class CustomerRunnable implements Runnable {
         json = Utils.saveJSON(method, "orders", "cust" + usr_id, d.id, json); // TODO: FAIL, this is not customer id
         return getOrderFromJson(json);
     }
-  
-    private Map getMap(String json) {
-        try {
-            String script = "Java.asJSONCompatible(" + json + ")";
-            Object result = this.engine.eval(script);
-            return (Map) result;
-        } catch (ScriptException se) {
-            return null;
-        }
-    }
 
-    private Demand getOrder(int user_id, int order_id) {
-        String json = Utils.getEntityAsJson("cust"+user_id, "orders/" + order_id);
+    private Demand getOrder(int userId, int orderId) {
+        String json = Utils.getEntityAsJson("cust" + userId, "orders/" + orderId);
         return getOrderFromJson(json);
     }
 
-    private Cab getCab(String entityUrl, int user_id, int id) {
-        String json = Utils.getEntityAsJson("cust"+user_id, entityUrl + id);
+    private Cab getCab(String entityUrl, int userId, int id) {
+        String json = Utils.getEntityAsJson("cust" + userId, entityUrl + id);
         return getCabFromJson(json);
     }
 
     private Cab getCabFromJson(String str) {
-        Map map = getMap(str);
+        Map map = Utils.getMap(str, this.engine);
         //"{"id":0,"location":1,"status":"FREE"}"
         if (map == null) {
             return null;
         }
         return new Cab( (int) map.get("id"),
                         (int) map.get("location"),
-                        getCabStatus((String) map.get("status")));
-    }
-    
-    public Utils.CabStatus getCabStatus (String stat) {
-        switch (stat) {
-            case "ASSIGNED": return Utils.CabStatus.ASSIGNED;
-            case "FREE":     return Utils.CabStatus.FREE;
-            case "CHARGING": return Utils.CabStatus.CHARGING;
-        }
-        return null;
+                        Utils.getCabStatus((String) map.get("status")));
     }
 
     private Demand getOrderFromJson(String str) {
-        //"{"id":113579,"status":"ASSIGNED","fromStand":10,"toStand":6,"maxWait":10,"maxLoss":10,"shared":true,"eta":-1,"inPool":false,
-        //"customer":{"id":1,"hibernateLazyInitializer":{}},
-        //"leg":{"id":114461,"fromStand":10,"toStand":8,"place":1,"status":"ASSIGNED",
-        //       "route":null, "hibernateLazyInitializer":{}},
-        //"route":{"id":114459,"status":"ASSIGNED",
-        //         "cab":{"id":907,"location":12,"status":"ASSIGNED","hibernateLazyInitializer":{}},
-        //         "legs":null,"hibernateLazyInitializer":{}}}"
-        if ("OK".equals(str)) { // PUT
-            return null; 
-        }
-        Map map = getMap(str);
-        if (map == null) {
-            return null;
-        }
-        Map route = (Map) map.get("route");
-        Map cab = null;
-        int cab_id = -1;
-        if (route != null) {
-            cab = (Map) route.get("cab");
-            if (cab != null) {
-                cab_id = (int) cab.get("id");
-            }
-        }
-        Demand o = new Demand(  (int) map.get("id"),
-                                (int) map.get("fromStand"),
-                                (int) map.get("toStand"),
-                                getOrderStatus((String) map.get("status")),
-                                (boolean) map.get("inPool"),
-                                cab_id);
-        return o;
-    }
-
-    private OrderStatus getOrderStatus (String stat) {
-        if (stat == null) {
-            return null;
-        }
-
-        switch (stat) {
-            case "ASSIGNED":  return OrderStatus.ASSIGNED;
-            case "ABANDONED": return OrderStatus.ABANDONED;
-            case "ACCEPTED":  return OrderStatus.ACCEPTED;
-            case "CANCELLED": return OrderStatus.CANCELLED;
-            case "COMPLETE":  return OrderStatus.COMPLETE;
-            case "PICKEDUP":  return OrderStatus.PICKEDUP;
-            case "RECEIVED":  return OrderStatus.RECEIVED;
-            case "REFUSED":   return OrderStatus.REFUSED;
-            case "REJECTED":  return OrderStatus.REJECTED;
-        }
-        return null;
-    }
-    
-    private class Cab {
-        public Cab(int i, int l, Utils.CabStatus s) {
-            this.id = i;
-            this.location = l;
-            this.status = s;
-        }
-        public int id;
-        public int location;
-        public Utils.CabStatus status;
-        public void setId(int id) { this.id = id; }
-        public void setLocation(int l) { this.location = l; }
-        public void setStatus(Utils.CabStatus s) { this.status = s; }
-    }
-
-    private class Demand {
-        public int id, from, to, time, at;
-        public int eta; // set when assigned
-        public boolean inPool;
-        public int cab_id;
-        public OrderStatus status;
-
-        public Demand (int id, int from, int to, OrderStatus status, boolean inPool, int cab_id) {
-            this.id = id;
-            this.from = from;
-            this.to = to;
-            this.status = status;
-            this.inPool = inPool;
-            this.cab_id = cab_id;
-        }
-
-        public Demand (int id, int from, int to, int time, int at) {
-            this.id = id;
-            this.from = from;
-            this.to = to;
-            this.at = at;
-            this.time = time;
-        }
-        public void setStatus (OrderStatus stat) { this.status = stat; }
-        public void setId(int id) { this.id = id; }
-        public void setFrom(int fromStand) { this.from = fromStand; }
-        public void setTo(int toStand) { this.to = toStand; }
-        public void setEta(Integer eta) { this.eta = eta; }
-        public void setInPool(Boolean inPool) { this.inPool = inPool; }
-    }
-
-    static enum OrderStatus {
-        RECEIVED,  // sent by customer
-        ASSIGNED,  // assigned to a cab, a proposal sent to customer with time-of-arrival
-        ACCEPTED,  // plan accepted by customer, waiting for the cab
-        CANCELLED, // cancelled before assignment
-        REJECTED,  // proposal rejected by customer
-        ABANDONED, // cancelled after assignment but before 'PICKEDUP'
-        REFUSED,   // no cab available, cab broke down at any stage
-        PICKEDUP,
-        COMPLETE
+        Map map = Utils.getMapFromJson(str, this.engine);
+        return new Demand(  (int) map.get("id"),
+                            (int) map.get("fromStand"),
+                            (int) map.get("toStand"),
+                            Utils.getOrderStatus((String) map.get("status")),
+                            (boolean) map.get("inPool"),
+                            (int) map.get("cab_id"));
     }
 }

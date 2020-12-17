@@ -10,10 +10,10 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 public class TestController {
 
-  private final SchedulerService service;
+  private final DispatcherService service;
   private final Logger logger = LoggerFactory.getLogger(TestController.class);
 
-  public TestController(SchedulerService service) {
+  public TestController(DispatcherService service) {
     this.service = service;
   }
 

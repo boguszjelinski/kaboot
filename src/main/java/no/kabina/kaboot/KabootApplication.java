@@ -1,6 +1,6 @@
 package no.kabina.kaboot;
 
-import no.kabina.kaboot.dispatcher.SchedulerService;
+import no.kabina.kaboot.dispatcher.DispatcherService;
 import org.jobrunr.jobs.mappers.JobMapper;
 import org.jobrunr.scheduling.BackgroundJob;
 import org.jobrunr.scheduling.cron.Cron;
@@ -38,7 +38,7 @@ public class KabootApplication {
     return args -> {
       BackgroundJob.scheduleRecurrently(
               "find-plan",
-              SchedulerService::findPlan,
+              DispatcherService::findPlan,
               Cron.minutely()
       );
       Thread.currentThread().join();

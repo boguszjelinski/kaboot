@@ -24,9 +24,9 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 @Component
-public class SchedulerService {
+public class DispatcherService {
 
-  private final Logger logger = LoggerFactory.getLogger(SchedulerService.class);
+  private final Logger logger = LoggerFactory.getLogger(DispatcherService.class);
 
   public static final String SOLVER_CMD = "runpy.bat"; // C:\\Python\\Python37\\python solver.py
   public static final String SOLVER_OUT_FILE = "solv_out.txt";
@@ -55,9 +55,9 @@ public class SchedulerService {
   private final LegRepository legRepository;
   private final StatService statSrvc;
 
-  public SchedulerService(TaxiOrderRepository taxiOrderRepository, CabRepository cabRepository,
-                          RouteRepository routeRepository, LegRepository legRepository,
-                          StatService statService) {
+  public DispatcherService(TaxiOrderRepository taxiOrderRepository, CabRepository cabRepository,
+                           RouteRepository routeRepository, LegRepository legRepository,
+                           StatService statService) {
     this.taxiOrderRepository = taxiOrderRepository;
     this.cabRepository = cabRepository;
     this.routeRepository = routeRepository;
@@ -366,10 +366,10 @@ public class SchedulerService {
   }
 
   /**
-   *
-   * @param order
-   * @param cab
-   * @param pool
+   * save this particular assignment to the DB (cab, route, leg, taxi_order)
+   * @param order customer request
+   * @param cab cab
+   * @param pool the whole pool
    * @return  number of assigned customers
    */
   private int assignCustomerToCab(TaxiOrder order, Cab cab, PoolElement[] pool) { // TASK: it isn't transactional

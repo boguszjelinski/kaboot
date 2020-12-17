@@ -11,26 +11,25 @@ import java.util.logging.Logger;
 import java.util.Map;
 import javax.script.ScriptEngine;
 import javax.script.ScriptEngineManager;
-import javax.script.ScriptException;
 
 public class CabRunnable implements Runnable {
     
-    final static Logger logger = Logger.getLogger("kaboot.simulator.cabgenerator");
+    static final Logger logger = Logger.getLogger("kaboot.simulator.cabgenerator");
 
-    final static int maxTime = 120; // minutes 120
-    final static int maxStand = 50; // TODO: read from application.yml
+    static final int MAX_TIME = 120; // minutes 120
+    static final int MAX_STAND = 50; // TODO: read from application.yml
     
     private ScriptEngine engine;
 
-    private int cab_id;
+    private int cabId;
     public CabRunnable(int id) { 
-        this.cab_id = id; 
+        this.cabId = id; 
         ScriptEngineManager sem = new ScriptEngineManager();
         this.engine = sem.getEngineByName("javascript");
     }
     
     public void run() {
-        live(cab_id);
+        live(cabId);
     }
 
     private void live(int cab_id) {
@@ -47,24 +46,21 @@ public class CabRunnable implements Runnable {
         Cab cab = getCab("cabs/", cab_id, cab_id);
         if (cab == null) { 
             // cab should be activated by an admin
-            logger.warning("Cab not activated, cab=" + cab_id);
+            logger.warning("Cab=" +  cab_id + " not activated");
             return;
         }
-        /* in simulations start with reseting the cabs here:
-        logger.info("Creating cab=" + cab_id);
-        String json = "{\"location\":\"" + (cab_id % maxStand) + "\", \"status\": \""+ Utils.CabStatus.FREE +"\"}";
-        json = "{\"location\":"+ cab_id +", \"status\": \"0\"}";
-        logger.info("JSON=" + json);
-        cab = Utils.saveJSON("PUT", cab_id, json);
-        */
-        for (int t=0; t< maxTime; t++) {
+        logger.info("Updating cab=" + cab_id + ", free at: " + (cab_id % MAX_STAND));
+        String json = "{\"location\":\"" + (cab_id % MAX_STAND) + "\", \"status\": \""+ Utils.CabStatus.FREE +"\"}";
+        Utils.saveJSON("PUT", "cabs", "cab" + cab_id, cab_id, json);
+
+        for (int t = 0; t < MAX_TIME; t++) {
             Route route = getRoute(cab_id); // TODO: status NULL
             if (route != null) { // this cab has been assigned a job
-                logger.info("New route to run, cab=" + cab_id + ", route=" + route.getId() + ",");
+                log("New route to run", cab_id,  route.getId());
                 // go to first task - virtual walk, just wait this amount of time
                 List<Task> legs = route.getTasks();
                 if (legs == null || legs.size() == 0) {
-                    logger.info("Error - route has no legs, cab=" + cab_id + ", route=" + route.getId() + ",");
+                    log("Error - route has no legs", cab_id, route.getId());
                     continue;
                 }
                 // sorting legs by place 
@@ -72,59 +68,72 @@ public class CabRunnable implements Runnable {
                 Collections.sort(legs, (Task t1, Task t2) -> t1.place - t2.place);
                 cab.status = Utils.CabStatus.ASSIGNED;
                 Task task = legs.get(0);
-                // maybe these 2 lines are not needed - the first leg will be cab's move to pickup the first customer
+                // maybe these lines below are not needed - the first leg will be cab's move to pickup the first customer
                 // check logs afterwards to confirm this
                 if (task.fromStand != cab.location) { 
                     // strange - scheduler did not know cab's location
-                    logger.info("Error, first leg does not start at cabs location. Moving from " 
-                        + task.fromStand+ " to " +cab.location+ ", cab=" + cab_id + ", leg=" + task.id +",");
+                    log("Error, first leg does not start at cabs location. Moving", task.fromStand, cab.location, cab_id, + task.id);
                     Utils.waitMins(Math.abs(cab.location - task.fromStand)); // cab is moving
                     cab.location = task.fromStand;
                     // inform that cab is at the stand -> update Cab entity, 'complete' previous Task
                     updateCab(cab.id, cab);
                 }
                 Utils.waitMins(1); // wait 1min so that passengers can get in
-                int tasksNumb = legs.size();
-                for (int i=0; i < tasksNumb; i++) {
-                    // go from where you are to task.stand
-                    task = legs.get(i);
-                    logger.info("Moving from " +task.fromStand+ " to " +task.toStand+ ", cab=" + cab_id + ", leg=" + task.id +",");
-
-                    Utils.waitMins(Math.abs(task.fromStand - task.toStand)); // cab is moving
-                    task.status = RouteStatus.COMPLETE;
-                    updateTask(cab.id, task);
-                    cab.location = task.toStand;
-                    // inform sheduler / customer
-                    if (i == tasksNumb - 1) {
-                        cab.status = Utils.CabStatus.FREE;
-                    }
-                    updateCab(cab.id, cab); // such call should 'complete' tasks; at the last task -> 'complete' route and 'free' that cab
-                    // !! update leg here -> completed
-                    Utils.waitMins(1); // wait 1min: pickup + dropout
-                }
-                route.status = RouteStatus.COMPLETE;
+                deliverPassengers(legs, cab);
+                route.status = Utils.RouteStatus.COMPLETE;
                 updateRoute(cab.id, route);
             } 
             Utils.waitSecs(30);
         }
-//        System.out.println("First task stand: " + r[0].getTasks().get(0).getStand());
     }
   
+    private void deliverPassengers(List<Task> legs, Cab cab) {
+        for (int i=0; i < legs.size(); i++) {
+            // go from where you are to task.stand
+            Task task = legs.get(i);
+            log("Moving", task.fromStand, task.toStand, this.cabId, task.id);
+
+            Utils.waitMins(Math.abs(task.fromStand - task.toStand)); // cab is moving
+            task.status = Utils.RouteStatus.COMPLETE;
+            updateTask(cab.id, task);
+            cab.location = task.toStand;
+            // inform sheduler / customer
+            if (i == legs.size() - 1) {
+                cab.status = Utils.CabStatus.FREE;
+            }
+            updateCab(cab.id, cab); // such call should 'complete' tasks; at the last task -> 'complete' route and 'free' that cab
+            // !! update leg here -> completed
+            Utils.waitMins(1); // wait 1min: pickup + dropout
+        }
+    }
+
+    private void log (String msg, int cabId, int routeId) {
+        logger.info(msg + ", cab_id=" + cabId + ", route_id=" + routeId + ",");
+    }
+
+    private void log (String msg, int from, int to, int cabId, int taskId) {
+        logger.info(msg + ", from=" + from + ", to=" + to + ", cab_id=" + cabId + ", leg_id=" + taskId + ",");
+    }
+
+    private void log(String entity, int id, String json) {
+        logger.info("Saving " + entity +"=" + id + ", JSON=" + json);
+    }
+    
     private void updateCab(int cab_id, Cab cab) {
         String json = "{\"location\":\"" + cab.location + "\", \"status\": \""+ cab.status +"\"}";
-        logger.info("Saving cab=" + cab_id + ", JSON=" + json);
+        log("cab", cab_id, json);
         Utils.saveJSON("PUT", "cabs", "cab" + cab_id, cab_id, json);
     }
 
     private void updateRoute(int cab_id, Route r) {
         String json = "{\"status\":\"" + r.status +"\"}";
-        logger.info("Saving route=" + r.id + ", JSON=" + json);
+        log("route", r.id, json);
         Utils.saveJSON("PUT", "routes", "cab" + cab_id, r.id, json);
     }
 
     private void updateTask(int cab_id, Task t) {
         String json = "{\"status\":\"" + t.status +"\"}";
-        logger.info("Saving leg=" + t.id + ", JSON=" + json);
+        log("leg", t.id, json);
         Utils.saveJSON("PUT", "legs", "cab" + cab_id, t.id, json);
     }
  
@@ -139,20 +148,20 @@ public class CabRunnable implements Runnable {
     }
 
     private Cab getCabFromJson(String str) {
-        Map map = getMap(str);
+        Map map = Utils.getMap(str, this.engine);
         //"{"id":0,"location":1,"status":"FREE"}"
         if (map == null) {
             return null;
         }
         return new Cab( (int) map.get("id"),
                         (int) map.get("location"),
-                        getCabStatus((String) map.get("status")));
+                        Utils.getCabStatus((String) map.get("status")));
     }
 
     private Route getRouteFromJson(String str) {
         //"{"id":114472,"status":"ASSIGNED",
         //  "legs":[{"id":114473,"fromStand":16,"toStand":12,"place":0,"status":"ASSIGNED"}]}" 
-        Map map = getMap(str);
+        Map map = Utils.getMap(str, this.engine);
         if (map == null) {
             return null;
         }
@@ -166,80 +175,5 @@ public class CabRunnable implements Runnable {
                                 (int) m.get("place")));
         }
         return new Route(id, tasks); 
-    }
-    
-    public Utils.CabStatus getCabStatus (String stat) {
-        switch (stat) {
-            case "ASSIGNED": return Utils.CabStatus.ASSIGNED;
-            case "FREE": return Utils.CabStatus.FREE;
-            case "CHARGING": return Utils.CabStatus.CHARGING;
-        }
-        return null;
-    }
-   
-    private class Route {
-        private int id;
-        RouteStatus status;
-        List<Task> tasks;
-        public Route(int id, List<Task> tasks) { 
-            this.id = id;
-            this.tasks = tasks;
-        }
-        public List<Task> getTasks() { return tasks; }
-        public void setTasks(List<Task> tasks) { this.tasks = tasks; }
-        public void setId(int id) { this.id = id; }
-        public int getId() { return id; }
-    }
-
-    private class Task {
-        //[{"id":114473,"fromStand":16,"toStand":12,"place":0,"status":"ASSIGNED"}]}" 
-        public int id, fromStand, toStand, place;
-        public RouteStatus status;
-
-        public Task(int id, int fromStand, int toStand, int place) {
-            this.id = id;
-            this.fromStand = fromStand;
-            this.toStand = toStand;
-            this.place = place;
-        }
-        public int getFromStand() { return this.fromStand; }
-        public void setFromStand(int stand) { this.fromStand = stand; }
-        public int getToStand() { return this.toStand; }
-        public void setToStand(int stand) { this.toStand = stand; }
-        public int getPlace() { return place; }
-        public void setPlace(int order) { this.place = order; }
-    }
-
-    private class Cab {
-        public Cab(int i, int l, Utils.CabStatus s) {
-            this.id = i;
-            this.location = l;
-            this.status = s;
-        }
-        public int id;
-        public int location;
-        public Utils.CabStatus status;
-        public void setId(int id) { this.id = id; }
-        public void setLocation(int l) { this.location = l; }
-        public void setStatus(Utils.CabStatus s) { this.status = s; }
-    }
-    
-    public static enum RouteStatus {
-        PLANNED,   // proposed by Pool
-        ASSIGNED,  // not confirmed, initial status
-        ACCEPTED,  // plan accepted by customer, waiting for the cab
-        REJECTED,  // proposal rejected by customer(s)
-        ABANDONED, // cancelled after assignment but before 'PICKEDUP'
-        COMPLETE
-    }
-     
-    private Map getMap(String json) {
-        try {
-            String script = "Java.asJSONCompatible(" + json + ")";
-            Object result = this.engine.eval(script);
-            return (Map) result;
-        } catch (ScriptException se) {
-            return null;
-        }
     }
 }

@@ -4,7 +4,7 @@ import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.Optional;
 
-import no.kabina.kaboot.dispatcher.SchedulerService;
+import no.kabina.kaboot.dispatcher.DispatcherService;
 import no.kabina.kaboot.stats.StatService;
 import no.kabina.kaboot.utils.AuthUtils;
 import org.slf4j.Logger;
@@ -98,9 +98,9 @@ public class TaxiOrderController {
     }
     Duration duration = Duration.between(ord.get().getRcvdTime(), LocalDateTime.now());
     if (newTaxiOrder.status == TaxiOrder.OrderStatus.PICKEDUP) {
-      statSrvc.addAverageElement(SchedulerService.AVG_ORDER_PICKUP_TIME, duration.getSeconds());
+      statSrvc.addAverageElement(DispatcherService.AVG_ORDER_PICKUP_TIME, duration.getSeconds());
     } else if (newTaxiOrder.status == TaxiOrder.OrderStatus.COMPLETE) {
-      statSrvc.addAverageElement(SchedulerService.AVG_ORDER_COMPLETE_TIME, duration.getSeconds());
+      statSrvc.addAverageElement(DispatcherService.AVG_ORDER_COMPLETE_TIME, duration.getSeconds());
     }
     ord.get().setStatus(newTaxiOrder.getStatus()); // we care only about status for now
     logger.debug("Updating order={}, status={}", ord.get().getId(), ord.get().getStatus());

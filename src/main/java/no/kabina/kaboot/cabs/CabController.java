@@ -34,6 +34,9 @@ public class CabController {
     //Long cabId = AuthUtils.getUserId(auth, "ROLE_CUSTOMER"); both roles should access
     // TASK: more authorisation ?
     Cab c = repository.findById(id);
+    if (c == null) {
+      return null;
+    }
     c.setItems(null); // omit this in JSON
     return c;
   }
@@ -59,6 +62,11 @@ public class CabController {
   @PostMapping(value = "/cabs/") // , consumes = "application/json"boot
   public Cab insertCab(@RequestBody CabPojo cab, Authentication auth) {
     logger.info("POST cab");
+    Long usrId = AuthUtils.getUserId(auth, "ROLE_CAB");
+    if (usrId == -1) {
+      logger.warn("Not authorised");
+      return null;
+    }
     Cab c = new Cab(cab.getLocation(), cab.getStatus());
     return repository.save(c);
   }

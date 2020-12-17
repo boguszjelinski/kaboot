@@ -13,7 +13,7 @@ try:
     # column names
   
     print('')
-    for t in range(0,180):
+    for t in range(0,250):
           # first stats
         execSql(cur, 'select * from stat order by name', 0)
         execSql(cur, 'select status, count(*) from cab group by status order by status', 0)

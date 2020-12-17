@@ -25,7 +25,7 @@ public class TestControllerTests {
     private MockMvc mvc;
 
     @MockBean
-    SchedulerService service;
+    DispatcherService service;
 
     @Test
     public void TestController_whenAuthorised() throws Exception {

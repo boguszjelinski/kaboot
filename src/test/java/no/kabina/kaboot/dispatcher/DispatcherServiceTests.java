@@ -29,7 +29,7 @@ import static org.mockito.BDDMockito.given;
 @RunWith(SpringRunner.class)
 @SpringBootTest(classes = KabootApplication.class)
 @ActiveProfiles("test")
-public class SchedulerServiceTests {
+public class DispatcherServiceTests {
 
     @MockBean
     StatService statService;
@@ -50,7 +50,7 @@ public class SchedulerServiceTests {
     LegRepository legRepo;
 
     @Autowired
-    SchedulerService service;
+    DispatcherService service;
 
     @Before
     public void before() {

@@ -1,5 +1,11 @@
+/*  Author: Bogusz Jelinski
+    Project: Kabina/Kaboot
+    Date: 2020
+*/
+
 import java.net.HttpURLConnection;
 import java.util.Base64;
+import java.util.Map;
 import java.net.URL;
 import java.io.OutputStream;
 import java.io.BufferedReader;
@@ -10,6 +16,9 @@ import java.io.IOException;
 import java.util.logging.FileHandler;
 import java.util.logging.Logger;
 import java.util.logging.SimpleFormatter;
+
+import javax.script.ScriptEngine;
+import javax.script.ScriptException;
 
 public class Utils {
 
@@ -78,12 +87,98 @@ public class Utils {
         return response;
     }
 
+    public static Map getMapFromJson(String str, ScriptEngine engine) {
+        //"{"id":113579,"status":"ASSIGNED","fromStand":10,"toStand":6,"maxWait":10,"maxLoss":10,"shared":true,"eta":-1,"inPool":false,
+        //"customer":{"id":1,"hibernateLazyInitializer":{}},
+        //"leg":{"id":114461,"fromStand":10,"toStand":8,"place":1,"status":"ASSIGNED",
+        //       "route":null, "hibernateLazyInitializer":{}},
+        //"route":{"id":114459,"status":"ASSIGNED",
+        //         "cab":{"id":907,"location":12,"status":"ASSIGNED","hibernateLazyInitializer":{}},
+        //         "legs":null,"hibernateLazyInitializer":{}}}"
+        if ("OK".equals(str)) { // PUT
+            return null; 
+        }
+        Map map = getMap(str, engine);
+        if (map == null) {
+            return null;
+        }
+        Map route = (Map) map.get("route");
+        Map cab = null;
+        int cab_id = -1;
+        if (route != null) {
+            cab = (Map) route.get("cab");
+            if (cab != null) {
+                cab_id = (int) cab.get("id");
+            }
+        }
+        map.put("cab_id", cab_id);
+        return map;
+    }
+
+    public static Map getMap(String json, ScriptEngine engine) {
+        try {
+            String script = "Java.asJSONCompatible(" + json + ")";
+            Object result = engine.eval(script);
+            return (Map) result;
+        } catch (ScriptException se) {
+            return null;
+        }
+    }
+    
     public static void waitSecs(int secs) {
         try { Thread.sleep(secs*1000); } catch (InterruptedException e) {} // one minute
     }
 
     public static void waitMins(int mins) {
         try { Thread.sleep(mins*60*1000); } catch (InterruptedException e) {} // one minute
+    }
+
+    public static CabStatus getCabStatus (String stat) {
+        switch (stat) {
+            case "ASSIGNED": return Utils.CabStatus.ASSIGNED;
+            case "FREE":     return Utils.CabStatus.FREE;
+            case "CHARGING": return Utils.CabStatus.CHARGING;
+            default: return null;
+        }
+    }
+
+    public static OrderStatus getOrderStatus (String stat) {
+        if (stat == null) {
+            return null;
+        }
+        switch (stat) {
+            case "ASSIGNED":  return OrderStatus.ASSIGNED;
+            case "ABANDONED": return OrderStatus.ABANDONED;
+            case "ACCEPTED":  return OrderStatus.ACCEPTED;
+            case "CANCELLED": return OrderStatus.CANCELLED;
+            case "COMPLETE":  return OrderStatus.COMPLETE;
+            case "PICKEDUP":  return OrderStatus.PICKEDUP;
+            case "RECEIVED":  return OrderStatus.RECEIVED;
+            case "REFUSED":   return OrderStatus.REFUSED;
+            case "REJECTED":  return OrderStatus.REJECTED;
+            default: return null;
+        }
+    }
+
+    public static enum RouteStatus {
+        PLANNED,   // proposed by Pool
+        ASSIGNED,  // not confirmed, initial status
+        ACCEPTED,  // plan accepted by customer, waiting for the cab
+        REJECTED,  // proposal rejected by customer(s)
+        ABANDONED, // cancelled after assignment but before 'PICKEDUP'
+        COMPLETE
+    }
+
+    public static enum OrderStatus {
+        RECEIVED,  // sent by customer
+        ASSIGNED,  // assigned to a cab, a proposal sent to customer with time-of-arrival
+        ACCEPTED,  // plan accepted by customer, waiting for the cab
+        CANCELLED, // cancelled before assignment
+        REJECTED,  // proposal rejected by customer
+        ABANDONED, // cancelled after assignment but before 'PICKEDUP'
+        REFUSED,   // no cab available, cab broke down at any stage
+        PICKEDUP,
+        COMPLETE
     }
 
     public static enum CabStatus {

@@ -38,7 +38,7 @@ public class TaxiOrder {
   @Column(nullable = true)
   protected Boolean inPool; // was actually in pool
 
-  protected TaxiOrder() {}
+  public TaxiOrder() {}
 
     /**
      *
