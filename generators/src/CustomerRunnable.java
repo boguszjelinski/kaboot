@@ -205,11 +205,21 @@ class CustomerRunnable implements Runnable {
 
     private Demand getOrderFromJson(String str) {
         Map map = Utils.getMapFromJson(str, this.engine);
-        return new Demand(  (int) map.get("id"),
-                            (int) map.get("fromStand"),
-                            (int) map.get("toStand"),
-                            Utils.getOrderStatus((String) map.get("status")),
-                            (boolean) map.get("inPool"),
-                            (int) map.get("cab_id"));
+        if (map == null) {
+            logger.info("getMapFromJson returned NULL, json:" + str);
+            return null;
+        }
+        try {
+            int id = (int) map.get("id");
+            int fromStand = (int) map.get("fromStand");
+            int toStand = (int) map.get("toStand");
+            Utils.OrderStatus status = Utils.getOrderStatus((String) map.get("status"));
+            boolean inPool = (boolean) map.get("inPool");
+            int cabId = (int) map.get("cab_id");
+            return new Demand(id, fromStand, toStand, status, inPool, cabId);
+        } catch (NullPointerException npe) {
+            logger.info("NPE in getMapFromJson, json:" + str);
+            return null;
+        }
     }
 }

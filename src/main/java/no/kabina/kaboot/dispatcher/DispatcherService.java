@@ -33,7 +33,14 @@ public class DispatcherService {
   public static final String AVG_ORDER_ASSIGN_TIME = "avg_order_assign_time";
   public static final String AVG_ORDER_PICKUP_TIME = "avg_order_pickup_time";
   public static final String AVG_ORDER_COMPLETE_TIME = "avg_order_complete_time";
+  public static final String AVG_LCM_TIME = "avg_lcm_time";
+  public static final String AVG_LCM_SIZE = "avg_lcm_size";
+  public static final String AVG_MODEL_SIZE = "avg_model_size";
+  //public static final String AVG_POOL_SIZE = "avg_pool_size";
+  public static final String AVG_SOLVER_SIZE = "avg_solver_size";
   public static final String AVG_POOL_TIME = "avg_pool_time";
+  public static final String AVG_POOL3_TIME = "avg_pool3_time";
+  public static final String AVG_POOL4_TIME = "avg_pool4_time";
   public static final String AVG_SOLVER_TIME = "avg_solver_time";
   public static final String AVG_SHEDULER_TIME = "avg_sheduler_time";
 
@@ -76,6 +83,7 @@ public class DispatcherService {
     // first update some statistics
     updateAvgStats();
     long startSheduler = System.currentTimeMillis();
+
     // create demand for the solver
     TempModel tmpModel = prepareData(); // get current demand and supply available
     if (tmpModel == null) {
@@ -103,7 +111,7 @@ public class DispatcherService {
         cost = LcmUtil.calculateCost(demand, supply);
       }
       runSolver(supply, demand, cost, pl);
-      statSrvc.updateMaxAndAvgStats("sheduler_time", startSheduler);
+      statSrvc.updateMaxAndAvgTime("sheduler_time", startSheduler);
     }
   }
 
@@ -117,6 +125,12 @@ public class DispatcherService {
     statSrvc.updateIntVal(AVG_POOL_TIME, statSrvc.countAverage(AVG_POOL_TIME));
     statSrvc.updateIntVal(AVG_SOLVER_TIME, statSrvc.countAverage(AVG_SOLVER_TIME));
     statSrvc.updateIntVal(AVG_SHEDULER_TIME, statSrvc.countAverage(AVG_SHEDULER_TIME));
+    statSrvc.updateIntVal(AVG_LCM_TIME, statSrvc.countAverage(AVG_LCM_TIME));
+    statSrvc.updateIntVal(AVG_LCM_SIZE, statSrvc.countAverage(AVG_LCM_SIZE));
+    statSrvc.updateIntVal(AVG_MODEL_SIZE, statSrvc.countAverage(AVG_MODEL_SIZE));
+    statSrvc.updateIntVal(AVG_SOLVER_SIZE, statSrvc.countAverage(AVG_SOLVER_SIZE));
+    statSrvc.updateIntVal(AVG_POOL3_TIME, statSrvc.countAverage(AVG_POOL3_TIME));
+    statSrvc.updateIntVal(AVG_POOL4_TIME, statSrvc.countAverage(AVG_POOL4_TIME));
   }
 
   /**
@@ -161,7 +175,7 @@ public class DispatcherService {
       Process p = Runtime.getRuntime().exec(SOLVER_CMD);
       long startSolver = System.currentTimeMillis();
       p.waitFor();
-      statSrvc.updateMaxAndAvgStats("solver_time", startSolver);
+      statSrvc.updateMaxAndAvgTime("solver_time", startSolver);
     } catch (IOException e) {
       logger.warn("IOException while running solver: {}", e.getMessage());
     } catch (Exception e) {
@@ -244,11 +258,11 @@ public class DispatcherService {
     if (demand.length < max4Pool) { // pool4 takes a lot of time, it cannot analyze big data sets
       final long startPool4 = System.currentTimeMillis();
       pl4 = util.checkPool(demand, 4); // four passengers: size^4 combinations (full search)
-      statSrvc.updateMaxAndAvgStats("pool4_time", startPool4);
+      statSrvc.updateMaxAndAvgTime("pool4_time", startPool4);
     }
     // with 3 & 2 passengers, add plans with 4 passengers
     PoolElement[] ret = getPoolWith3and2(util, demand, pl4);
-    statSrvc.updateMaxAndAvgStats("pool_time", startPool);
+    statSrvc.updateMaxAndAvgTime("pool_time", startPool);
     // reduce tempDemand - 2nd+ passengers will not be sent to LCM or solver
     logger.info("Pool size: {}", ret == null ? 0 : ret.length);
     return ret;
@@ -262,7 +276,7 @@ public class DispatcherService {
       if (demand3.length < max3Pool) { // not too big for three customers, let's find out!
         final long startPool3 = System.currentTimeMillis();
         pl3 = util.checkPool(demand3, 3);
-        statSrvc.updateMaxAndAvgStats("pool3_time", startPool3);
+        statSrvc.updateMaxAndAvgTime("pool3_time", startPool3);
         if (pl3.length == 0) {
           pl3 = pl4;
         } else {

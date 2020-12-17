@@ -94,11 +94,16 @@ public class StatService {
     }
   }
 
-  public void updateMaxAndAvgStats(String key, long startTime) {
+  public void updateMaxAndAvgTime(String key, long startTime) {
     long endTime = System.currentTimeMillis();
     int totalTime = (int) ((endTime - startTime) / 1000F);
 
     addAverageElement("avg_" + key, (long) totalTime);
     updateMaxIntVal("max_" + key, totalTime);
+  }
+
+  public void updateMaxAndAvgStats(String key, int val) {
+    addAverageElement("avg_" + key, (long) val);
+    updateMaxIntVal("max_" + key, val);
   }
 }
