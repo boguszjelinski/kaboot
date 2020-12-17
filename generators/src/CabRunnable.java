@@ -118,7 +118,7 @@ public class CabRunnable implements Runnable {
     private void log(String entity, int id, String json) {
         logger.info("Saving " + entity +"=" + id + ", JSON=" + json);
     }
-    
+
     private void updateCab(int cab_id, Cab cab) {
         String json = "{\"location\":\"" + cab.location + "\", \"status\": \""+ cab.status +"\"}";
         log("cab", cab_id, json);
@@ -171,7 +171,7 @@ public class CabRunnable implements Runnable {
         for (Map m : legs) {
             tasks.add(new Task( (int) m.get("id"), 
                                 (int) m.get("fromStand"), 
-                                (int) m.get ("toStand"),
+                                (int) m.get("toStand"),
                                 (int) m.get("place")));
         }
         return new Route(id, tasks); 

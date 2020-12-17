@@ -1,10 +1,14 @@
+/*  Author: Bogusz Jelinski
+    Project: Kabina/Kaboot
+    Date: 2020
+*/
+
 import java.util.logging.Logger;
 import static java.lang.StrictMath.abs;
 
 import java.util.Map;
 import javax.script.ScriptEngine;
 import javax.script.ScriptEngineManager;
-import javax.script.ScriptException;
 
 class CustomerRunnable implements Runnable {
 

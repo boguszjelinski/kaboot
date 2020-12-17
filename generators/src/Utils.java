@@ -202,31 +202,4 @@ public class Utils {
         }
         return logger;
     }
-
-    /*
-    private <T> T getEntity(String entityUrl, int user_id, int id) {
-        String user = "cust" + user_id;
-        StringBuilder result = new StringBuilder();
-        HttpURLConnection con = null;
-        Class<T> dem = null;
-        try {
-            // taxi_order will be updated with eta, cab_id and task_id when assigned
-            URL url = new URL("http://localhost:8080/" + entityUrl + id); // assumption that one customer has one order
-            con = (HttpURLConnection) url.openConnection();
-            setAuthentication(con, user, user);
-            InputStream in = new BufferedInputStream(con.getInputStream());
-            BufferedReader reader = new BufferedReader(new InputStreamReader(in));
-            String line;
-            while ((line = reader.readLine()) != null) {
-                result.append(line);
-            }
-        } catch( Exception e) {
-            e.printStackTrace();
-        }
-        finally {
-            con.disconnect();
-            //dem = covertFromJsonToObject(result.toString(), dem.getClass());
-            return (T)dem;
-        }
-    }*/
 }
