@@ -1,20 +1,34 @@
+/*
+ * Copyright 2020 Bogusz Jelinski
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package no.kabina.kaboot.dispatcher;
-/* Author: Bogusz Jelinski
-   A.D.: 2020
-   Title: pool service
-   Description:
-*/
 
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import no.kabina.kaboot.orders.TaxiOrder;
+import org.springframework.beans.factory.annotation.Value;
 
 public class PoolUtil {
 
-  static final int MAX_NUMB_STANDS = 50;
+  @Value("${kaboot.consts.max-stand}")
+  private int maxNumbStands;
+
   private static final int MAX_IN_POOL = 4;
-  public static final int POOL_MAX_WAIT_TIME = 2; // how many 'minutes' (time entities) want a passenger to wait for a cab
+  public static final int POOL_MAX_WAIT_TIME = 2; // how many 'minutes' (time entities) does a passenger want to wait for a cab
   static final double MAX_LOSS = 1.01; // 1.3 would mean that one can accept a trip to take 30% time more than being transported alone
 
   TaxiOrder[] demand;
@@ -25,8 +39,8 @@ public class PoolUtil {
 
   /**
    *  This routine builds 'poolList' instance variable
-   * @param level
-   * @param custInPool
+   * @param level current level (depth) of recursion
+   * @param custInPool max level (leaf)
    */
   private void dropCustomers(int level, int custInPool) {
     if (level == custInPool) {
@@ -176,10 +190,10 @@ public class PoolUtil {
     return ret.toArray(new PoolElement[0]);
   }
 
-  private static int[][] setCosts() {
-    int[][] costMatrix = new int[MAX_NUMB_STANDS][MAX_NUMB_STANDS];
-    for (int i = 0; i < MAX_NUMB_STANDS; i++) {
-      for (int j = i; j < MAX_NUMB_STANDS; j++) {
+  private int[][] setCosts() {
+    int[][] costMatrix = new int[maxNumbStands][maxNumbStands];
+    for (int i = 0; i < maxNumbStands; i++) {
+      for (int j = i; j < maxNumbStands; j++) {
         // TASK: should we use BIG_COST to mark stands very distant from any cab ?
         costMatrix[j][i] = DistanceService.getDistance(j, i); // simplification of distance - stop9 is closer to stop7 than to stop1
         costMatrix[i][j] = costMatrix[j][i];

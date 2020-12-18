@@ -1,3 +1,19 @@
+/*
+ * Copyright 2020 Bogusz Jelinski
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package no.kabina.kaboot.dispatcher;
 
 import java.io.BufferedReader;
@@ -36,7 +52,6 @@ public class DispatcherService {
   public static final String AVG_LCM_TIME = "avg_lcm_time";
   public static final String AVG_LCM_SIZE = "avg_lcm_size";
   public static final String AVG_MODEL_SIZE = "avg_model_size";
-  //public static final String AVG_POOL_SIZE = "avg_pool_size";
   public static final String AVG_SOLVER_SIZE = "avg_solver_size";
   public static final String AVG_POOL_TIME = "avg_pool_time";
   public static final String AVG_POOL3_TIME = "avg_pool3_time";
@@ -82,6 +97,10 @@ public class DispatcherService {
     //UUID uuid = UUID.randomUUID();  // TASK: to mark cabs and customers as assigned to this instance of sheduler
     // first update some statistics
     updateAvgStats();
+    if (!isOnline) { // userfull to run RestAPI on separate host
+      return;
+    }
+
     long startSheduler = System.currentTimeMillis();
 
     // create demand for the solver
@@ -92,7 +111,7 @@ public class DispatcherService {
     TaxiOrder[] demand = tmpModel.getDemand();
     Cab[] supply = tmpModel.getSupply();
 
-    if (supply.length > 0 && demand.length > 0 && isOnline) {
+    if (supply.length > 0 && demand.length > 0) {
 
       PoolElement[] pl = generatePool(demand);
       demand = PoolUtil.findFirstLegInPoolOrLone(pl, demand); // only the first leg will be sent to LCM or solver

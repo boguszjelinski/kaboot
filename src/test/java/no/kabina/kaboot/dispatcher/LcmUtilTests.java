@@ -86,8 +86,8 @@ public class LcmUtilTests {
         TaxiOrder[] r = LcmUtil.demandForSolver(lcmPairList, demand);
         assertThat(r.length).isSameAs(3);
         for (int i=0; i< r.length; i++) {
-            assertThat(r[i].getId()).isNotSameAs(0);
-            assertThat(r[i].getId()).isNotSameAs(1);
+            assertThat(r[i].getId()).isNotSameAs(0L);
+            assertThat(r[i].getId()).isNotSameAs(1L);
         }
     }
 }

@@ -1,8 +1,18 @@
-/*  Author: Bogusz Jelinski
-    Project: Kabina/Kaboot
-    Date: 2020
-*/
-
+/*
+ * Copyright 2020 Bogusz Jelinski
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 import java.util.logging.Logger;
 import static java.lang.StrictMath.abs;
 
@@ -16,8 +26,8 @@ class CustomerRunnable implements Runnable {
    
     static final int MAX_WAIT_FOR_RESPONSE = 3; // minutes; might be random in taxi_demand.txt
     static final int MAX_WAIT_FOR_CAB = 10; // minutes; might be random in taxi_demand.txt
-    static final double MAX_POOL_LOSS = 1.30; // %; might be random in taxi_demand.txt
-    static final int MAX_TRIP_LOSS = 4; // minutes; just not be a jerk!
+    static final double MAX_POOL_LOSS = 1.01; // %; might be random in taxi_demand.txt
+    static final int MAX_TRIP_LOSS = 4; // minutes; just to not be a jerk!
     static final int MAX_TRIP_LEN = 30; // check gen_demand.py, +/- 4min, 
     static final int CHECK_INTERVAL = 15; // secs
 
@@ -117,8 +127,8 @@ class CustomerRunnable implements Runnable {
     }
 
     private boolean hasArrived(int custId, int cabId, int from) {
-        for (int t=0; t<MAX_WAIT_FOR_CAB * 4 ; t++) { // *4 as 15 secs below
-            Utils.waitSecs(15);
+        for (int t=0; t<MAX_WAIT_FOR_CAB * (60/CHECK_INTERVAL) ; t++) { // *4 as 15 secs below
+            Utils.waitSecs(CHECK_INTERVAL);
             Cab cab = getCab("cabs/", custId, cabId);
             if (cab.location == from) {
                 return true;
@@ -204,6 +214,9 @@ class CustomerRunnable implements Runnable {
     }
 
     private Demand getOrderFromJson(String str) {
+        if (str == null || str.startsWith("OK")) {
+            return null;
+        }
         Map map = Utils.getMapFromJson(str, this.engine);
         if (map == null) {
             logger.info("getMapFromJson returned NULL, json:" + str);
