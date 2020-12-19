@@ -33,8 +33,7 @@ public class LcmUtil {
 
   private static final Logger logger = LoggerFactory.getLogger(LcmUtil.class);
 
-  private static final String SOLVER_COST_FILE = "cost.txt";
-  public static final int SCHEDULING_DURATION = 3; // scheduler runs once a minute
+  public static final int SCHEDULING_DURATION = 2; // scheduler runs once a minute
   // + it takes one minute to compute + 1min to distribute the information
   public static final int BIG_COST = 250000;
 
@@ -101,7 +100,7 @@ public class LcmUtil {
    * @param tmpSupply cabs available
    * @return matrix
    */
-  public static int[][] calculateCost(TaxiOrder[] tmpDemand, Cab[] tmpSupply) {
+  public static int[][] calculateCost(String solverCostFile, TaxiOrder[] tmpDemand, Cab[] tmpSupply) {
     int c;
     int d;
     int numbSupply = tmpSupply.length;
@@ -124,7 +123,7 @@ public class LcmUtil {
       }
     }
     // for the external solver only
-    try (FileWriter fr = new FileWriter(new File(SOLVER_COST_FILE))) {
+    try (FileWriter fr = new FileWriter(new File(solverCostFile))) {
       fr.write(n + "\n");
       for (c = 0; c < n; c++) {
         for (d = 0; d < n; d++) {
@@ -149,7 +148,7 @@ public class LcmUtil {
     for (Cab cab : supply) {
       for (TaxiOrder taxiOrder : demand) {
         int dst = DistanceService.getDistance(cab.getLocation(), taxiOrder.fromStand);
-        if (dst <= taxiOrder.getMaxWait() - SCHEDULING_DURATION - PoolUtil.POOL_MAX_WAIT_TIME) {
+        if (dst + SCHEDULING_DURATION <= taxiOrder.getMaxWait()) {
           // great, we have at least one customer in range for this cab
           list.add(cab);
           break;
@@ -170,7 +169,8 @@ public class LcmUtil {
     for (TaxiOrder taxiOrder : demand) {
       for (Cab cab : supply) {
         int dst = DistanceService.getDistance(cab.getLocation(), taxiOrder.fromStand);
-        if (dst <= taxiOrder.getMaxWait() - SCHEDULING_DURATION - PoolUtil.POOL_MAX_WAIT_TIME) {
+        if (dst + SCHEDULING_DURATION <= taxiOrder.getMaxWait()) { // SCHEDULING_DURATION is an average duration, at this stage we don't know how long it will take
+          // TASK: maybe we could forecast SCHEDULING_DURAION based on demand size
           // great, we have at least one cab in range for this customer
           list.add(taxiOrder);
           break;

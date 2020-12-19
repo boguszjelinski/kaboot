@@ -33,3 +33,7 @@ kaboot:
         max-stand: 50
     scheduler:
         online: true
+    solver:
+        cmd: "runpy.bat"
+        cost: "cost.txt"
+        output: "solv_out.txt"

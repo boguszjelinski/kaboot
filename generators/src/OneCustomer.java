@@ -20,16 +20,19 @@ import java.util.logging.Logger;
 
 public class OneCustomer extends ApiClient {
     
-    static final int MAX_STAND = 50;
-   
     public static void main(String[] args) {
         logger = Logger.getLogger("kaboot.simulator.onecustomer");
         logger = ApiClient.configureLogger(logger, "onecustomer.log");
+        int maxStand = getFromYaml("../../src/main/resources/application.yml", "max-stand");
+        if (maxStand == -1) {
+            logger.warning("Error reading max-stand from YML");     
+            return;
+        }
         if (args.length != 5) {
             logger.warning("Missing arguments: <id> <from> <to> <maxWait> <maxLoss>");     
             return;
         }
-        if (Integer.parseInt(args[1])> MAX_STAND-1 || Integer.parseInt(args[2])> MAX_STAND-1) {
+        if (Integer.parseInt(args[1])> maxStand -1 || Integer.parseInt(args[2])> maxStand-1) {
             logger.warning("Invalid 'from' or 'to'");
             return;
         }

@@ -18,12 +18,10 @@ import static java.lang.StrictMath.abs;
 
 class CustomerRunnable extends ApiClient implements Runnable {
    
-    static final int MAX_WAIT_FOR_RESPONSE = 3; // minutes; might be random in taxi_demand.txt
-    static final int MAX_WAIT_FOR_CAB = 10; // minutes; might be random in taxi_demand.txt
-    static final double MAX_POOL_LOSS = 1.01; // %; might be random in taxi_demand.txt
-    static final int MAX_TRIP_LOSS = 4; // minutes; just to not be a jerk!
-    static final int MAX_TRIP_LEN = 30; // check gen_demand.py, +/- 4min, 
-    static final int CHECK_INTERVAL = 15; // secs
+    static final int MAX_WAIT_FOR_RESPONSE = 3; // minutes, more would mean a serious configuration error. 1min is the goal
+    static final int CHECK_INTERVAL = 15; // secs, not to kill the backend
+    static final int MAX_TRIP_LOSS = 2; // we need a time delay before we will report a serious error in the whole simulation
+    static final int MAX_TRIP_LEN = 30; // see MAX_TRIP in CustomerGenerator, 30 means that something went terribly wrong, 
 
     private Demand tOrder;
     
@@ -86,7 +84,7 @@ class CustomerRunnable extends ApiClient implements Runnable {
         saveOrder("PUT", order, custId); // PUT = update
         log("Accepted, waiting for that cab", custId, orderId, order.cab_id);
         
-        if (!hasArrived(custId, order.cab_id, d.from)) {
+        if (!hasArrived(custId, order.cab_id, d.from, d.maxWait)) {
             // complain
             log("Cab has not arrived", custId, orderId, order.cab_id);
             order.status = OrderStatus.CANCELLED; // just not to kill scheduler
@@ -119,8 +117,8 @@ class CustomerRunnable extends ApiClient implements Runnable {
         return order;
     }
 
-    private boolean hasArrived(int custId, int cabId, int from) {
-        for (int t=0; t<MAX_WAIT_FOR_CAB * (60/CHECK_INTERVAL) ; t++) { // *4 as 15 secs below
+    private boolean hasArrived(int custId, int cabId, int from, int wait) {
+        for (int t = 0; t < wait * (60/CHECK_INTERVAL) ; t++) { // *4 as 15 secs below
             waitSecs(CHECK_INTERVAL);
             Cab cab = getCab("cabs/", custId, cabId);
             if (cab.location == from) {
@@ -157,7 +155,7 @@ class CustomerRunnable extends ApiClient implements Runnable {
             log("Something wrong - customer has never reached the destination", custId, order.id, order.cab_id);
         } else {
             if (order.inPool) {
-                if (duration/(60/CHECK_INTERVAL) > (int) (abs(order.from - order.to) * MAX_POOL_LOSS + MAX_TRIP_LOSS)) {
+                if (duration/(60/CHECK_INTERVAL) > (int) (abs(order.from - order.to) * (1+ (order.maxLoss/100)) + MAX_TRIP_LOSS)) {
                     // complain
                     log("Duration in pool was too long", custId, order.id, order.cab_id);
                 }

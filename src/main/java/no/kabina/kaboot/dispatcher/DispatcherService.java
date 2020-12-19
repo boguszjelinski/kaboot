@@ -44,8 +44,6 @@ public class DispatcherService {
 
   private final Logger logger = LoggerFactory.getLogger(DispatcherService.class);
 
-  public static final String SOLVER_CMD = "runpy.bat"; // C:\\Python\\Python37\\python solver.py
-  public static final String SOLVER_OUT_FILE = "solv_out.txt";
   public static final String AVG_ORDER_ASSIGN_TIME = "avg_order_assign_time";
   public static final String AVG_ORDER_PICKUP_TIME = "avg_order_pickup_time";
   public static final String AVG_ORDER_COMPLETE_TIME = "avg_order_complete_time";
@@ -59,6 +57,15 @@ public class DispatcherService {
   public static final String AVG_SOLVER_TIME = "avg_solver_time";
   public static final String AVG_SHEDULER_TIME = "avg_sheduler_time";
 
+  @Value("${kaboot.solver.cmd}")
+  private String solverCmd;
+
+  @Value("${kaboot.solver.output}")
+  private String solverOutFile;
+
+  @Value("${kaboot.solver.cost}")
+  private String solverCostFile;
+
   @Value("${kaboot.consts.max-pool4}")
   private int max4Pool; // TASK: it is not that simple, we need a model here: size, max wait, ...
 
@@ -70,6 +77,9 @@ public class DispatcherService {
 
   @Value("${kaboot.scheduler.online}")
   private boolean isOnline;
+
+  @Value("${kaboot.consts.max-stand}")
+  private int maxNumbStands;
 
   private final TaxiOrderRepository taxiOrderRepository;
   private final CabRepository cabRepository;
@@ -117,7 +127,7 @@ public class DispatcherService {
       demand = PoolUtil.findFirstLegInPoolOrLone(pl, demand); // only the first leg will be sent to LCM or solver
       logger.info("Demand after pooling: {}", demand.length);
       // now build a balanced cost matrix for solver
-      cost = LcmUtil.calculateCost(demand, supply);
+      cost = LcmUtil.calculateCost(solverCostFile, demand, supply);
 
       statSrvc.updateMaxAndAvgStats("model_size", cost.length);
       if (demand.length > maxSolverSize && supply.length > maxSolverSize) { // too big to send to solver, it has to be cut by LCM
@@ -127,7 +137,7 @@ public class DispatcherService {
         supply = tempModel.getSupply();
         // to be sent to solver
         logger.info("After LCM: demand={}, supply={}", demand.length, supply.length);
-        cost = LcmUtil.calculateCost(demand, supply);
+        cost = LcmUtil.calculateCost(solverCostFile, demand, supply);
       }
       runSolver(supply, demand, cost, pl);
       statSrvc.updateMaxAndAvgTime("sheduler_time", startSheduler);
@@ -170,7 +180,7 @@ public class DispatcherService {
         tempDemand = GcmUtil.reduceDemand(cost, tempDemand, maxSolverSize);
       }
       // recalculate cost matrix again
-      cost = LcmUtil.calculateCost(tempDemand, tempSupply); // it writes input file for solver
+      cost = LcmUtil.calculateCost(solverCostFile, tempDemand, tempSupply); // it writes input file for solver
     }
     statSrvc.updateMaxAndAvgStats("solver_size", cost.length);
     logger.info("Runnnig solver: demand={}, supply={}", tempDemand.length, tempSupply.length);
@@ -191,7 +201,7 @@ public class DispatcherService {
   private void runExternalSolver() {
     try {
       // TASK: rm out file first
-      Process p = Runtime.getRuntime().exec(SOLVER_CMD);
+      Process p = Runtime.getRuntime().exec(solverCmd);
       long startSolver = System.currentTimeMillis();
       p.waitFor();
       statSrvc.updateMaxAndAvgTime("solver_time", startSolver);
@@ -209,7 +219,7 @@ public class DispatcherService {
    */
   public int[] readSolversResult(int n) {
     int[] x = new int[n * n];
-    try (BufferedReader reader = new BufferedReader(new FileReader(SOLVER_OUT_FILE))) {
+    try (BufferedReader reader = new BufferedReader(new FileReader(solverOutFile))) {
       String line = null;
       for (int i = 0; i < n * n; i++) {
         line = reader.readLine();
@@ -272,7 +282,7 @@ public class DispatcherService {
     }
     // try to put 4 passengers into one cab
     PoolElement[] pl4 = null;
-    PoolUtil util = new PoolUtil();
+    PoolUtil util = new PoolUtil(maxNumbStands);
 
     if (demand.length < max4Pool) { // pool4 takes a lot of time, it cannot analyze big data sets
       final long startPool4 = System.currentTimeMillis();

@@ -20,14 +20,18 @@ import java.util.logging.Logger;
 
 public class CabGenerator extends ApiClient {
     static final int MAX_CABS = 1000;
-    static final int MAX_STAND = 50; // TODO: read from application.yml
 
     public static void main(String[] args) throws InterruptedException {
         logger = Logger.getLogger("kaboot.simulator.cabgenerator");
         logger = configureLogger(logger, "cabs.log");
+        int maxStand = getFromYaml("../../src/main/resources/application.yml", "max-stand");
+        if (maxStand == -1) {
+            logger.warning("Error reading max-stand from YML");     
+            return;
+        }
         for (int c = 0; c < MAX_CABS; c++) {
             final int id = c;
-            (new Thread(new CabRunnable(id, id % MAX_STAND))).start();
+            (new Thread(new CabRunnable(id, id % maxStand))).start();
             Thread.sleep(5); // so that to disperse them a bit and not to kill backend
         }
     }

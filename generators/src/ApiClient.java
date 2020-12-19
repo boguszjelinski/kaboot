@@ -22,6 +22,7 @@ import java.util.Map;
 import java.net.URL;
 import java.io.OutputStream;
 import java.io.BufferedReader;
+import java.io.FileInputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.io.UnsupportedEncodingException;
@@ -46,7 +47,8 @@ public class ApiClient {
 
     protected Demand saveOrder(String method, Demand d, int usr_id) {
         String json = "{\"fromStand\":" + d.from + ", \"toStand\": " + d.to + ", \"status\":\"" + d.status
-                            + "\", \"maxWait\":20, \"maxLoss\": 10, \"shared\": true}";
+                            + "\", \"maxWait\":" + d.maxWait + ", \"maxLoss\": "+ d.maxLoss
+                            + ", \"shared\": true}"; // TODO: hardcode, should be a parameter too
         json = saveJSON(method, "orders", "cust" + usr_id, d.id, json); // TODO: FAIL, this is not customer id
         return getOrderFromJson(json);
     }
@@ -341,5 +343,22 @@ public class ApiClient {
             e.printStackTrace();
         }
         return loggr;
+    }
+
+    public static int getFromYaml(String path, String key) {
+        try (BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(new FileInputStream(path), "UTF-8"))) {
+            String curLine;
+            while ((curLine = bufferedReader.readLine()) != null){
+                if (curLine.contains(key)) {
+                    int idx = curLine.indexOf(':');
+                    if (idx != -1) {
+                        return Integer.parseInt(curLine.substring(idx+1));
+                    }
+                    return -1;
+                }
+            }
+        }
+        catch (IOException ioe) { }
+        return -1;
     }
 }

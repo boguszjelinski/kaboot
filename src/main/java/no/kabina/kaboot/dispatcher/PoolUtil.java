@@ -21,21 +21,22 @@ import java.util.Arrays;
 import java.util.List;
 import no.kabina.kaboot.orders.TaxiOrder;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Component;
 
 public class PoolUtil {
 
-  @Value("${kaboot.consts.max-stand}")
   private int maxNumbStands;
-
-  private static final int MAX_IN_POOL = 4;
-  public static final int POOL_MAX_WAIT_TIME = 2; // how many 'minutes' (time entities) does a passenger want to wait for a cab
-  static final double MAX_LOSS = 1.01; // 1.3 would mean that one can accept a trip to take 30% time more than being transported alone
 
   TaxiOrder[] demand;
   int [][]cost;
+  private static final int MAX_IN_POOL = 4; // just for memory allocation, might be 10 as well
   int []pickup  = new int[MAX_IN_POOL]; // will have numbers of customers
   int []dropoff = new int[MAX_IN_POOL]; // will have indexes to 'pickup' table
   List<PoolElement> poolList = new ArrayList<>();
+
+  public PoolUtil(int stands) {
+    this.maxNumbStands = stands;
+  }
 
   /**
    *  This routine builds 'poolList' instance variable
@@ -78,7 +79,8 @@ public class PoolUtil {
     for (int d = 0; d < custInPool; d++) { // checking if all 3(?) passengers get happy, starting from the one who gets dropped-off first
       int poolCost = getPoolCost(dropoff[d], d, custInPool);
       // three depth levels of indexes - how about that!
-      if (poolCost > cost[demand[pickup[dropoff[d]]].fromStand][demand[pickup[dropoff[d]]].toStand] * MAX_LOSS) {
+      TaxiOrder o = demand[pickup[dropoff[d]]];
+      if (poolCost > cost[o.fromStand][o.toStand] * (1 + o.getMaxLoss()/100.0)) { // TASK: how much will floating point affect performance ?
         return false; // not happy
       }
     }
@@ -109,11 +111,12 @@ public class PoolUtil {
         if (!isFound(level, c, pickup)) {
           pickup[level] = c;
           // check if the customer is happy, that he doesn't have to wait for too long
+          // at this stage (pickup) we don't know anything about the "pool loss"
           int pCost = 0;
           for (int l = 0; l < level; l++) {
             pCost += cost[demand[pickup[l]].fromStand][demand[pickup[l + 1]].fromStand];
           }
-          if (pCost > POOL_MAX_WAIT_TIME) { // TASK: each customer has its own preference
+          if (pCost > demand[pickup[level]].getMaxWait()) { // pay attention that we would have to add to 'pCost' the time which it takes to pickup the first customer by the cab
             continue;
           }
           // find the next customer

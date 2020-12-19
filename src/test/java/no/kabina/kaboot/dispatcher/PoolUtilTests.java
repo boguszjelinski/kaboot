@@ -23,14 +23,14 @@ public class PoolUtilTests {
 
     @Test
     public void testPool() {
-        PoolUtil util = new PoolUtil();
+        PoolUtil util = new PoolUtil(numbOfStands);
         PoolElement[] pool = util.checkPool(orders, 3);
         assertThat(pool.length).isSameAs(9);
     }
 
     @Test
     public void testPool4() {
-        PoolUtil util = new PoolUtil();
+        PoolUtil util = new PoolUtil(numbOfStands);
         PoolElement[] pool = util.checkPool(orders, 4);
         assertThat(pool.length).isSameAs(7);
     }
