@@ -16,67 +16,61 @@
 
 // javac CustomerGenerator.java 
 
-import java.io.BufferedReader;
-import java.io.FileReader;
-import java.io.IOException;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
 
-public class CustomerGenerator {
-    static Logger logger = Logger.getLogger("kaboot.simulator.customergenerator");
-    // final static String DEMAND_FILE = "/home/m91127/GITHUB/taxidispatcher/simulations/taxi_demand.txt";
-    static final String DEMAND_FILE = "C:\\Users\\dell\\TAXI\\GIT\\simulations\\taxi_demand.txt";
-    static int [][] demand = new int[100000][5];
-    static int maxTime =  120;
+public class CustomerGenerator extends ApiClient {
+    static int maxTime =  120; // min
+    static int REQ_PER_MIN = 100;
+    static int MAX_WAIT = 10;
+    static int MAX_LOSS = 1; // 1%
+    static int MAX_STAND = 50;
+    static int MAX_TRIP = 4;
 
     public static void main(String[] args) throws InterruptedException {
-        logger = Utils.configureLogger(logger, "customer.log");
-
-        readDemand();
-        if (demand.length == 0) {
-            logger.info("Error reading demand file");
-            return;
-        }
-        logger.info("Orders in total: " + demand.length);
+        logger = Logger.getLogger("kaboot.simulator.customergenerator");
+        logger = ApiClient.configureLogger(logger, "customer.log");
 
         for (int t = 0; t < maxTime; t++) { // time axis
             // filter out demand for this time point
-            for (int i = 0; i < demand.length; i++) {
-                if (demand[i][4] == t
-                        && demand[i][1] != demand[i][2] // part of the array is empty, that would not work for t==0
-                        && i % 3 == 0) { // just to reduce scheduler load
-                    final int[] d = demand[i];
-                    (new Thread(new CustomerRunnable(d))).start();
-                    Thread.sleep(5); // so that to disperse them a bit and not to kill backend
-                }
+            for (int i = 0; i < REQ_PER_MIN; i++) {
+                int id = t + i;
+                int from = randomFrom(id);
+                final Demand d = new Demand(id, 
+                                            from,
+                                            randomTo(from), // to
+                                            MAX_WAIT, 
+                                            MAX_LOSS
+                                           );
+                (new Thread(new CustomerRunnable(d))).start();
+                Thread.sleep(5); // so that to disperse them a bit and not to kill backend
             }
             TimeUnit.SECONDS.sleep(60); // 120min
         }
     }
 
-    private static void readDemand() {
-        try {
-            try (BufferedReader reader = new BufferedReader(new FileReader(DEMAND_FILE))) {
-                String line = reader.readLine();
-                int count=0;
-                while (line != null) {
-                    line = line.substring(1, line.length()-1); // get rid of '('
-                    String[] lineVector = line.split(",");
-                    demand[count][0] = Integer.parseInt(lineVector[0]); // ID
-                    demand[count][1] = Integer.parseInt(lineVector[1]); // from
-                    demand[count][2] = Integer.parseInt(lineVector[2]);  // to
-                    demand[count][3] = Integer.parseInt(lineVector[3]); // time we learn about customer
-                    demand[count][4] = Integer.parseInt(lineVector[4]); // time at which he/she wants the cab
-                    if (maxTime<Integer.parseInt(lineVector[4])) {
-                        maxTime = Integer.parseInt(lineVector[4]);
-                    }
-                    count++;
-                    line = reader.readLine();
-                }
-            }
+    // no, we can't have a random, we need reproducible results
+    private static int randomFrom(int i) {
+        int x1 = i % (MAX_STAND / 4);
+        int x2 = i % (MAX_STAND / 2);
+        int x3 = i % (MAX_STAND -2);
+        int a = x1 + x2 + x3;
+        if (a >= MAX_STAND -1) {
+            a = a % MAX_STAND +1;
+            a = a >= MAX_STAND -1 ? a - x3 : a;
+            if (a > MAX_STAND -2) a = MAX_STAND -2;
+            else if (a<0) a= 0;
         }
-        catch (IOException e) {
-            logger.info("Exception: " + e.getMessage());
-        }
+        return a;
+    }
+
+    private static int randomTo(int from) {
+        int diff = from % (MAX_TRIP /2) - MAX_TRIP;
+        if (diff == 0) diff = 1;
+        int to = 0;
+        if (from + diff > MAX_STAND -1 ) to = from - diff;
+        else if (from + diff < 0) to =0;
+        else to = from + diff;
+        return to;
     }
 }

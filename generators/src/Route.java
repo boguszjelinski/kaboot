@@ -2,7 +2,7 @@ import java.util.List;
 
 public class Route {
     public int id;
-    Utils.RouteStatus status;
+    ApiClient.RouteStatus status;
     List<Task> tasks;
     public Route(int id, List<Task> tasks) { 
         this.id = id;

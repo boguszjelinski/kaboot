@@ -13,8 +13,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 import java.net.HttpURLConnection;
+import java.util.ArrayList;
 import java.util.Base64;
+import java.util.List;
 import java.util.Map;
 import java.net.URL;
 import java.io.OutputStream;
@@ -28,18 +31,127 @@ import java.util.logging.Logger;
 import java.util.logging.SimpleFormatter;
 
 import javax.script.ScriptEngine;
+import javax.script.ScriptEngineManager;
 import javax.script.ScriptException;
 
-public class Utils {
+public class ApiClient {
 
-    public static void setAuthentication(HttpURLConnection con, String user, String passwd) {
+    protected ScriptEngine engine;
+    protected static Logger logger;
+
+    public ApiClient() {
+        ScriptEngineManager sem = new ScriptEngineManager();
+        this.engine = sem.getEngineByName("javascript");
+    }
+
+    protected Demand saveOrder(String method, Demand d, int usr_id) {
+        String json = "{\"fromStand\":" + d.from + ", \"toStand\": " + d.to + ", \"status\":\"" + d.status
+                            + "\", \"maxWait\":20, \"maxLoss\": 10, \"shared\": true}";
+        json = saveJSON(method, "orders", "cust" + usr_id, d.id, json); // TODO: FAIL, this is not customer id
+        return getOrderFromJson(json);
+    }
+
+    protected Demand getOrder(int userId, int orderId) {
+        String json = getEntityAsJson("cust" + userId, "orders/" + orderId);
+        return getOrderFromJson(json);
+    }
+
+    protected Cab getCab(String entityUrl, int userId, int id) {
+        String json = getEntityAsJson("cust" + userId, entityUrl + id);
+        return getCabFromJson(json);
+    }
+
+    protected Cab getCabAsCab(String entityUrl, int user_id, int id) {
+        String json = getEntityAsJson("cab"+user_id, entityUrl + id);
+        return getCabFromJson(json);
+    }
+
+    protected void updateCab(int cab_id, Cab cab) {
+        String json = "{\"location\":\"" + cab.location + "\", \"status\": \""+ cab.status +"\"}";
+        log("cab", cab_id, json);
+        saveJSON("PUT", "cabs", "cab" + cab_id, cab_id, json);
+    }
+
+    protected void updateRoute(int cab_id, Route r) {
+        String json = "{\"status\":\"" + r.status +"\"}";
+        log("route", r.id, json);
+        saveJSON("PUT", "routes", "cab" + cab_id, r.id, json);
+    }
+
+    protected void updateTask(int cab_id, Task t) {
+        String json = "{\"status\":\"" + t.status +"\"}";
+        log("leg", t.id, json);
+        saveJSON("PUT", "legs", "cab" + cab_id, t.id, json);
+    }
+ 
+    protected Route getRoute(int cab_id) {
+        String json = getEntityAsJson("cab"+cab_id, "routes");
+        return getRouteFromJson(json);
+    }
+
+    private Route getRouteFromJson(String str) {
+        //"{"id":114472,"status":"ASSIGNED",
+        //  "legs":[{"id":114473,"fromStand":16,"toStand":12,"place":0,"status":"ASSIGNED"}]}" 
+        Map map = getMap(str, this.engine);
+        if (map == null) {
+            return null;
+        }
+        int id = (int) map.get("id");
+        List<Map> legs = (List<Map>) map.get("legs");
+        List<Task> tasks = new ArrayList<>();
+        for (Map m : legs) {
+            tasks.add(new Task( (int) m.get("id"), 
+                                (int) m.get("fromStand"), 
+                                (int) m.get("toStand"),
+                                (int) m.get("place")));
+        }
+        return new Route(id, tasks); 
+    }
+
+    private Cab getCabFromJson(String str) {
+        Map map = getMap(str, this.engine);
+        //"{"id":0,"location":1,"status":"FREE"}"
+        if (map == null) {
+            return null;
+        }
+        return new Cab( (int) map.get("id"),
+                        (int) map.get("location"),
+                        getCabStatus((String) map.get("status")));
+    }
+
+    protected Demand getOrderFromJson(String str) {
+        if (str == null || str.startsWith("OK")) {
+            return null;
+        }
+        Map map = getMapFromJson(str, this.engine);
+        if (map == null) {
+            logger.info("getMapFromJson returned NULL, json:" + str);
+            return null;
+        }
+        try {
+            return new Demand(  (int) map.get("id"), 
+                                (int) map.get("fromStand"), 
+                                (int) map.get("toStand"), 
+                                (int) map.get("maxWait"), 
+                                (int) map.get("maxLoss"), 
+                                getOrderStatus((String) map.get("status")), 
+                                (boolean) map.get("inPool"), 
+                                (int) map.get("cab_id")
+                            );
+        } catch (NullPointerException npe) {
+            logger.info("NPE in getMapFromJson, json:" + str);
+            return null;
+        }
+    }
+
+    private static void setAuthentication(HttpURLConnection con, String user, String passwd) {
         String auth = user + ":" + passwd;
         String encodedAuth = Base64.getEncoder().encodeToString(auth.getBytes(StandardCharsets.UTF_8));
         String authHeaderValue = "Basic " + encodedAuth;
         con.setRequestProperty("Authorization", authHeaderValue);
     }
 
-    public static String saveJSON(String method, String entity, String user, int rec_id, String json) {
+    protected static String saveJSON(String method, String entity, String user, int rec_id, String json) {
         String password = user;
         HttpURLConnection con = null;
         StringBuilder response = new StringBuilder();
@@ -72,7 +184,7 @@ public class Utils {
         return response.toString();
     }
 
-    public static String getEntityAsJson(String user, String urlStr) {
+    private static String getEntityAsJson(String user, String urlStr) {
         StringBuilder result = new StringBuilder();
         HttpURLConnection con = null;
         try {
@@ -86,7 +198,7 @@ public class Utils {
         return result.toString();
     }
 
-    public static StringBuilder getResponse(HttpURLConnection con) throws UnsupportedEncodingException, IOException {
+    private static StringBuilder getResponse(HttpURLConnection con) throws UnsupportedEncodingException, IOException {
         StringBuilder response = new StringBuilder();
         try (BufferedReader br = new BufferedReader(new InputStreamReader(con.getInputStream(), "utf-8"))) {
             String responseLine = null;
@@ -97,7 +209,7 @@ public class Utils {
         return response;
     }
 
-    public static Map getMapFromJson(String str, ScriptEngine engine) {
+    private static Map getMapFromJson(String str, ScriptEngine engine) {
         //"{"id":113579,"status":"ASSIGNED","fromStand":10,"toStand":6,"maxWait":10,"maxLoss":10,"shared":true,"eta":-1,"inPool":false,
         //"customer":{"id":1,"hibernateLazyInitializer":{}},
         //"leg":{"id":114461,"fromStand":10,"toStand":8,"place":1,"status":"ASSIGNED",
@@ -125,7 +237,7 @@ public class Utils {
         return map;
     }
 
-    public static Map getMap(String json, ScriptEngine engine) {
+    private static Map getMap(String json, ScriptEngine engine) {
         try {
             String script = "Java.asJSONCompatible(" + json + ")";
             Object result = engine.eval(script);
@@ -143,11 +255,31 @@ public class Utils {
         try { Thread.sleep(mins*60*1000); } catch (InterruptedException e) {} // one minute
     }
 
+    protected void log (String msg, int cabId, int routeId) {
+        logger.info(msg + ", cab_id=" + cabId + ", route_id=" + routeId + ",");
+    }
+
+    protected void log (String msg, int from, int to, int cabId, int taskId) {
+        logger.info(msg + ", from=" + from + ", to=" + to + ", cab_id=" + cabId + ", leg_id=" + taskId + ",");
+    }
+
+    protected void log(String entity, int id, String json) {
+        logger.info("Saving " + entity +"=" + id + ", JSON=" + json);
+    }
+
+    protected static void logCust(String msg, int custId, int orderId){
+        logger.info(msg + ", cust_id=" + custId+ ", order_id=" + orderId +",");
+    }
+
+    protected static void log(String msg, int custId, int orderId, int cabId){
+        logger.info(msg + ", cust_id=" + custId+ ", order_id=" + orderId +", cab_id=" + cabId + ",");
+    }
+
     public static CabStatus getCabStatus (String stat) {
         switch (stat) {
-            case "ASSIGNED": return Utils.CabStatus.ASSIGNED;
-            case "FREE":     return Utils.CabStatus.FREE;
-            case "CHARGING": return Utils.CabStatus.CHARGING;
+            case "ASSIGNED": return CabStatus.ASSIGNED;
+            case "FREE":     return CabStatus.FREE;
+            case "CHARGING": return CabStatus.CHARGING;
             default: return null;
         }
     }
@@ -170,7 +302,7 @@ public class Utils {
         }
     }
 
-    public static enum RouteStatus {
+    public enum RouteStatus {
         PLANNED,   // proposed by Pool
         ASSIGNED,  // not confirmed, initial status
         ACCEPTED,  // plan accepted by customer, waiting for the cab
@@ -179,7 +311,7 @@ public class Utils {
         COMPLETE
     }
 
-    public static enum OrderStatus {
+    public enum OrderStatus {
         RECEIVED,  // sent by customer
         ASSIGNED,  // assigned to a cab, a proposal sent to customer with time-of-arrival
         ACCEPTED,  // plan accepted by customer, waiting for the cab
@@ -191,25 +323,23 @@ public class Utils {
         COMPLETE
     }
 
-    public static enum CabStatus {
+    public enum CabStatus {
         ASSIGNED,
         FREE,
         CHARGING, // out of order, ...
     }
 
-    public static Logger configureLogger(Logger logger, String file) {
+    public static Logger configureLogger(Logger loggr, String file) {
         System.setProperty("java.util.logging.SimpleFormatter.format", "%1$tY-%1$tm-%1$td %1$tH:%1$tM:%1$tS %4$-6s %2$s %5$s%6$s%n");
         FileHandler fh;
         try {
             fh = new FileHandler(file);
-            logger.addHandler(fh);
+            loggr.addHandler(fh);
             SimpleFormatter formatter = new SimpleFormatter();
             fh.setFormatter(formatter);
-        } catch (SecurityException e) {
-            e.printStackTrace();
-        } catch (IOException e) {
+        } catch (SecurityException | IOException e) {
             e.printStackTrace();
         }
-        return logger;
+        return loggr;
     }
 }

@@ -1,1 +1,0 @@
-javac -classpath ../lib/gson-2.8.6.jar:../lib/jackson-databind-2.11.3.jar CustomerGenerator.java CustomerRunnable.java

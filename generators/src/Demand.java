@@ -3,25 +3,31 @@ public class Demand {
     public int eta; // set when assigned
     public boolean inPool;
     public int cab_id;
-    public Utils.OrderStatus status;
+    public ApiClient.OrderStatus status;
+    public int maxWait; // max wait for assignment
+    public int maxLoss; // [%] loss in Pool
 
-    public Demand (int id, int from, int to, Utils.OrderStatus status, boolean inPool, int cab_id) {
+    public Demand (int id, int from, int to, int wait, int loss,
+                    ApiClient.OrderStatus status, boolean inPool, int cab_id) {
         this.id = id;
         this.from = from;
         this.to = to;
+        this.maxWait = wait;
+        this.maxLoss = loss;
         this.status = status;
         this.inPool = inPool;
         this.cab_id = cab_id;
     }
 
-    public Demand (int id, int from, int to, int time, int at) {
+    public Demand (int id, int from, int to, int wait, int loss) {
         this.id = id;
         this.from = from;
         this.to = to;
-        this.at = at;
-        this.time = time;
+        this.maxWait = wait;
+        this.maxLoss = loss;
     }
-    public void setStatus (Utils.OrderStatus stat) { this.status = stat; }
+
+    public void setStatus (ApiClient.OrderStatus stat) { this.status = stat; }
     public void setId(int id) { this.id = id; }
     public void setFrom(int fromStand) { this.from = fromStand; }
     public void setTo(int toStand) { this.to = toStand; }

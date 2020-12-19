@@ -18,15 +18,16 @@
 
 import java.util.logging.Logger;
 
-public class CabGenerator {
+public class CabGenerator extends ApiClient {
     static final int MAX_CABS = 1000;
-    static Logger logger = Logger.getLogger("kaboot.simulator.cabgenerator");
+    static final int MAX_STAND = 50; // TODO: read from application.yml
 
     public static void main(String[] args) throws InterruptedException {
-        logger = Utils.configureLogger(logger, "cabs.log");
+        logger = Logger.getLogger("kaboot.simulator.cabgenerator");
+        logger = configureLogger(logger, "cabs.log");
         for (int c = 0; c < MAX_CABS; c++) {
             final int id = c;
-            (new Thread(new CabRunnable(id))).start();
+            (new Thread(new CabRunnable(id, id % MAX_STAND))).start();
             Thread.sleep(5); // so that to disperse them a bit and not to kill backend
         }
     }

@@ -1,7 +1,7 @@
 public class Task {
     //[{"id":114473,"fromStand":16,"toStand":12,"place":0,"status":"ASSIGNED"}]}" 
     public int id, fromStand, toStand, place;
-    public Utils.RouteStatus status;
+    public ApiClient.RouteStatus status;
 
     public Task(int id, int fromStand, int toStand, int place) {
         this.id = id;

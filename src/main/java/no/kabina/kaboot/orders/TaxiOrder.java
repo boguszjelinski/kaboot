@@ -67,7 +67,7 @@ public class TaxiOrder {
 
   @ManyToOne(optional = true, fetch = FetchType.LAZY)
   @JoinColumn(name = "customer_id", nullable = true)
-  private Customer customer;  // an order can be serviced by ONE cab only, but one cab can service MANY orders throughout the day
+  private Customer customer;
 
   // also for data integrity checks; the pick-up task; null if cab was already there
   @ManyToOne(optional = true, fetch = FetchType.LAZY)
@@ -77,7 +77,7 @@ public class TaxiOrder {
 
   @ManyToOne(optional = true, fetch = FetchType.LAZY)
   @JoinColumn(name = "route_id", nullable = true)
-  private Route route;  // an order can be serviced by ONE cab only, but one cab can service MANY orders throughout the day
+  private Route route;
 
   @Override
   public String toString() {
