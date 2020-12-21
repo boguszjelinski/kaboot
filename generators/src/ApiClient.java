@@ -25,7 +25,6 @@ import java.io.BufferedReader;
 import java.io.FileInputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
-import java.io.UnsupportedEncodingException;
 import java.io.IOException;
 import java.util.logging.FileHandler;
 import java.util.logging.Logger;
@@ -45,11 +44,11 @@ public class ApiClient {
         this.engine = sem.getEngineByName("javascript");
     }
 
-    protected Demand saveOrder(String method, Demand d, int usr_id) {
+    protected Demand saveOrder(String method, Demand d, int usrId) {
         String json = "{\"fromStand\":" + d.from + ", \"toStand\": " + d.to + ", \"status\":\"" + d.status
                             + "\", \"maxWait\":" + d.maxWait + ", \"maxLoss\": "+ d.maxLoss
                             + ", \"shared\": true}"; // TODO: hardcode, should be a parameter too
-        json = saveJSON(method, "orders", "cust" + usr_id, d.id, json); // TODO: FAIL, this is not customer id
+        json = saveJSON(method, "orders", "cust" + usrId, d.id, json); // TODO: FAIL, this is not customer id
         return getOrderFromJson(json);
     }
 
@@ -110,8 +109,8 @@ public class ApiClient {
         return new Route(id, tasks); 
     }
 
-    private Cab getCabFromJson(String str) {
-        Map map = getMap(str, this.engine);
+    private Cab getCabFromJson(String json) {
+        Map map = getMap(json, this.engine);
         //"{"id":0,"location":1,"status":"FREE"}"
         if (map == null) {
             return null;
@@ -138,7 +137,8 @@ public class ApiClient {
                                 (int) map.get("maxLoss"), 
                                 getOrderStatus((String) map.get("status")), 
                                 (boolean) map.get("inPool"), 
-                                (int) map.get("cab_id")
+                                (int) map.get("cab_id"),
+                                (int) map.get("eta")
                             );
         } catch (NullPointerException npe) {
             logger.info("NPE in getMapFromJson, json:" + str);
@@ -200,7 +200,7 @@ public class ApiClient {
         return result.toString();
     }
 
-    private static StringBuilder getResponse(HttpURLConnection con) throws UnsupportedEncodingException, IOException {
+    private static StringBuilder getResponse(HttpURLConnection con) throws IOException {
         StringBuilder response = new StringBuilder();
         try (BufferedReader br = new BufferedReader(new InputStreamReader(con.getInputStream(), "utf-8"))) {
             String responseLine = null;

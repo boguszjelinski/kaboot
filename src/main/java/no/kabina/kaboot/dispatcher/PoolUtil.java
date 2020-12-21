@@ -20,8 +20,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import no.kabina.kaboot.orders.TaxiOrder;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Component;
 
 public class PoolUtil {
 

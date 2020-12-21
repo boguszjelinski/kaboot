@@ -62,9 +62,8 @@ class CustomerRunnable extends ApiClient implements Runnable {
 
         order = waitForAssignment(custId, orderId);
         
-        if (order == null || order.status != OrderStatus.ASSIGNED
-            //|| ord.cab_id == -1
-            ) { // Kaboot has not answered, too busy
+        if (order == null || order.status != OrderStatus.ASSIGNED //|| ord.cab_id == -1
+           ) { // Kaboot has not answered, too busy
             // complain
             if (order == null) {
                 logCust("Waited in vain, no answer", custId, orderId);
@@ -78,7 +77,10 @@ class CustomerRunnable extends ApiClient implements Runnable {
 
         log("Assigned", custId, orderId, order.cab_id);
         
-        // TASK: check order.eta > d.at + MAX_WAIT_FOR_CAB) 
+        if (order.eta > order.maxWait) {
+            // TASK: stop here, now only complain
+            logCust("ETA exceeds maxWait", custId, orderId);
+        }
         
         order.status = OrderStatus.ACCEPTED;
         saveOrder("PUT", order, custId); // PUT = update

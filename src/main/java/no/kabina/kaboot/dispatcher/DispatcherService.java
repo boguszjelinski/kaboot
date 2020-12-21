@@ -415,8 +415,10 @@ public class DispatcherService {
    * @param pool the whole pool
    * @return  number of assigned customers
    */
-  private int assignCustomerToCab(TaxiOrder order, Cab cab, PoolElement[] pool) { // TASK: it isn't transactional
+  // TASK: it isn't transactional
+  private int assignCustomerToCab(TaxiOrder order, Cab cab, PoolElement[] pool) {
     // update CAB
+    int eta = 0; // expected time of arrival
     cab.setStatus(Cab.CabStatus.ASSIGNED);
     cabRepository.save(cab);
     Route route = new Route(Route.RouteStatus.ASSIGNED);
@@ -425,6 +427,7 @@ public class DispatcherService {
     Leg leg = null;
     int legId = 0;
     if (cab.getLocation() != order.fromStand) { // cab has to move to pickup the first customer
+      eta = DistanceService.getDistance(cab.getLocation(), order.fromStand);
       leg = new Leg(cab.getLocation(), order.fromStand, legId++, Route.RouteStatus.ASSIGNED);
       leg.setRoute(route);
       legRepository.save(leg);
@@ -436,18 +439,18 @@ public class DispatcherService {
       if (e.getCust()[0].id.equals(order.id)) { // yeap, this id is in a pool
         // checking number
         // save pick-up phase
-        assignOrdersAndSaveLegs(cab, route, legId, e);
+        assignOrdersAndSaveLegs(cab, route, legId, e, eta);
         return e.getNumbOfCust();
       }
     }
     // Pool not found
     leg = new Leg(order.fromStand, order.toStand, legId, Route.RouteStatus.ASSIGNED);
     leg = saveLeg(leg, route);
-    assignOrder(leg, order, cab, route);
+    assignOrder(leg, order, cab, route, eta);
     return 1; // one customer
   }
 
-  private void assignOrdersAndSaveLegs(Cab cab, Route route, int legId, PoolElement e) {
+  private void assignOrdersAndSaveLegs(Cab cab, Route route, int legId, PoolElement e, int eta) {
     Leg leg;
     int c = 0;
     for (; c < e.getNumbOfCust() - 1; c++) {
@@ -456,16 +459,21 @@ public class DispatcherService {
         leg = new Leg(e.getCust()[c].fromStand, e.getCust()[c + 1].fromStand, legId++, Route.RouteStatus.ASSIGNED);
         saveLeg(leg, route);
       }
-      assignOrder(leg, e.getCust()[c], cab, route);
+      assignOrder(leg, e.getCust()[c], cab, route, eta);
+      // c + 1 means that this distance will add to 'eta' of the next customer being picked up
+      if (e.getCust()[c].fromStand != e.getCust()[c + 1].fromStand) {
+        eta += DistanceService.getDistance(e.getCust()[c].fromStand, e.getCust()[c + 1].fromStand);
+      }
     }
     leg = null;
-    // save drop-off phase
+    // save drop-off phase - the first leg
     if (e.getCust()[c].fromStand != e.getCust()[c + 1].toStand) {
       leg = new Leg(e.getCust()[c].fromStand, e.getCust()[c + 1].toStand, legId++, Route.RouteStatus.ASSIGNED);
       leg = saveLeg(leg, route);
     }
-    assignOrder(leg, e.getCust()[c], cab, route);
-    //
+    //the last customer being picked up
+    assignOrder(leg, e.getCust()[c], cab, route, eta);
+    // 2* as the vector contains both pick-up & drop-off phases
     for (c++; c < 2 * e.getNumbOfCust() - 1; c++) {
       if (e.getCust()[c].toStand != e.getCust()[c + 1].toStand) {
         leg = new Leg(e.getCust()[c].toStand, e.getCust()[c + 1].toStand, legId++, Route.RouteStatus.ASSIGNED);
@@ -483,7 +491,7 @@ public class DispatcherService {
     return null;
   }
 
-  private void assignOrder(Leg l, TaxiOrder o, Cab c, Route r) {
+  private void assignOrder(Leg l, TaxiOrder o, Cab c, Route r, int eta) {
     // check if it is not cancelled
     Optional<TaxiOrder> curr = taxiOrderRepository.findById(o.id);
     if (curr.isEmpty()) {
@@ -497,6 +505,7 @@ public class DispatcherService {
     if (l != null) {
       o.setLeg(l);
     }
+    o.setEta(eta);
     Duration duration = Duration.between(o.getRcvdTime(), LocalDateTime.now());
     statSrvc.addAverageElement(AVG_ORDER_ASSIGN_TIME, duration.getSeconds());
 

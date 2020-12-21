@@ -40,15 +40,15 @@ public class TaxiOrder {
 
   public TaxiOrder() {}
 
-    /**
-     *
-     * @param fromStand
-     * @param toStand
-     * @param maxWait
-     * @param maxLoss
-     * @param shared
-     * @param status
-     */
+  /**
+   *
+   * @param fromStand
+   * @param toStand
+   * @param maxWait
+   * @param maxLoss
+   * @param shared
+   * @param status
+   */
   public TaxiOrder(int fromStand, int toStand, int maxWait, int maxLoss, boolean shared, OrderStatus status) {
     this.fromStand = fromStand;
     this.toStand = toStand;
@@ -58,7 +58,6 @@ public class TaxiOrder {
     this.status = status;
     this.rcvdTime = LocalDateTime.now();
   }
-
   // @JsonIgnore
   // asigned cab
   @ManyToOne(optional = true, fetch = FetchType.LAZY)

@@ -25,19 +25,25 @@ public class CustomerGenerator extends ApiClient {
     static int MAX_WAIT = 10;
     static int MAX_POOL_LOSS = 1; // 1%
     static int MAX_TRIP = 4;
+    static int maxStand = 50; // default
 
     public static void main(String[] args) throws InterruptedException {
         logger = Logger.getLogger("kaboot.simulator.customergenerator");
         logger = ApiClient.configureLogger(logger, "customer.log");
+        maxStand = getFromYaml("../../src/main/resources/application.yml", "max-stand");
+        if (maxStand == -1) {
+            logger.warning("Error reading max-stand from YML");     
+            System.exit(0);
+        }
 
         for (int t = 0; t < DURATION; t++) { // time axis
             // filter out demand for this time point
             for (int i = 0; i < REQ_PER_MIN; i++) {
                 int id = t + i;
-                int from = randomFrom(id);
+                int from = randomFrom(id, maxStand);
                 final Demand d = new Demand(id, 
                                             from,
-                                            randomTo(from), // to
+                                            randomTo(from, maxStand), // to
                                             MAX_WAIT, 
                                             MAX_POOL_LOSS
                                            );
@@ -49,12 +55,7 @@ public class CustomerGenerator extends ApiClient {
     }
 
     // no, we can't have a random, we need reproducible results
-    private static int randomFrom(int i) {
-        int maxStand = getFromYaml("../../src/main/resources/application.yml", "max-stand");
-        if (maxStand == -1) {
-            logger.warning("Error reading max-stand from YML");     
-            System.exit(0);
-        }
+    private static int randomFrom(int i, int maxStand) {
         int x1 = i % (maxStand / 4);
         int x2 = i % (maxStand / 2);
         int x3 = i % (maxStand -2);
@@ -68,7 +69,7 @@ public class CustomerGenerator extends ApiClient {
         return a;
     }
 
-    private static int randomTo(int from) {
+    private static int randomTo(int from, int maxStand) {
         int diff = from % (MAX_TRIP /2) - MAX_TRIP;
         if (diff == 0) diff = 1;
         int to = 0;
