@@ -182,6 +182,10 @@ The following endpoints are available now with described purposes:
 | /legs/{id} | PUT | mark as completed
 | /schedulework/ | GET | manually trigger dispatcher 
 
+See also http://localhost:8080/api-docs/
+As authentication is required, just type adm0/adm0
+See also: http://localhost:8080/swagger-ui.html
+
 ## Core's KPIs
 During runtime a few measures are gathered and stored in the database - see 'stat' table. It allows for 
 tuning of the core:

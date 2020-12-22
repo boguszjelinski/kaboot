@@ -25,6 +25,9 @@ logging:
     file:
         name: logs/app.log
 
+springdoc:
+    api-docs:
+        path: /api-docs
 kaboot:
     consts:
         max-non-lcm: 200

@@ -352,7 +352,7 @@ public class ApiClient {
                 if (curLine.contains(key)) {
                     int idx = curLine.indexOf(':');
                     if (idx != -1) {
-                        return Integer.parseInt(curLine.substring(idx+1));
+                        return Integer.parseInt(curLine.substring(idx+1).trim());
                     }
                     return -1;
                 }
