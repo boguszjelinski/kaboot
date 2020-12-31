@@ -5,7 +5,7 @@ the optimal assignment plan for requests and available cabs, and **Rest API**, w
 for receiving requests, share statuses and store them in a database. 
 
 Kaboot dispatcher consists of three vital components:
-* GLPK linear solver called from a Python subroutine, scenarios with 1000 customers & 1000 cabs have been tested
+* GLPK linear solver, scenarios with 1000 customers & 1000 cabs have been tested
 * Pool finder to assign several customers to one cab, currently max 4 separate passengers/requests are allowed (single-threaded)
 * low-cost method (aka greedy) pre-solver to decrease the size of models sent to solver 
 
@@ -25,7 +25,6 @@ It is not meant to be a market-ready solution due to limited resources.
 * Kadm: administration and surveillance
 
 ## Prerequisites:
-* Python with CVXOPT and NUMPY packages
 * GLPK solver: https://www.gnu.org/software/glpk/
 * PostgreSQL (tested with MariaDB too)
 * Java SDK
@@ -93,7 +92,7 @@ java -Dnashorn.args="--no-deprecation-warning" CustomerGenerator
   LCM pre-solver if the resulting model exceeds an assumed solver's limit. Solver produces better plans than LCM but 
   time spent on finding optimal solutions, which theoretically means shorter overall wait time, causes longer ...
   wait time. A balance needs to be found.
-* models reduced by LCM are sent to GLPK solver via Python interface.
+* models reduced by LCM are sent to GLPK solver.
 * after all this effort 'routes' with 'legs' are created in the database, 
   'cab' and 'taxi_order' tables are updated - marked as 'assigned'.
   RestAPI clients receive this information - cabs begin to move, customers wait for notification that their cabs have
@@ -124,15 +123,13 @@ java -Dnashorn.args="--no-deprecation-warning" CustomerGenerator
 
 ## Current work in kaboot
 There is a lot of work in progress in Kaboot:
-* putting together all simulation parameters (se chapter below), getting rid of hardcodes
 * big load tuning (60k requests per hour)
 * taxi order at a specific time, not ASAP
 * adding passengers during a planned route 
 * ad-hoc passengers on stops ("hail and ride")
-* multithreaded pool discovery (massive SMP)
 * anticipatory allocation based on currently executed routes
-* call GLPK directly, without Python
-* removing hardcoded parameters
+* multithreaded pool discovery (massive SMP) - DONE, 30-12-2020
+* call GLPK directly, without Python - DONE, 31-12-2020
 
 ## Future work
 * distance service based on data from the field
@@ -169,17 +166,17 @@ There is a lot of work in progress in Kaboot:
 ## RestAPI
 The following endpoints are available now with described purposes:
 
-| Endpoint | Method | Purpose
-|----------|--------|----------------------------------
-| /cabs/{id} | GET | Inform customer about location
-| /cabs/{id} | PUT | Update location of the cab, mark as FREE
+| Endpoint | Method | Purpose | JSON example
+|----------|--------|----------------------------------|-----
+| /cabs/{id} | GET | Inform customer about location | { "id": 1, "location": 10, "status": "FREE" }
+| /cabs/{id} | PUT | Update location of the cab, mark as FREE | { "location": 9, "status": "ASSIGNED" }
 | /cabs/ | POST | not used
-| /orders/{id} | GET | inform about a cab assignment
-| /orders/{id} | PUT | accepting, canceling a trip, mark as completed
-| /orders/ | POST | submit a trip request - a cab is needed 
-| /routes/ | GET | get ONE route that a cab should follow with all legs
-| /routes/{id} | PUT | mark as completed
-| /legs/{id} | PUT | mark as completed
+| /orders/{id} | GET | inform about a cab assignment |  { "id": 421901,    "status": "COMPLETE", "fromStand": 15, "toStand": 12, "maxWait": 20,    "maxLoss": 1,    "shared": true,    "rcvdTime": "2020-12-22T00:35:54.291618",    "eta": 0,    "inPool": false,    "cab": null,    "customer": {        "id": 5,        "hibernateLazyInitializer": {}    },    "leg": {        "id": 422128,        "fromStand": 15,        "toStand": 14,        "place": 0,        "status": "COMPLETE",        "route": null,        "hibernateLazyInitializer": {}    },    "route": {        "id": 422127,        "status": "COMPLETE",        "cab": {            "id": 165,            "location": 10,            "status": "FREE",            "hibernateLazyInitializer": {}        },        "legs": null,        "hibernateLazyInitializer": {}    }}
+| /orders/{id} | PUT | accepting, canceling a trip, mark as completed | { "status": "ACCEPTED" }
+| /orders/ | POST | submit a trip request - a cab is needed | {"fromStand": 1, "toStand": 2, "status": "RECEIVED", "maxWait": 10, "maxLoss": 20, "shared": true} 
+| /routes/ | GET | get ONE route that a cab should follow with all legs | {    "id": 422127,    "status": "ASSIGNED",    "cab": {        "id": 165,        "location": 10,        "status": "FREE",        "hibernateLazyInitializer": {}    },    "legs": [        {            "id": 422128,            "fromStand": 15,            "toStand": 14,            "place": 0,            "status": "COMPLETE",            "route": null        },        {            "id": 422131,            "fromStand": 12,            "toStand": 10,            "place": 3,            "status": "COMPLETE",            "route": null        },        {            "id": 422130,            "fromStand": 13,            "toStand": 12,            "place": 2,            "status": "COMPLETE",            "route": null        },        {            "id": 422129,            "fromStand": 14,            "toStand": 13,            "place": 1,            "status": "COMPLETE",            "route": null        }    ]}
+| /routes/{id} | PUT | mark as completed  | { "status": "completed" }
+| /legs/{id} | PUT | mark as completed  | { "status": "completed" }
 | /schedulework/ | GET | manually trigger dispatcher 
 
 See also http://localhost:8080/api-docs/

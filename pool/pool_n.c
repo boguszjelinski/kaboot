@@ -10,7 +10,6 @@
 #define LOSS 4
 
 #define MAX_IN_POOL 4
-#define MAX_THREAD 8
 #define MAX_DEMAND 2000
 #define MAX_STAND 51  // number of customers/passengers
 #define MAX_ARR 10000
@@ -18,14 +17,12 @@
 
 int cost[MAX_STAND][MAX_STAND];
 int demand[MAX_DEMAND][DEMAND_FIELDS]; // id, from, to, maxWait, maxLoss
-int ordersCount;
-int poolSize;
 
 int pickup[MAX_IN_POOL];
 int dropoff[MAX_IN_POOL];
 int pool[MAX_ARR][MAX_IN_POOL + MAX_IN_POOL + 1]; // pick-ups + dropp-offs + cost
 int pool_count;
-int count_all = 0;
+int count_all = 0; // just for debug - how big MAX_ARR should be
 
 void readDemand(char * fileName, int linesNumb)
 {
@@ -208,22 +205,26 @@ void removeDuplicates() {
 
 int main(int argc, char *argv[])
 {
-    if (argc != 6) {
-        printf("Usage: cmd pool-size thread-number demand-file-name rec-number output-file");
+	int ordersCount;
+	int poolSize;
+
+    if (argc != 7) {
+        printf("Usage: EXE pool-size threads thread-number demand-file-name rec-number output-file");
         exit(EXIT_FAILURE);
     }
 
-    char * fileName = argv[3];
-    ordersCount = atoi(argv[4]);
+    char * fileName = argv[4];
+    ordersCount = atoi(argv[5]);
     poolSize = atoi(argv[1]);
-    int thread = atoi(argv[2]);
+    int threadNumb = atoi(argv[2]);
+    int thread = atoi(argv[3]);
     readDemand(fileName, ordersCount); // filling 'demand' table
 
     //printf("ordersCount: %d\n", ordersCount);
     //printf("Start: %s\n", now());
 
     setCosts();
-    int step = (ordersCount / MAX_THREAD) + 1;
+    int step = (ordersCount / threadNumb) + 1;
     int start = step * thread;
   	int stop = start + step > ordersCount ? ordersCount : start + step; // last thread may get a bit fewer orders
     findPool(0, ordersCount, start, stop, poolSize);
@@ -234,7 +235,7 @@ int main(int argc, char *argv[])
 
     removeDuplicates();
     int good_count = 0;
-    good_count = writeResult(argv[5], pool_count, poolSize);
+    good_count = writeResult(argv[6], pool_count, poolSize);
     touchFile(thread); // set flag READY
 
     //printf("Not duplicated count: %d\n", good_count);

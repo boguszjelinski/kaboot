@@ -5,11 +5,7 @@
 #include <unistd.h>
 
 #define MAX_IN_POOL 4
-#define MAX_THREAD 8
 #define MAX_ARR 100000
-
-int ordersCount;
-int poolSize;
 
 int pool[MAX_ARR][MAX_IN_POOL + MAX_IN_POOL + 1]; // pick-ups + dropp-offs + cost
 int poolAll[MAX_ARR][MAX_IN_POOL + MAX_IN_POOL + 1];
@@ -81,9 +77,18 @@ char *now(){
 }
 
 void copyOutput() {
-  for (int j=0; j<MAX_ARR && pool[j][0] != -1; j++, poolCountAll++)
+  for (int j=0; pool[j][0] != -1; j++, poolCountAll++) {
+    if (j == MAX_ARR) {
+    	printf("Number of sub-pools exceeded allocated space, exiting\n");
+    	exit(0);
+    }
+    if (poolCountAll == MAX_ARR) {
+        	printf("Number of pools in total exceeded allocated space, exiting\n");
+        	exit(0);
+    }
     for (int i=0; i<MAX_IN_POOL + MAX_IN_POOL + 1; i++)
 	  poolAll[poolCountAll][i] = pool[j][i];
+  }
 }
 
 void removeDuplicates() {
@@ -121,33 +126,37 @@ int flagIsSet(int t) {
 
 int main(int argc, char *argv[])
 {
-	int outputRead[MAX_THREAD];
+	int ordersCount, poolSize, threadNumb;
+
 	char cmd[50], file[50];
 
-    if (argc != 5) {
-        printf("Usage: findpool pool-size demand-file-name rec-number output-file");
+    if (argc != 6) {
+        printf("Usage: findpool pool-size threads demand-file-name rec-number output-file");
         exit(EXIT_FAILURE);
     }
 
-    const char * fileName = argv[2];
-    ordersCount = atoi(argv[3]);
+    const char * fileName = argv[3];
+    ordersCount = atoi(argv[4]);
+    threadNumb = atoi(argv[2]);
     poolSize = atoi(argv[1]);
 
     //printf("Start: %s\n", now());
 
     system("del *.flg out*.csv");
-    for (int i=0; i<MAX_THREAD; i++) {
-    	sprintf(cmd, "start /B pool_n %d %d %s %d out%d.csv &", poolSize, i, fileName, ordersCount, i);
+    for (int i=0; i<threadNumb; i++) {
+    	sprintf(cmd, "start /B pool_n %d %d %d %s %d out%d.csv &",
+    					poolSize, threadNumb, i, fileName, ordersCount, i);
     	system(cmd);
     }
 
     clock_t startTime =clock();
+
+    int outputRead[threadNumb];
+    for (int i=0; i<threadNumb; i++) outputRead[i] = 0;
+
     int count=0;
-
-    for (int i=0; i<MAX_THREAD; i++) outputRead[i] = 0;
-
-    while(count<MAX_THREAD) {
-      for (int i=0; i<MAX_THREAD && count<MAX_THREAD; i++)
+    while(count<threadNumb) {
+      for (int i=0; i<threadNumb && count<threadNumb; i++)
     	if (outputRead[i] == 0 && flagIsSet(i)) {
     		count++;
     		outputRead[i] = 1; // don't check this thread any more
@@ -162,14 +171,15 @@ int main(int argc, char *argv[])
       if (( (double) clock() - startTime)/CLOCKS_PER_SEC > 60)
 		 break;
     }
+    //printf("poolCountAll: %d\n", poolCountAll);
     //printf("Sorting ... %s\n", now());
-    if (count != MAX_THREAD) {
+    if (count != threadNumb) {
     	printf("ERROR: not all threads have returned results");
     	exit(EXIT_FAILURE);
     }
     removeDuplicates();
     int good_count = 0;
-    good_count = writeResult(argv[4], poolCountAll, poolSize);
+    good_count = writeResult(argv[5], poolCountAll, poolSize);
 
     //printf("Not duplicated count: %d\n", good_count);
     //printf("Stop: %s\n", now());

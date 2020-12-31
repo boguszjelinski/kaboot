@@ -28,7 +28,7 @@ public class LcmUtilTests {
             orders[i] = new TaxiOrder(i, numbOfStands - i == i ? 0 : numbOfStands - i,
                     10,10, true, TaxiOrder.OrderStatus.RECEIVED);
         }
-        cost = LcmUtil.calculateCost("cost.txt", orders, cabs);
+        cost = LcmUtil.calculateCost("glpk.mod", "out.txt", orders, cabs);
     }
 
     @Test

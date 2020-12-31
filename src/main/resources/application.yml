@@ -37,6 +37,11 @@ kaboot:
     scheduler:
         online: true
     solver:
-        cmd: "runpy.bat"
-        cost: "cost.txt"
-        output: "solv_out.txt"
+        cmd: "glpsol -m glpk.mod"
+        input: "glpk.mod"
+        output: "out.txt"
+    extern-pool:
+        cmd: "findpool"
+        input-file: "pool-in.csv"
+        output-file: "pool-out.csv"
+        threads: 8

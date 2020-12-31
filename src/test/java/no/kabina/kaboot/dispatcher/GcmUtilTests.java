@@ -25,7 +25,7 @@ public class GcmUtilTests {
             orders[i] = new TaxiOrder(i,numbOfStands - i == i ? 0 : numbOfStands - i,
                     10,10, true, TaxiOrder.OrderStatus.RECEIVED);
         }
-        cost = LcmUtil.calculateCost("cost.txt", orders, cabs);
+        cost = LcmUtil.calculateCost("glpk.mod", "out.txt", orders, cabs);
     }
 
     @Test
@@ -53,7 +53,7 @@ public class GcmUtilTests {
             cabs2[i] = new Cab(0, Cab.CabStatus.FREE);
             orders2[i] = new TaxiOrder(10,12, 10, 10, true, TaxiOrder.OrderStatus.RECEIVED);
         }
-        int [][] cost2 = LcmUtil.calculateCost("cost.txt", orders2, cabs2);
+        int [][] cost2 = LcmUtil.calculateCost("glpk.mod", "out.txt", orders2, cabs2);
 
         Integer[] o = GcmUtil.findMinDistancesForDemand(cost2);
         assertThat(o.length).isSameAs(n);
@@ -63,7 +63,7 @@ public class GcmUtilTests {
             cabs2[i] = new Cab(0, Cab.CabStatus.FREE);
             orders2[i] = new TaxiOrder(1,12, 10, 10, true, TaxiOrder.OrderStatus.RECEIVED);
         }
-        cost2 = LcmUtil.calculateCost("cost.txt", orders2, cabs2);
+        cost2 = LcmUtil.calculateCost("glpk.mod", "out.txt", orders2, cabs2);
         o = GcmUtil.findMinDistancesForDemand(cost2);
         assertThat(o.length).isSameAs(n);
         for (Integer integer : o) assertThat(integer.intValue()).isSameAs(1);

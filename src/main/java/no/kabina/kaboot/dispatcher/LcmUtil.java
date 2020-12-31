@@ -100,7 +100,7 @@ public class LcmUtil {
    * @param tmpSupply cabs available
    * @return matrix
    */
-  public static int[][] calculateCost(String solverCostFile, TaxiOrder[] tmpDemand, Cab[] tmpSupply) {
+  public static int[][] calculateCost(String inputFile, String outputFile, TaxiOrder[] tmpDemand, Cab[] tmpSupply) {
     int c;
     int d;
     int numbSupply = tmpSupply.length;
@@ -123,7 +123,15 @@ public class LcmUtil {
       }
     }
     // for the external solver only
-    try (FileWriter fr = new FileWriter(new File(solverCostFile))) {
+    //writeCostsForPython(inputFile, n, cost);
+    writeGlpkProg(inputFile, outputFile, n, cost);
+    return cost;
+  }
+
+  private static void writeCostsForPython(String inputFile, int n, int[][] cost) {
+    int d;
+    int c;
+    try (FileWriter fr = new FileWriter(new File(inputFile))) {
       fr.write(n + "\n");
       for (c = 0; c < n; c++) {
         for (d = 0; d < n; d++) {
@@ -134,7 +142,71 @@ public class LcmUtil {
     } catch (IOException ioe) {
       logger.warn("IOE: {}", ioe.getMessage());
     }
-    return cost;
+  }
+
+  private static void writeGlpkProg(String input, String output, int n, int[][] cost) {
+    String body = "set I;\n"
+            + "set J;\n"
+            + "\n"
+            + "param filename, symbolic := \"" + output + "\";\n"
+            + "param c{i in I, j in J};\n"
+            + "\n"
+            + "var x{i in I, j in J} >= 0;\n"
+            + "minimize cost: sum{i in I, j in J} c[i,j] * x[i,j];\n"
+            + "\n"
+            + "s.t. supply{i in I}: sum{j in J} x[i,j] = 1;\n"
+            + "s.t. demand{j in J}: sum{i in I} x[i,j] = 1;\n"
+            + "\n"
+            + "solve;\n"
+            + "\n"
+            + "for {j in J} {\n"
+            + "    for {i in I} {\n"
+            + "        printf \"%d\\n\", x[i,j] >> filename;\n"
+            + "    }\n"
+            + "}\n"
+            + "\n"
+            + "data;\nset I := ";
+            //+ "set I := 1 2 3 4;\n"
+            //+ "set J := 1 2 3 4;\n"
+            //+ "\n"
+            //+ "param c :     1 2 3 4 :=\n"
+            //+ "           1  5 1 9 100\n"
+            //+ "           2  5 1 9 100 \n"
+            //+ "           3  0 3 5 100\n"
+            //+ "           4  5 8 0 100;\n"
+            //+ "end;\n";
+
+    File file = new File(output);
+    file.delete();
+
+    try (FileWriter fr = new FileWriter(new File(input))) {
+      fr.write(body);
+      for (int c = 0; c < n; c++) {
+        fr.write((c + 1) + " ");
+      }
+      fr.write(";\nset J := ");
+      for (int c = 0; c < n; c++) {
+        fr.write((c + 1) + " ");
+      }
+      fr.write(";\nparam c : ");
+      for (int c = 0; c < n; c++) {
+        fr.write((c + 1) + " ");
+      }
+      fr.write(":=\n");
+      for (int c = 0; c < n; c++) {
+        fr.write((c + 1) + " ");
+        for (int d = 0; d < n; d++) {
+          fr.write(cost[d][c] + " ");
+        }
+        if (c == n - 1) {
+          fr.write(";\nend;\n");
+        } else {
+          fr.write("\n");
+        }
+      }
+    } catch (IOException ioe) {
+      logger.warn("IOE: {}", ioe.getMessage());
+    }
   }
 
   /**

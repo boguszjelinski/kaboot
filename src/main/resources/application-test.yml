@@ -21,3 +21,7 @@ kaboot:
     max-stand: 50
     scheduler:
       online: true
+    extern-pool:
+      cmd: "findpool.exe"
+      input-file: "pool-in.csv"
+      output-file: "pool-out.csv"

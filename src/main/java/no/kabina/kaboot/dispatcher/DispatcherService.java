@@ -61,10 +61,10 @@ public class DispatcherService {
   private String solverCmd;
 
   @Value("${kaboot.solver.output}")
-  private String solverOutFile;
+  private String solverOutput;
 
-  @Value("${kaboot.solver.cost}")
-  private String solverCostFile;
+  @Value("${kaboot.solver.input}")
+  private String solverInput;
 
   @Value("${kaboot.consts.max-pool4}")
   private int max4Pool; // TASK: it is not that simple, we need a model here: size, max wait, ...
@@ -81,20 +81,25 @@ public class DispatcherService {
   @Value("${kaboot.consts.max-stand}")
   private int maxNumbStands;
 
+  @Value("${kaboot.extern-pool.threads}")
+  private int numbOfThreads;
+
   private final TaxiOrderRepository taxiOrderRepository;
   private final CabRepository cabRepository;
   private final RouteRepository routeRepository;
   private final LegRepository legRepository;
   private final StatService statSrvc;
+  private final ExternPool externPool;
 
   public DispatcherService(TaxiOrderRepository taxiOrderRepository, CabRepository cabRepository,
                            RouteRepository routeRepository, LegRepository legRepository,
-                           StatService statService) {
+                           StatService statService, ExternPool externPool) {
     this.taxiOrderRepository = taxiOrderRepository;
     this.cabRepository = cabRepository;
     this.routeRepository = routeRepository;
     this.legRepository = legRepository;
     this.statSrvc = statService;
+    this.externPool = externPool;
   }
 
   /** 1) get the data from DB
@@ -127,7 +132,7 @@ public class DispatcherService {
       demand = PoolUtil.findFirstLegInPoolOrLone(pl, demand); // only the first leg will be sent to LCM or solver
       logger.info("Demand after pooling: {}", demand.length);
       // now build a balanced cost matrix for solver
-      cost = LcmUtil.calculateCost(solverCostFile, demand, supply);
+      cost = LcmUtil.calculateCost(solverInput, solverOutput, demand, supply);
 
       statSrvc.updateMaxAndAvgStats("model_size", cost.length);
       if (demand.length > maxSolverSize && supply.length > maxSolverSize) { // too big to send to solver, it has to be cut by LCM
@@ -137,7 +142,7 @@ public class DispatcherService {
         supply = tempModel.getSupply();
         // to be sent to solver
         logger.info("After LCM: demand={}, supply={}", demand.length, supply.length);
-        cost = LcmUtil.calculateCost(solverCostFile, demand, supply);
+        cost = LcmUtil.calculateCost(solverInput, solverOutput, demand, supply);
       }
       runSolver(supply, demand, cost, pl);
       statSrvc.updateMaxAndAvgTime("sheduler_time", startSheduler);
@@ -180,7 +185,7 @@ public class DispatcherService {
         tempDemand = GcmUtil.reduceDemand(cost, tempDemand, maxSolverSize);
       }
       // recalculate cost matrix again
-      cost = LcmUtil.calculateCost(solverCostFile, tempDemand, tempSupply); // it writes input file for solver
+      cost = LcmUtil.calculateCost(solverInput, solverOutput, tempDemand, tempSupply); // it writes input file for solver
     }
     statSrvc.updateMaxAndAvgStats("solver_size", cost.length);
     logger.info("Runnnig solver: demand={}, supply={}", tempDemand.length, tempSupply.length);
@@ -219,7 +224,7 @@ public class DispatcherService {
    */
   public int[] readSolversResult(int n) {
     int[] x = new int[n * n];
-    try (BufferedReader reader = new BufferedReader(new FileReader(solverOutFile))) {
+    try (BufferedReader reader = new BufferedReader(new FileReader(solverOutput))) {
       String line = null;
       for (int i = 0; i < n * n; i++) {
         line = reader.readLine();
@@ -282,29 +287,29 @@ public class DispatcherService {
     }
     // try to put 4 passengers into one cab
     PoolElement[] pl4 = null;
-    PoolUtil util = new PoolUtil(maxNumbStands);
+    //PoolUtil util = new PoolUtil(maxNumbStands);
 
     if (demand.length < max4Pool) { // pool4 takes a lot of time, it cannot analyze big data sets
       final long startPool4 = System.currentTimeMillis();
-      pl4 = util.checkPool(demand, 4); // four passengers: size^4 combinations (full search)
+      pl4 = externPool.findPool(demand, 4); // four passengers: size^4 combinations (full search)
       statSrvc.updateMaxAndAvgTime("pool4_time", startPool4);
     }
     // with 3 & 2 passengers, add plans with 4 passengers
-    PoolElement[] ret = getPoolWith3and2(util, demand, pl4);
+    PoolElement[] ret = getPoolWith3and2(demand, pl4);
     statSrvc.updateMaxAndAvgTime("pool_time", startPool);
     // reduce tempDemand - 2nd+ passengers will not be sent to LCM or solver
     logger.info("Pool size: {}", ret == null ? 0 : ret.length);
     return ret;
   }
 
-  private PoolElement[] getPoolWith3and2(PoolUtil util, TaxiOrder[] demand, PoolElement[] pl4) {
+  private PoolElement[] getPoolWith3and2(TaxiOrder[] demand, PoolElement[] pl4) {
     PoolElement[] ret;
     TaxiOrder[] demand3 = PoolUtil.findCustomersWithoutPool(pl4, demand);
     if (demand3 != null && demand3.length > 0) { // there is still an opportunity
       PoolElement[] pl3;
       if (demand3.length < max3Pool) { // not too big for three customers, let's find out!
         final long startPool3 = System.currentTimeMillis();
-        pl3 = util.checkPool(demand3, 3);
+        pl3 = externPool.findPool(demand3, 3);
         statSrvc.updateMaxAndAvgTime("pool3_time", startPool3);
         if (pl3.length == 0) {
           pl3 = pl4;
@@ -315,18 +320,18 @@ public class DispatcherService {
         pl3 = pl4;
       }
       // with 2 passengers (this runs fast and no max is needed
-      ret = getPoolWith2(util, demand3, pl3);
+      ret = getPoolWith2(demand3, pl3);
     } else {
       ret = pl4;
     }
     return ret;
   }
 
-  private PoolElement[] getPoolWith2(PoolUtil util, TaxiOrder[] demand3, PoolElement[] pl3) {
+  private PoolElement[] getPoolWith2(TaxiOrder[] demand3, PoolElement[] pl3) {
     PoolElement[] ret;
     TaxiOrder[] demand2 = PoolUtil.findCustomersWithoutPool(pl3, demand3);
     if (demand2 != null && demand2.length > 0) {
-      PoolElement[] pl2 = util.checkPool(demand2, 2);
+      PoolElement[] pl2 = externPool.findPool(demand2, 2);
       if (pl2.length == 0) {
         ret = pl3;
       } else {

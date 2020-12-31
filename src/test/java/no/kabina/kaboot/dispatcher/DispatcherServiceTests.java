@@ -65,11 +65,11 @@ public class DispatcherServiceTests {
         Cab[] cabs = model.getSupply();
 
         PoolUtil util = new PoolUtil(50);
-        PoolElement[] pool = util.checkPool(orders, 3);
+        PoolElement[] pool = util.findPool(orders, 3);
         assertThat(pool.length).isSameAs(16);
         TaxiOrder[] demand = PoolUtil.findFirstLegInPoolOrLone(pool, orders);
         assertThat(demand.length).isSameAs(17);
-        int [][] cost = LcmUtil.calculateCost("cost.txt", demand, cabs);
+        int [][] cost = LcmUtil.calculateCost("glpk.mod", "out.txt", demand, cabs);
         assertThat(cost.length).isSameAs(49);
         TempModel tempModel = service.runLcm(cabs, demand, cost, pool);
         assertThat(tempModel.getDemand().length).isSameAs(17);
@@ -93,7 +93,7 @@ public class DispatcherServiceTests {
             orders[i].setId((long) i);
         }
         PoolElement[] pool = service.generatePool(orders);
-        assertThat(pool.length).isSameAs(5);
+        assertThat(pool.length).isSameAs(7);
     }
 
     @Test

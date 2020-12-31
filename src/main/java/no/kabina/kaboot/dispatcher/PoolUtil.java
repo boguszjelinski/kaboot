@@ -34,6 +34,7 @@ public class PoolUtil {
 
   public PoolUtil(int stands) {
     this.maxNumbStands = stands;
+    this.cost = setCosts();
   }
 
   /**
@@ -98,13 +99,13 @@ public class PoolUtil {
     return poolCost;
   }
 
-  private void findPool(int level, int numbCust, int custInPool) { // level of recursion = place in the pick-up queue
+  public void checkPool(int level, int numbCust, int start, int stop, int custInPool) { // level of recursion = place in the pick-up queue
     // if we have reached the leaf of recursion, we won't go deeper
     if (level == custInPool) { // now we have all customers for a pool (proposal) and their order of pick-up
       // next is to generate combinations for the "drop-off" phase - recursion too
       dropCustomers(0, custInPool);
     } else {
-      for (int c = 0; c < numbCust; c++) {
+      for (int c = start; c < stop; c++) {
         // check if 'c' not in use in previous levels - "variation without repetition"
         if (!isFound(level, c, pickup)) {
           pickup[level] = c;
@@ -118,7 +119,7 @@ public class PoolUtil {
             continue;
           }
           // find the next customer
-          findPool(level + 1, numbCust, custInPool);
+          checkPool(level + 1, numbCust, 0, numbCust, custInPool);
         }
       }
     }
@@ -159,14 +160,18 @@ public class PoolUtil {
    * @param inPool how many passengers can a cab take
    * @return
    */
-  public PoolElement[] checkPool(TaxiOrder[] dem, int inPool) {
+  public PoolElement[] findPool(TaxiOrder[] dem, int inPool) {
     this.poolList = new ArrayList<>();
     this.demand = dem;
-    this.cost = setCosts();
     // 'poolList' will be built
-    findPool(0, demand.length, inPool);
-    // sorting
-    PoolElement[] arr = poolList.toArray(new PoolElement[0]);
+    checkPool(0, demand.length, 0, demand.length, inPool); // this is not SMP
+    return removeDuplicates(poolList.toArray(new PoolElement[0]), inPool);
+  }
+
+  public static PoolElement[] removeDuplicates(PoolElement[] arr, int inPool) {
+    if (arr == null) {
+      return null;
+    }
     Arrays.sort(arr);
     // removing duplicates
     int i = 0;

@@ -38,3 +38,4 @@ build/
 *.gz
 *.class
 logs
+*.exe

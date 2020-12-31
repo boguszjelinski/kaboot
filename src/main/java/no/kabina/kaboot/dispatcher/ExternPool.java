@@ -1,21 +1,50 @@
 package no.kabina.kaboot.dispatcher;
 
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileReader;
+import java.io.FileWriter;
+import java.io.IOException;
 import java.util.ArrayList;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
+import java.util.HashMap;
+import java.util.List;
 import no.kabina.kaboot.orders.TaxiOrder;
-import org.apache.commons.lang3.ArrayUtils;
-import org.springframework.scheduling.annotation.Async;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 @Component
-public class SmpPool {
-  private int numbOfThreads;
-  private int numbOfStands;
+public class ExternPool {
+  private final Logger logger = LoggerFactory.getLogger(ExternPool.class);
 
-  public SmpPool(int numbOfThreads, int numbOfStands) {
+  @Value("${kaboot.extern-pool.cmd}")
+  private String cmd;
+
+  @Value("${kaboot.extern-pool.input-file}")
+  private String inputFile;
+
+  @Value("${kaboot.extern-pool.output-file}")
+  private String outputFile;
+
+  @Value("${kaboot.extern-pool.threads}")
+  private int numbOfThreads;
+
+  private HashMap<Long, TaxiOrder> orders;
+
+  public ExternPool() {
+    orders = new HashMap<>();
+  }
+
+  /**
+   * for testing
+   */
+  public ExternPool(String cmd, String inputFile, String outputFile, int numbOfThreads) {
+    orders = new HashMap<>();
+    this.cmd = cmd;
+    this.inputFile = inputFile;
+    this.outputFile = outputFile;
     this.numbOfThreads = numbOfThreads;
-    this.numbOfStands = numbOfStands;
   }
 
   /**
@@ -24,32 +53,55 @@ public class SmpPool {
   * @param inPool number of passnegers in pool
   * @return pool proposal
   */
-  public PoolElement[] findSmpPool(TaxiOrder[] dem, int inPool) throws InterruptedException, ExecutionException {
-
-    CompletableFuture<PoolElement[]>[] arr = new CompletableFuture[numbOfThreads];
-    int step = (dem.length / numbOfThreads) + 1; // +1 as we could miss the rest of division in last thread; the last thread will be slightly under-loaded
-    for (int i = 0, start = 0; i < numbOfThreads; i++, start += step) {
-      arr[i] = findPoolAsync(dem, inPool, start, Math.min(start + step, dem.length));
+  public PoolElement[] findPool(TaxiOrder[] dem, int inPool) {
+    for (TaxiOrder o : dem) {
+      orders.put(o.getId(), o);
     }
-    CompletableFuture.allOf(arr);
-    PoolElement[] ret = null;
-    for (int i = 0; i < numbOfThreads; i++) {
-      ret = ArrayUtils.addAll(ret, arr[i].get());
+    writeInput(dem);
+    // findpool 4 8 pool-in.csv 100 out.csv
+    // findpool pool-size threads demand-file-name rec-number output-file
+    Process p = null;
+    try {
+      p = Runtime.getRuntime().exec(cmd + " " + inPool + " " + numbOfThreads + " "
+                                                            + inputFile + " " + dem.length + " " +  outputFile);
+    } catch (IOException e) {
+      e.printStackTrace();
     }
-    return PoolUtil.removeDuplicates(ret, inPool);
+    try {
+      p.waitFor();
+    } catch (InterruptedException e) {
+      e.printStackTrace();
+    }
+    return readOutput(inPool);
   }
 
-  @Async
-  private CompletableFuture<PoolElement[]> findPoolAsync(TaxiOrder[] demand, int inPool, int start, int stop) {
-    if (demand == null || start >= demand.length) {
-      return CompletableFuture.completedFuture(new PoolElement[0]);
+  private PoolElement[] readOutput(int inPool) {
+    List<PoolElement> list = new ArrayList<>();
+    try (BufferedReader reader = new BufferedReader(new FileReader(outputFile))) {
+      String line = null;
+      while ((line = reader.readLine()) != null) {
+        String[] data = line.split(",");
+        TaxiOrder[] custs = new TaxiOrder[inPool + inPool]; // pickups + dropoffs
+        for (int i = 0; i < inPool + inPool; i++) {
+          custs[i] = orders.get(Long.parseLong(data[i]));
+        }
+        list.add(new PoolElement(custs, inPool, 0)); // cost is only used for sorting in old routins
+      }
+    } catch (IOException e) {
+      logger.warn("missing output from solver");
+      return new PoolElement[0];
     }
-    PoolUtil util = new PoolUtil(numbOfStands);
-    util.poolList = new ArrayList<>();
-    util.demand = demand;
+    return list.toArray(new PoolElement[0]);
+  }
 
-    util.checkPool(0, demand.length, start, stop, inPool);
-    PoolElement[] results = util.poolList.toArray(new PoolElement[0]);
-    return CompletableFuture.completedFuture(results);
+  private void writeInput(TaxiOrder[] demand) {
+    try (FileWriter fr = new FileWriter(new File(inputFile))) {
+      for (TaxiOrder o : demand) {
+        fr.write(o.id + "," + o.fromStand + "," + o.toStand
+                    + "," + o.getMaxWait() + "," + o.getMaxLoss() + ",\n");
+      }
+    } catch (IOException ioe) {
+      logger.warn("IOE: {}", ioe.getMessage());
+    }
   }
 }
