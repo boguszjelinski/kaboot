@@ -1,5 +1,9 @@
 package no.kabina.kaboot.orders;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
+
+import java.time.LocalDateTime;
+
 public class TaxiOrderPojo { // because SonarLint complained
 
   protected TaxiOrder.OrderStatus status;
@@ -9,14 +13,18 @@ public class TaxiOrderPojo { // because SonarLint complained
   protected int maxLoss; // [%] how long can I lose while in pool
   protected boolean shared; // can be in a pool ?
 
+  @JsonFormat(pattern="yyyy-MM-dd HH:mm:ss")
+  protected LocalDateTime atTime;
+
   protected TaxiOrderPojo() {}
 
-  public TaxiOrderPojo(int fromStand, int toStand, int maxWait, int maxLoss, boolean shared) {
+  public TaxiOrderPojo(int fromStand, int toStand, int maxWait, int maxLoss, boolean shared, LocalDateTime atTime) {
     this.fromStand = fromStand;
     this.toStand = toStand;
     this.maxWait = maxWait;
     this.maxLoss = maxLoss;
     this.shared = shared;
+    this.atTime = atTime;
   }
 
   public int getFromStand() {
@@ -65,5 +73,13 @@ public class TaxiOrderPojo { // because SonarLint complained
 
   public void setShared(boolean shared) {
     this.shared = shared;
+  }
+
+  public LocalDateTime getAtTime() {
+    return atTime;
+  }
+
+  public void setAtTime(LocalDateTime atTime) {
+    this.atTime = atTime;
   }
 }

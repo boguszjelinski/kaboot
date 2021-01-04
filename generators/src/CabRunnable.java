@@ -99,7 +99,7 @@ public class CabRunnable extends ApiClient implements Runnable {
 
             waitMins(Math.abs(task.fromStand - task.toStand)); // cab is moving
             task.status = RouteStatus.COMPLETE;
-            updateTask(cab.id, task);
+            updateLeg(cab.id, task);
             cab.location = task.toStand;
             // inform sheduler / customer
             if (i == legs.size() - 1) {

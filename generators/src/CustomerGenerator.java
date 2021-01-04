@@ -16,6 +16,7 @@
 
 // javac CustomerGenerator.java 
 
+import java.time.LocalDateTime;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
 
@@ -25,6 +26,7 @@ public class CustomerGenerator extends ApiClient {
     static int MAX_WAIT = 10;
     static int MAX_POOL_LOSS = 1; // 1%
     static int MAX_TRIP = 4;
+    static int AT_TIME_LAG = 30;
     static int maxStand = 50; // default
 
     public static void main(String[] args) throws InterruptedException {
@@ -41,11 +43,16 @@ public class CustomerGenerator extends ApiClient {
             for (int i = 0; i < REQ_PER_MIN; i++) {
                 int id = t + i;
                 int from = randomFrom(id, maxStand);
+                LocalDateTime atTime = null;
+                if (from % 3 == 0 && t < DURATION - AT_TIME_LAG) {
+                    atTime = LocalDateTime.now().plusMinutes(AT_TIME_LAG);
+                }
                 final Demand d = new Demand(id, 
                                             from,
                                             randomTo(from, maxStand), // to
                                             MAX_WAIT, 
-                                            MAX_POOL_LOSS
+                                            MAX_POOL_LOSS,
+                                            atTime
                                            );
                 (new Thread(new CustomerRunnable(d))).start();
                 Thread.sleep(5); // so that to disperse them a bit and not to kill backend

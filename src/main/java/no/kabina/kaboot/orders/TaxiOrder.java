@@ -33,6 +33,9 @@ public class TaxiOrder {
   private LocalDateTime rcvdTime;
 
   @Column(nullable = true)
+  private LocalDateTime atTime; // ASAP if not set
+
+  @Column(nullable = true)
   protected Integer eta; // set when assigned
 
   @Column(nullable = true)
@@ -49,7 +52,9 @@ public class TaxiOrder {
    * @param shared
    * @param status
    */
-  public TaxiOrder(int fromStand, int toStand, int maxWait, int maxLoss, boolean shared, OrderStatus status) {
+  public TaxiOrder(int fromStand, int toStand, int maxWait, int maxLoss, boolean shared, OrderStatus status,
+                   LocalDateTime atTime
+                  ) {
     this.fromStand = fromStand;
     this.toStand = toStand;
     this.maxWait = maxWait;
@@ -57,6 +62,7 @@ public class TaxiOrder {
     this.shared = shared;
     this.status = status;
     this.rcvdTime = LocalDateTime.now();
+    this.atTime = atTime;
   }
   // @JsonIgnore
   // asigned cab
@@ -190,4 +196,13 @@ public class TaxiOrder {
   public void setRcvdTime(LocalDateTime rcvdTime) {
     this.rcvdTime = rcvdTime;
   }
+
+  public LocalDateTime getAtTime() {
+    return atTime;
+  }
+
+  public void setAtTime(LocalDateTime atTime) {
+    this.atTime = atTime;
+  }
+
 }

@@ -1,14 +1,17 @@
+import java.time.LocalDateTime;
+
 public class Demand {
-    public int id, from, to, time, at;
+    public int id, from, to;
     public int eta; // set when assigned
     public boolean inPool;
     public int cab_id;
     public ApiClient.OrderStatus status;
     public int maxWait; // max wait for assignment
     public int maxLoss; // [%] loss in Pool
+    public LocalDateTime atTime;
 
-    public Demand(int id, int from, int to, int wait, int loss,
-                    ApiClient.OrderStatus status, boolean inPool, int cab_id, int eta) {
+    public Demand(int id, int from, int to, int wait, int loss, ApiClient.OrderStatus status, 
+                 boolean inPool, int cab_id, int eta) {
         this.id = id;
         this.from = from;
         this.to = to;
@@ -20,12 +23,13 @@ public class Demand {
         this.eta = eta;
     }
 
-    public Demand(int id, int from, int to, int wait, int loss) {
+    public Demand(int id, int from, int to, int wait, int loss, LocalDateTime atTime) {
         this.id = id;
         this.from = from;
         this.to = to;
         this.maxWait = wait;
         this.maxLoss = loss;
+        this.atTime = atTime;
     }
 
     public void setStatus (ApiClient.OrderStatus stat) { this.status = stat; }

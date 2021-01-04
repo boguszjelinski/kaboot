@@ -25,6 +25,8 @@ import java.io.BufferedReader;
 import java.io.FileInputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.io.IOException;
 import java.util.logging.FileHandler;
 import java.util.logging.Logger;
@@ -47,9 +49,19 @@ public class ApiClient {
     protected Demand saveOrder(String method, Demand d, int usrId) {
         String json = "{\"fromStand\":" + d.from + ", \"toStand\": " + d.to + ", \"status\":\"" + d.status
                             + "\", \"maxWait\":" + d.maxWait + ", \"maxLoss\": "+ d.maxLoss
-                            + ", \"shared\": true}"; // TODO: hardcode, should be a parameter too
+                            + ", \"shared\": true";
+        if (d.atTime != null) {
+            json += ", \"atTime\": \"" + date2String(d.atTime) + "\"";
+        }
+        json += "}"; // TODO: hardcode, should be a parameter too
         json = saveJSON(method, "orders", "cust" + usrId, d.id, json); // TODO: FAIL, this is not customer id
         return getOrderFromJson(json);
+    }
+
+    private String date2String (LocalDateTime tm) {
+        //  DateTimeFormatter.ISO_DATE_TIME;
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+        return tm.format(formatter);
     }
 
     protected Demand getOrder(int userId, int orderId) {
@@ -79,12 +91,12 @@ public class ApiClient {
         saveJSON("PUT", "routes", "cab" + cab_id, r.id, json);
     }
 
-    protected void updateTask(int cab_id, Task t) {
+    protected void updateLeg(int cab_id, Task t) {
         String json = "{\"status\":\"" + t.status +"\"}";
         log("leg", t.id, json);
         saveJSON("PUT", "legs", "cab" + cab_id, t.id, json);
     }
- 
+
     protected Route getRoute(int cab_id) {
         String json = getEntityAsJson("cab"+cab_id, "routes");
         return getRouteFromJson(json);
@@ -92,7 +104,7 @@ public class ApiClient {
 
     private Route getRouteFromJson(String str) {
         //"{"id":114472,"status":"ASSIGNED",
-        //  "legs":[{"id":114473,"fromStand":16,"toStand":12,"place":0,"status":"ASSIGNED"}]}" 
+        //  "legs":[{"id":114473,"fromStand":16,"toStand":12,"place":0,"status":"ASSIGNED"}]}"
         Map map = getMap(str, this.engine);
         if (map == null) {
             return null;
@@ -101,12 +113,12 @@ public class ApiClient {
         List<Map> legs = (List<Map>) map.get("legs");
         List<Task> tasks = new ArrayList<>();
         for (Map m : legs) {
-            tasks.add(new Task( (int) m.get("id"), 
-                                (int) m.get("fromStand"), 
+            tasks.add(new Task( (int) m.get("id"),
+                                (int) m.get("fromStand"),
                                 (int) m.get("toStand"),
                                 (int) m.get("place")));
         }
-        return new Route(id, tasks); 
+        return new Route(id, tasks);
     }
 
     private Cab getCabFromJson(String json) {
@@ -130,13 +142,13 @@ public class ApiClient {
             return null;
         }
         try {
-            return new Demand(  (int) map.get("id"), 
-                                (int) map.get("fromStand"), 
-                                (int) map.get("toStand"), 
-                                (int) map.get("maxWait"), 
-                                (int) map.get("maxLoss"), 
-                                getOrderStatus((String) map.get("status")), 
-                                (boolean) map.get("inPool"), 
+            return new Demand(  (int) map.get("id"),
+                                (int) map.get("fromStand"),
+                                (int) map.get("toStand"),
+                                (int) map.get("maxWait"),
+                                (int) map.get("maxLoss"),
+                                getOrderStatus((String) map.get("status")),
+                                (boolean) map.get("inPool"),
                                 (int) map.get("cab_id"),
                                 (int) map.get("eta")
                             );
@@ -220,7 +232,7 @@ public class ApiClient {
         //         "cab":{"id":907,"location":12,"status":"ASSIGNED","hibernateLazyInitializer":{}},
         //         "legs":null,"hibernateLazyInitializer":{}}}"
         if ("OK".equals(str)) { // PUT
-            return null; 
+            return null;
         }
         Map map = getMap(str, engine);
         if (map == null) {
@@ -248,7 +260,7 @@ public class ApiClient {
             return null;
         }
     }
-    
+
     public static void waitSecs(int secs) {
         try { Thread.sleep(secs*1000); } catch (InterruptedException e) {} // one minute
     }

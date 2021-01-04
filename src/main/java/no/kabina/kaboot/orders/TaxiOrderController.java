@@ -70,8 +70,8 @@ public class TaxiOrderController {
     if (newTaxiOrder.fromStand == newTaxiOrder.toStand) { // a joker
       return null;
     }
-    TaxiOrder order = new TaxiOrder(newTaxiOrder.fromStand, newTaxiOrder.toStand,
-                    newTaxiOrder.maxWait, newTaxiOrder.maxLoss, newTaxiOrder.shared, TaxiOrder.OrderStatus.RECEIVED);
+    TaxiOrder order = new TaxiOrder(newTaxiOrder.fromStand, newTaxiOrder.toStand, newTaxiOrder.maxWait,
+                      newTaxiOrder.maxLoss, newTaxiOrder.shared, TaxiOrder.OrderStatus.RECEIVED, newTaxiOrder.atTime);
     order.setEta(-1);
     order.setMaxWait(20);
     order.setInPool(false);

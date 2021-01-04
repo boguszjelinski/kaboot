@@ -78,6 +78,9 @@ public class DispatcherService {
   @Value("${kaboot.scheduler.online}")
   private boolean isOnline;
 
+  @Value("${kaboot.scheduler.at-time-lag}")
+  private int atTimeLag;
+
   @Value("${kaboot.consts.max-stand}")
   private int maxNumbStands;
 
@@ -243,8 +246,10 @@ public class DispatcherService {
 
   private TempModel prepareData() {
     // read demand for the solver from DB
+    LocalDateTime plusMins = LocalDateTime.now().plusMinutes(atTimeLag);
+
     TaxiOrder[] tempDemand =
-            taxiOrderRepository.findByStatus(TaxiOrder.OrderStatus.RECEIVED).toArray(new TaxiOrder[0]);
+            taxiOrderRepository.findByStatusAndTime(TaxiOrder.OrderStatus.RECEIVED, plusMins).toArray(new TaxiOrder[0]);
     tempDemand = expireRequests(tempDemand); // mark "refused" if waited too long
 
     if (tempDemand.length == 0) {
@@ -529,10 +534,12 @@ public class DispatcherService {
   private TaxiOrder[] expireRequests(TaxiOrder[] demand) {
     List<TaxiOrder> newDemand = new ArrayList<>();
 
-    LocalDateTime time = LocalDateTime.now();
+    LocalDateTime now = LocalDateTime.now();
     for (TaxiOrder o : demand) {
-      long minutes = Duration.between(time, o.getRcvdTime()).getSeconds()/60;
-      if (minutes > o.getMaxWait()) { // TASK: maybe scheduler should have its own, global MAX WAIT
+      long minutesRcvd = Duration.between(o.getRcvdTime(), now).getSeconds()/60;
+      long minutesAt = Duration.between(o.getAtTime(), now).getSeconds()/60;
+      if ((o.getAtTime() == null && minutesRcvd > o.getMaxWait())
+          || (o.getAtTime() != null && minutesAt > o.getMaxWait())) { // TASK: maybe scheduler should have its own, global MAX WAIT
         logger.info("Customer={} refused, max wait exceeded", o.id);
         o.setStatus(TaxiOrder.OrderStatus.REFUSED);
         taxiOrderRepository.save(o);

@@ -36,6 +36,7 @@ kaboot:
         max-stand: 50
     scheduler:
         online: true
+        at-time-lag: 3
     solver:
         cmd: "glpsol -m glpk.mod"
         input: "glpk.mod"
