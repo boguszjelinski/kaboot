@@ -43,6 +43,6 @@ kaboot:
         output: "out.txt"
     extern-pool:
         cmd: "findpool"
-        input-file: "pool-in.csv"
-        output-file: "pool-out.csv"
+        input: "pool-in.csv"
+        output: "pool-out.csv"
         threads: 8

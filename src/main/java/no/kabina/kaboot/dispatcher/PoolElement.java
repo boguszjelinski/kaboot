@@ -8,7 +8,7 @@ public class PoolElement implements Comparable<PoolElement> {
   private int numbOfCust; // pools with 2,3 or 4 passengers
   private int cost;
 
-  private PoolElement () {}
+  private PoolElement() {}
 
   /** Defines a route with pickups and drop-offs
   *

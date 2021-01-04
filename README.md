@@ -124,12 +124,12 @@ java -Dnashorn.args="--no-deprecation-warning" CustomerGenerator
 ## Current work in kaboot
 There is a lot of work in progress in Kaboot:
 * big load tuning (60k requests per hour)
-* taxi order at a specific time, not ASAP
+* taxi order at a specific time, not ASAP - DONE, 2021-01-03
 * adding passengers during a planned route 
 * ad-hoc passengers on stops ("hail and ride")
 * anticipatory allocation based on currently executed routes
-* multithreaded pool discovery (massive SMP) - DONE, 30-12-2020
-* call GLPK directly, without Python - DONE, 31-12-2020
+* multithreaded pool discovery (massive SMP) - DONE, 2020-12-30
+* call GLPK directly, without Python - DONE, 2020-12-31
 
 ## Future work
 * distance service based on data from the field
@@ -148,9 +148,14 @@ There is a lot of work in progress in Kaboot:
 | max-pool4 | 600 | application.yml | max size of demand that can be sent to pool discoverer with 4 passengers; to speed up performance
 | max-pool3 | 1200 | application.yml | max size of demand that can be sent to pool discoverer with 3 passengers; to speed up performance
 | max-stand | 50 | application.yml | cost matrix generation in PoolUtil; for future use in CabGenerator.java - random start location
-| solver.cmd | runpy.bat | application.yml | path to python and solver
-| solver.cost | cost.txt | application.yml | temporary file with cost matrix sent to solver
-| solver.output | solv_out.txt | application.yml | output vector from solver 
+| at-time-lag | 3 | application.yml | take into consideration requests for cabs that will be due in a few minutes time - number of minutes. This concerns requests sent for a specific timestamp, not ASAP
+| solver.cmd | glpsol -m glpk.mod | application.yml | GLPK command (solver)
+| solver.input | glpk.mod | application.yml | temporary GLPK programme with cost matrix sent to solver
+| solver.output | out.txt | application.yml | output vector from solver 
+| extern-pool.cmd | findpool | application.yml | C multithreaded routine looking for feasible pools
+| extern-pool.input | pool-in.csv | application.yml | details about requests: id, from, to, preferences
+| extern-pool.output | pool-out.csv | application.yml | id-s of requests in order of pickups amd droppoffs
+| extern-pool.thread | 8 | application.yml | number of threads (separate programmes for now)
 | SCHEDULING_DURATION | 2 | LcmUtil | assumed duration of dispatching taken into consideration while checking if we can meet customer expectations. It might be replaced by a forecast based on demand size.
 | MAX_WAIT | 10 | CustomerGenerator | customers can only wait 10min for a cab.
 | MAX_POOL_LOSS | 1 | CustomerGenerator | 1%, restrictive, customers can only lose 1% of time compared to non-pooled trip

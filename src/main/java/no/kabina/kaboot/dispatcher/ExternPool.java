@@ -21,10 +21,10 @@ public class ExternPool {
   @Value("${kaboot.extern-pool.cmd}")
   private String cmd;
 
-  @Value("${kaboot.extern-pool.input-file}")
+  @Value("${kaboot.extern-pool.input}")
   private String inputFile;
 
-  @Value("${kaboot.extern-pool.output-file}")
+  @Value("${kaboot.extern-pool.output}")
   private String outputFile;
 
   @Value("${kaboot.extern-pool.threads}")
