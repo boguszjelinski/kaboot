@@ -125,7 +125,7 @@ java -Dnashorn.args="--no-deprecation-warning" CustomerGenerator
 There is a lot of work in progress in Kaboot:
 * big load tuning (60k requests per hour)
 * taxi order at a specific time, not ASAP - DONE, 2021-01-03
-* adding passengers during a planned route 
+* adding passengers during a running route - DONE, 2021-01-10
 * ad-hoc passengers on stops ("hail and ride")
 * anticipatory allocation based on currently executed routes
 * multithreaded pool discovery (massive SMP) - DONE, 2020-12-30

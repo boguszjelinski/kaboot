@@ -32,6 +32,7 @@ import no.kabina.kaboot.routes.Leg;
 import no.kabina.kaboot.routes.LegRepository;
 import no.kabina.kaboot.routes.Route;
 import no.kabina.kaboot.routes.RouteRepository;
+import no.kabina.kaboot.routes.Route.RouteStatus;
 import no.kabina.kaboot.stats.StatService;
 import org.apache.commons.lang3.ArrayUtils;
 import org.slf4j.Logger;
@@ -130,7 +131,13 @@ public class DispatcherService {
     Cab[] supply = tmpModel.getSupply();
 
     if (supply.length > 0 && demand.length > 0) {
-
+      // try to assign to existing routes
+      int lenBefore = demand.length;
+      demand = findMatchingRoutes(demand);
+      int lenAfter = demand.length;
+      if (lenBefore != lenAfter) {
+        logger.info("Route matcher found allocated {} requests", lenBefore - lenAfter);
+      }
       PoolElement[] pl = generatePool(demand);
       demand = PoolUtil.findFirstLegInPoolOrLone(pl, demand); // only the first leg will be sent to LCM or solver
       logger.info("Demand after pooling: {}", demand.length);
@@ -242,6 +249,44 @@ public class DispatcherService {
       return new int[0];
     }
     return x;
+  }
+
+  private TaxiOrder[] findMatchingRoutes(TaxiOrder[] demand) {
+    List<TaxiOrder> ret = new ArrayList<>();
+    List<Leg> legs = legRepository.findByStatusOrderByRouteAscPlaceAsc(RouteStatus.ASSIGNED);
+    if (legs == null || demand == null) {
+      return demand;
+    }
+    for (int j = 0; j < demand.length; j++) {
+      boolean foundTo = false; // success indicator
+      boolean wontFind = false; // to signal that the next leg belongs to another route
+      int i, k;
+      for (i = 1; i < legs.size() && !foundTo && !wontFind; i++) { // not from 0 as each leg we are looking for must have a predecessor 
+        if (demand[j].fromStand == legs.get(i).getFromStand() 
+            && legs.get(i-1).getRoute().getId().equals(legs.get(i).getRoute().getId()) // previous leg is from the same route
+            && legs.get(i-1).getStatus() != RouteStatus.COMPLETE // the previous leg cannot be completed TASK !! in the future consider other statuses here
+            // we want the previous leg to be active to give some time for both parties to get the assignment
+           ) { 
+          for (k = i; k < legs.size() && !foundTo; k++) {
+            if (!legs.get(i-1).getRoute().getId().equals(legs.get(i).getRoute().getId())) {
+              wontFind = true;
+              break;
+            }
+            if (demand[j].toStand == legs.get(k).getToStand()) {
+              foundTo = true;
+            }
+          }
+        }
+      }
+      if (foundTo) {
+        // TASK: eta should be calculated
+        logger.info("Customer {} assigned to existing route: {}", demand[j].getId(), legs.get(i).getRoute().getId());
+        assignOrder(legs.get(i), demand[j], legs.get(i).getRoute().getCab() , legs.get(i).getRoute(), 0);
+      } else {
+        ret.add(demand[i]);
+      }
+    }
+    return ret.toArray(new TaxiOrder[0]);
   }
 
   private TempModel prepareData() {
