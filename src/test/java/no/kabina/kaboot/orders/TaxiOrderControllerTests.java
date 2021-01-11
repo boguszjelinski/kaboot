@@ -64,7 +64,7 @@ public class TaxiOrderControllerTests {
     public void whenUpdateOrder_thenReturns200() throws Exception {
         String body = "{\"fromStand\":1, \"toStand\": 2, \"maxWait\":10, \"maxLoss\": 10, \"shared\": true}";
         given(repository.findById(any())).willReturn(
-                java.util.Optional.of(new TaxiOrder(1, 2, 10, 10, true, TaxiOrder.OrderStatus.ASSIGNED)));
+                java.util.Optional.of(new TaxiOrder(1, 2, 10, 10, true, TaxiOrder.OrderStatus.ASSIGNED, null)));
         given(repository.save(any())).willReturn(null);
         mvc.perform(put("/orders/{id}", 123)
                 .header("Authorization", token)
@@ -75,7 +75,7 @@ public class TaxiOrderControllerTests {
 
     @Test
     public void whenGetNonExistingOrder_thenReturns200() throws Exception {
-        given(repository.findById(1)).willReturn(new TaxiOrder(15,16,10,10, true, TaxiOrder.OrderStatus.ASSIGNED));
+        given(repository.findById(1)).willReturn(new TaxiOrder(15,16,10,10, true, TaxiOrder.OrderStatus.ASSIGNED, null));
         mvc.perform(get("/orders/{id}", 0L)
             .header("Authorization", token)
             .contentType(MediaType.APPLICATION_JSON))
@@ -92,7 +92,7 @@ public class TaxiOrderControllerTests {
 
     @Test
     public void whenExistingOrderButNoCustomerSet_thenReturns200() throws Exception {
-        TaxiOrder ord = new TaxiOrder(15, 16, 10, 10, true, TaxiOrder.OrderStatus.ASSIGNED);
+        TaxiOrder ord = new TaxiOrder(15, 16, 10, 10, true, TaxiOrder.OrderStatus.ASSIGNED, null);
         ord.setId(0L);
         given(repository.findById(0L)).willReturn(ord);
         mvc.perform(get("/orders/{id}", 0L)
@@ -103,7 +103,7 @@ public class TaxiOrderControllerTests {
 
     @Test
     public void whenExistingOrder_thenReturns200() throws Exception {
-        TaxiOrder ord = new TaxiOrder(15, 16, 10, 10, true, TaxiOrder.OrderStatus.ASSIGNED);
+        TaxiOrder ord = new TaxiOrder(15, 16, 10, 10, true, TaxiOrder.OrderStatus.ASSIGNED, null);
         Customer cust = new Customer();
         cust.setId(0L);
         ord.setId(123L);
@@ -135,7 +135,7 @@ public class TaxiOrderControllerTests {
 
     @Test
     public void whenTaxiOrderPojoComesTrue() {
-        TaxiOrderPojo ord = new TaxiOrderPojo(0,1,2,3,true);
+        TaxiOrderPojo ord = new TaxiOrderPojo(0,1,2,3,true, null);
         assertThat(ord.getFromStand()).isSameAs(0);
         assertThat(ord.getToStand()).isSameAs(1);
         assertThat(ord.getMaxWait()).isSameAs(2);

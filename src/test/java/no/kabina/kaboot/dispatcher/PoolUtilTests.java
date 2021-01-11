@@ -21,7 +21,13 @@ public class PoolUtilTests {
     public void before() {
         orders = new TaxiOrder[numbOfOrders];
         for (int i = 0; i < numbOfOrders; i++) {
-            orders[i] = new TaxiOrder(i%45 == numbOfStands -1 ? 0 : i%45, Math.min((i+1)%45,numbOfStands-1),20,20, true, TaxiOrder.OrderStatus.RECEIVED);
+            orders[i] = new TaxiOrder(i%45 == numbOfStands -1 ? 0 : i%45,
+                                    Math.min((i+1)%45,numbOfStands-1),
+                                    20,
+                                    20,
+                                    true,
+                                    TaxiOrder.OrderStatus.RECEIVED,
+                                    null);
             orders[i].setId((long)i);
         }
     }

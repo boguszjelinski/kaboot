@@ -26,7 +26,7 @@ public class LcmUtilTests {
         for (int i = 0; i < numbOfStands; i++) {
             cabs[i] = new Cab(i, Cab.CabStatus.FREE);
             orders[i] = new TaxiOrder(i, numbOfStands - i == i ? 0 : numbOfStands - i,
-                    10,10, true, TaxiOrder.OrderStatus.RECEIVED);
+                    10,10, true, TaxiOrder.OrderStatus.RECEIVED, null);
         }
         cost = LcmUtil.calculateCost("glpk.mod", "out.txt", orders, cabs);
     }
@@ -65,7 +65,7 @@ public class LcmUtilTests {
         for (int i = 0; i < numbOfStands; i++) {
             cabs[i] = new Cab(0, Cab.CabStatus.FREE);
             orders[i] = new TaxiOrder(numbOfStands, numbOfStands - 1,
-                    10,10, true, TaxiOrder.OrderStatus.RECEIVED);
+                    10,10, true, TaxiOrder.OrderStatus.RECEIVED, null);
         }
         c = LcmUtil.getRidOfDistantCabs(orders, cabs);
         o = LcmUtil.getRidOfDistantCustomers(orders, cabs);

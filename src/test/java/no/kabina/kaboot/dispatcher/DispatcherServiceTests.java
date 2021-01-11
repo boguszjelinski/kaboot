@@ -89,7 +89,7 @@ public class DispatcherServiceTests {
         final int numbOfStands = 20;
         TaxiOrder[] orders = new TaxiOrder[numbOfStands-1];
         for (int i = 0; i < numbOfStands-1; i++) {
-            orders[i] = new TaxiOrder(i %2, (i+1)%2,20,20, true, TaxiOrder.OrderStatus.RECEIVED);
+            orders[i] = new TaxiOrder(i %2, (i+1)%2,20,20, true, TaxiOrder.OrderStatus.RECEIVED, null);
             orders[i].setId((long) i);
         }
         PoolElement[] pool = service.generatePool(orders);
@@ -122,7 +122,7 @@ public class DispatcherServiceTests {
         for (int i = 0; i < numbOfStands-1; i++) {
             cabs[i] = new Cab(i, Cab.CabStatus.FREE);
             cabs[i].setId((long)i);
-            orders[i] = new TaxiOrder(i %2, (i+1)%2,20,20, true, TaxiOrder.OrderStatus.RECEIVED);
+            orders[i] = new TaxiOrder(i %2, (i+1)%2,20,20, true, TaxiOrder.OrderStatus.RECEIVED, null);
             orders[i].setId((long)i);
         }
         return new TempModel(cabs, orders);

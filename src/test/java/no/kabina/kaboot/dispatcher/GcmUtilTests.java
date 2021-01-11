@@ -23,7 +23,7 @@ public class GcmUtilTests {
         for (int i=0; i < numbOfStands; i++) {
             cabs[i] = new Cab(i, Cab.CabStatus.FREE);
             orders[i] = new TaxiOrder(i,numbOfStands - i == i ? 0 : numbOfStands - i,
-                    10,10, true, TaxiOrder.OrderStatus.RECEIVED);
+                    10,10, true, TaxiOrder.OrderStatus.RECEIVED, null);
         }
         cost = LcmUtil.calculateCost("glpk.mod", "out.txt", orders, cabs);
     }
@@ -51,7 +51,7 @@ public class GcmUtilTests {
         TaxiOrder[] orders2 = new TaxiOrder[n];
         for (int i=0; i < n; i++) {
             cabs2[i] = new Cab(0, Cab.CabStatus.FREE);
-            orders2[i] = new TaxiOrder(10,12, 10, 10, true, TaxiOrder.OrderStatus.RECEIVED);
+            orders2[i] = new TaxiOrder(10,12, 10, 10, true, TaxiOrder.OrderStatus.RECEIVED, null);
         }
         int [][] cost2 = LcmUtil.calculateCost("glpk.mod", "out.txt", orders2, cabs2);
 
@@ -61,7 +61,7 @@ public class GcmUtilTests {
 
         for (int i=0; i < n; i++) {
             cabs2[i] = new Cab(0, Cab.CabStatus.FREE);
-            orders2[i] = new TaxiOrder(1,12, 10, 10, true, TaxiOrder.OrderStatus.RECEIVED);
+            orders2[i] = new TaxiOrder(1,12, 10, 10, true, TaxiOrder.OrderStatus.RECEIVED, null);
         }
         cost2 = LcmUtil.calculateCost("glpk.mod", "out.txt", orders2, cabs2);
         o = GcmUtil.findMinDistancesForDemand(cost2);
