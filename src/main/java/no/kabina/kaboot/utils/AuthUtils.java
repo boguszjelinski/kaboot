@@ -25,6 +25,8 @@ public class AuthUtils {
           return Long.parseLong(usrName.substring("cust".length()));
         } else if ("ROLE_CAB".equals(mustBeRole)) {
           return Long.parseLong(usrName.substring("cab".length()));
+        } else if ("ROLE_ADMIN".equals(mustBeRole)) {
+        return Long.parseLong(usrName.substring("adm".length()));
         } else {
           return -1L;
         }

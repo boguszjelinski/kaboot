@@ -16,6 +16,9 @@
 import java.util.logging.Logger;
 import static java.lang.StrictMath.abs;
 
+import java.time.Duration;
+import java.time.LocalDateTime;
+
 class CustomerRunnable extends ApiClient implements Runnable {
    
     static final int MAX_WAIT_FOR_RESPONSE = 3; // minutes, more would mean a serious configuration error. 1min is the goal
@@ -60,6 +63,10 @@ class CustomerRunnable extends ApiClient implements Runnable {
         // pool ? cab? ETA ?
         waitSecs(30); // just give the solver some time
 
+        if (d.atTime != null) {
+            Duration duration = Duration.between(d.atTime, LocalDateTime.now());
+            waitSecs((int) duration.getSeconds());
+        }
         order = waitForAssignment(custId, orderId);
         
         if (order == null || order.status != OrderStatus.ASSIGNED //|| ord.cab_id == -1

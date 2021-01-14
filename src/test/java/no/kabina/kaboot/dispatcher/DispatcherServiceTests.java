@@ -93,12 +93,12 @@ public class DispatcherServiceTests {
             orders[i].setId((long) i);
         }
         PoolElement[] pool = service.generatePool(orders);
-        assertThat(pool.length).isSameAs(7);
+        assertThat(pool.length).isSameAs(6);
     }
 
     @Test
     public void testPlan1() {
-        service.findPlan();
+        service.findPlan(false);
         assertThat(service.hashCode()>0).isTrue();
     }
 
@@ -109,7 +109,7 @@ public class DispatcherServiceTests {
         Cab[] cabs = model.getSupply();
         given(orderRepo.findByStatus(any())).willReturn(Arrays.asList(orders));
         given(cabRepo.findByStatus(any())).willReturn(Arrays.asList(cabs));
-        service.findPlan();
+        service.findPlan(false);
         assertThat(service.hashCode()>0).isTrue();
     }
 

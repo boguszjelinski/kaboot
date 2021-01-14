@@ -84,6 +84,9 @@ public class ExternPool {
         TaxiOrder[] custs = new TaxiOrder[inPool + inPool]; // pickups + dropoffs
         for (int i = 0; i < inPool + inPool; i++) {
           custs[i] = orders.get(Long.parseLong(data[i]));
+          if (custs[i] == null) {
+            logger.warn("Order not found in temporary memory: " + data[i]);
+          }
         }
         list.add(new PoolElement(custs, inPool, 0)); // cost is only used for sorting in old routins
       }

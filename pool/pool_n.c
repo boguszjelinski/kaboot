@@ -69,10 +69,11 @@ int writeResult(char * fileName, int linesNumb, int poolSize)
     for (int i =0; i<linesNumb; i++)
      if (pool[i][0] != -1) {
     	for (int j =0; j < poolSize + poolSize; j++)
-    		fprintf(fp, "%d,", pool[i][j]);
+    		fprintf(fp, "%d,", demand[pool[i][j]][ID]);
  	    fprintf(fp, "%d,\n", pool[i][MAX_IN_POOL+MAX_IN_POOL]); // cost
     	count++;
     }
+    fflush(fp);
     fclose(fp);
     return count;
 }

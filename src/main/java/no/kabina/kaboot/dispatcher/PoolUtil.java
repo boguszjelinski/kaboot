@@ -20,8 +20,12 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import no.kabina.kaboot.orders.TaxiOrder;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class PoolUtil {
+
+  private static final Logger logger = LoggerFactory.getLogger(PoolUtil.class);
 
   private int maxNumbStands;
 
@@ -254,6 +258,10 @@ public class PoolUtil {
       boolean found = false;
       for (PoolElement a : arr) {
         for (int j = 0; j < a.getCust().length / 2; j++) { // 0: the first leg; /2 -> pickups + dropp-offs
+          if (a.getCust()[j] == null) {
+            logger.warn("Pool element's ID is NULL");
+            break;
+          }
           if (a.getCust()[j].id.equals(td.id)) { // this customer will be picked up by another customer should not be sent tol solver
             found = true;
             break;

@@ -38,7 +38,7 @@ public class KabootApplication {
     return args -> {
       BackgroundJob.scheduleRecurrently(
               "find-plan",
-              DispatcherService::findPlan,
+              DispatcherService::runPlan,
               Cron.minutely()
       );
       Thread.currentThread().join();

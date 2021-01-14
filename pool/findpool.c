@@ -14,7 +14,7 @@ int poolCountAll = 0;
 void readOutput(char * fileName, int inPool)
 {
     FILE * fp;
-    char line[40];
+    char line[200];
 
     fp = fopen(fileName, "r");
     if (fp == NULL) {

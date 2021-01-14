@@ -106,17 +106,21 @@ public class DispatcherService {
     this.externPool = externPool;
   }
 
+  public void runPlan() {
+    findPlan(false); // do nto force-run
+  }
   /** 1) get the data from DB
   *   2) find a (sub)optimal plan
   *   3) write this plan to DB
   */
   //@Job(name = "Taxi scheduler", retries = 2)
-  public void findPlan() {
+  public void findPlan(boolean forceRun) {
     int[][] cost;
     //UUID uuid = UUID.randomUUID();  // TASK: to mark cabs and customers as assigned to this instance of sheduler
     // first update some statistics
 
-    if (!isOnline) { // userfull to run RestAPI on separate host
+    if (!forceRun && !isOnline) { // userfull to run RestAPI on separate host
+      logger.info("Scheduler will not be run");
       return;
     }
     updateAvgStats();
@@ -254,7 +258,7 @@ public class DispatcherService {
   private TaxiOrder[] findMatchingRoutes(TaxiOrder[] demand) {
     List<TaxiOrder> ret = new ArrayList<>();
     List<Leg> legs = legRepository.findByStatusOrderByRouteAscPlaceAsc(RouteStatus.ASSIGNED);
-    if (legs == null || demand == null) {
+    if (legs == null || legs.isEmpty() || demand == null || demand.length == 0) {
       return demand;
     }
     for (int j = 0; j < demand.length; j++) {
