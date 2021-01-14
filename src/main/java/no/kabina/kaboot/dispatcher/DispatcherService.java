@@ -115,11 +115,11 @@ public class DispatcherService {
     int[][] cost;
     //UUID uuid = UUID.randomUUID();  // TASK: to mark cabs and customers as assigned to this instance of sheduler
     // first update some statistics
-    updateAvgStats();
+
     if (!isOnline) { // userfull to run RestAPI on separate host
       return;
     }
-
+    updateAvgStats();
     long startSheduler = System.currentTimeMillis();
 
     // create demand for the solver
