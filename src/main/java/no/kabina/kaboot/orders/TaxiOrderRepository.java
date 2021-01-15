@@ -13,7 +13,7 @@ public interface TaxiOrderRepository extends JpaRepository<TaxiOrder, Long> {
 
   List<TaxiOrder> findByStatus(TaxiOrder.OrderStatus status);
 
-  @Query("select o from TaxiOrder o where o.status = :status and (o.status is NULL or o.atTime < :time)")
+  @Query("select o from TaxiOrder o where o.status = :status and (o.atTime is NULL or o.atTime < :time)")
   List<TaxiOrder> findByStatusAndTime(@Param("status") TaxiOrder.OrderStatus status,
                                       @Param("time")LocalDateTime atTime);
 

@@ -206,10 +206,12 @@ public class DispatcherService {
     runExternalSolver();
     // read results from a file
     int[] x = readSolversResult(cost.length);
+    logger.info("Read vector from solver, length: {}", x.length);
     if (x.length != cost.length * cost.length) {
       logger.warn("Solver returned wrong data set");
       // TASK: LCM should be called here !!!
     } else {
+
       int assgnd = assignCustomers(x, cost, tempDemand, tempSupply, pl);
       logger.info("Customers assigned by solver: {}", assgnd);
     }
@@ -265,7 +267,7 @@ public class DispatcherService {
       boolean foundTo = false; // success indicator
       boolean wontFind = false; // to signal that the next leg belongs to another route
       int i, k;
-      for (i = 1; i < legs.size() && !foundTo && !wontFind; i++) { // not from 0 as each leg we are looking for must have a predecessor 
+      for (i = 1; i < legs.size() && !wontFind; i++) { // not from 0 as each leg we are looking for must have a predecessor
         if (demand[j].fromStand == legs.get(i).getFromStand() 
             && legs.get(i-1).getRoute().getId().equals(legs.get(i).getRoute().getId()) // previous leg is from the same route
             && legs.get(i-1).getStatus() != RouteStatus.COMPLETE // the previous leg cannot be completed TASK !! in the future consider other statuses here
@@ -280,6 +282,9 @@ public class DispatcherService {
               foundTo = true;
             }
           }
+          if (foundTo) {
+            break;
+          }
         }
       }
       if (foundTo) {
@@ -287,7 +292,7 @@ public class DispatcherService {
         logger.info("Customer {} assigned to existing route: {}", demand[j].getId(), legs.get(i).getRoute().getId());
         assignOrder(legs.get(i), demand[j], legs.get(i).getRoute().getCab() , legs.get(i).getRoute(), 0);
       } else {
-        ret.add(demand[i]);
+        ret.add(demand[j]);
       }
     }
     return ret.toArray(new TaxiOrder[0]);
@@ -586,7 +591,10 @@ public class DispatcherService {
     LocalDateTime now = LocalDateTime.now();
     for (TaxiOrder o : demand) {
       long minutesRcvd = Duration.between(o.getRcvdTime(), now).getSeconds()/60;
-      long minutesAt = Duration.between(o.getAtTime(), now).getSeconds()/60;
+      long minutesAt = 0;
+      if (o.getAtTime() != null) {
+        minutesAt = Duration.between(o.getAtTime(), now).getSeconds() / 60;
+      }
       if ((o.getAtTime() == null && minutesRcvd > o.getMaxWait())
           || (o.getAtTime() != null && minutesAt > o.getMaxWait())) { // TASK: maybe scheduler should have its own, global MAX WAIT
         logger.info("Customer={} refused, max wait exceeded", o.id);
