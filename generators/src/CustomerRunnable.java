@@ -63,7 +63,7 @@ class CustomerRunnable extends ApiClient implements Runnable {
         // pool ? cab? ETA ?
 
         if (d.atTime != null) {
-            Duration duration = Duration.between(d.atTime, LocalDateTime.now());
+            Duration duration = Duration.between(LocalDateTime.now(), d.atTime);
             int wait = (int) (duration.getSeconds() - AT_TIME_LAG * 60);
             if (wait > 0) {
                 waitSecs(wait);
