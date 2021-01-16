@@ -64,7 +64,10 @@ class CustomerRunnable extends ApiClient implements Runnable {
 
         if (d.atTime != null) {
             Duration duration = Duration.between(d.atTime, LocalDateTime.now());
-            waitSecs((int) duration.getSeconds() - AT_TIME_LAG * 60);
+            int wait = (int) (duration.getSeconds() - AT_TIME_LAG * 60);
+            if (wait > 0) {
+                waitSecs(wait);
+            }
         } 
         
         waitSecs(30); // just give the solver some time
