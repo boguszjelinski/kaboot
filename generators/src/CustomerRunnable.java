@@ -22,7 +22,7 @@ import java.time.LocalDateTime;
 class CustomerRunnable extends ApiClient implements Runnable {
    
     static final int MAX_WAIT_FOR_RESPONSE = 3; // minutes, more would mean a serious configuration error. 1min is the goal
-    static final int CHECK_INTERVAL = 15; // secs, not to kill the backend
+    static final int CHECK_INTERVAL = 30; // secs, not to kill the backend
     static final int MAX_TRIP_LOSS = 2; // we need a time delay before we will report a serious error in the whole simulation
     static final int MAX_TRIP_LEN = 30; // see MAX_TRIP in CustomerGenerator, 30 means that something went terribly wrong, 
     static final int AT_TIME_LAG = 3; // at-time-lag in application.YML

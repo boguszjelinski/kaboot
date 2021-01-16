@@ -16,22 +16,25 @@
 
 // javac CustomerGenerator.java 
 
-import java.time.LocalDateTime;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
+import java.time.LocalDateTime;
+import java.util.Random;
 
 public class CustomerGenerator extends ApiClient {
     static int DURATION =  120; // min
-    static int REQ_PER_MIN = 100;
+    static int REQ_PER_MIN = 300;
     static int MAX_WAIT = 10;
     static int MAX_POOL_LOSS = 1; // 1%
     static int MAX_TRIP = 4;
     static int AT_TIME_LAG = 30;
     static int maxStand = 50; // default
+    static Random rand;
 
     public static void main(String[] args) throws InterruptedException {
         logger = Logger.getLogger("kaboot.simulator.customergenerator");
         logger = ApiClient.configureLogger(logger, "customer.log");
+        rand = new Random(10L);
         maxStand = getFromYaml("../../src/main/resources/application.yml", "max-stand");
         if (maxStand == -1) {
             logger.warning("Error reading max-stand from YML");     
@@ -42,7 +45,7 @@ public class CustomerGenerator extends ApiClient {
             // filter out demand for this time point
             for (int i = 0; i < REQ_PER_MIN; i++) {
                 int id = t + i;
-                int from = randomFrom(id, maxStand);
+                int from = rand.nextInt(maxStand);
                 LocalDateTime atTime = null;
                 if (from % 3 == 0 && t < DURATION - AT_TIME_LAG) {
                     atTime = LocalDateTime.now().plusMinutes(AT_TIME_LAG);
@@ -60,28 +63,13 @@ public class CustomerGenerator extends ApiClient {
             TimeUnit.SECONDS.sleep(60); // 120min
         }
     }
-
-    // no, we can't have a random, we need reproducible results
-    private static int randomFrom(int i, int maxStand) {
-        int x1 = i % (maxStand / 4);
-        int x2 = i % (maxStand / 2);
-        int x3 = i % (maxStand -2);
-        int a = x1 + x2 + x3;
-        if (a >= maxStand -1) {
-            a = a % maxStand +1;
-            a = a >= maxStand -1 ? a - x3 : a;
-            if (a > maxStand -2) a = maxStand -2;
-            else if (a<0) a= 0;
-        }
-        return a;
-    }
-
+    
     private static int randomTo(int from, int maxStand) {
-        int diff = from % (MAX_TRIP /2) - MAX_TRIP;
+        int diff = rand.nextInt(MAX_TRIP * 2) - MAX_TRIP;
         if (diff == 0) diff = 1;
         int to = 0;
         if (from + diff > maxStand -1 ) to = from - diff;
-        else if (from + diff < 0) to =0;
+        else if (from + diff < 0) to = 0;
         else to = from + diff;
         return to;
     }
