@@ -6,7 +6,7 @@ for receiving requests, share statuses and store them in a database.
 
 Kaboot dispatcher consists of three vital components:
 * GLPK linear solver, scenarios with 1000 customers & 1000 cabs have been tested
-* Pool finder to assign several customers to one cab, currently max 4 separate passengers/requests are allowed (single-threaded)
+* Pool finder to assign several customers to one cab, currently max 4 separate passengers/requests are allowed
 * low-cost method (aka greedy) pre-solver to decrease the size of models sent to solver 
 
 You can find theoretical foundations with code examples on GitHub: https://github.com/boguszjelinski/taxidispatcher
@@ -84,6 +84,8 @@ java -Dnashorn.args="--no-deprecation-warning" CustomerGenerator
 ## How it works
 ### Core
 * available cabs and incoming requests from customers are read from database
+* requests that match routes currently executed (to be exact - their legs that still wait to be completed) get
+  assigned to these routes
 * pool discoverer checks if we can assign more customers than one to a cab without affecting badly
   duration of their trips. Each customer can choose their tolerance, or decide that a pool is 
   not acceptable. Maximally four passengers can be assigned to one cab due to core's performance limitations.
