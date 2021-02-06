@@ -1,26 +1,26 @@
 # Kaboot
-This repository contains a subproject of Kabina - Kaboot taxi dispatcher, a SpringBoot application with some clients
+This repository contains a subproject of Kabina - Kaboot minibus dispatcher, a SpringBoot application with some clients
 that help test the dispatcher. Kaboot dispatcher is composed of two parts - the **dispatcher**, that finds
-the optimal assignment plan for requests and available cabs, and **Rest API**, which is responsible
+the optimal assignment plan for requests and available buses, and **Rest API**, which is responsible
 for receiving requests, share statuses and store them in a database. 
 
 Kaboot dispatcher consists of three vital components:
-* GLPK linear solver, scenarios with 1000 customers & 1000 cabs have been tested
-* Pool finder to assign several customers to one cab, currently max 4 separate passengers/requests are allowed
+* GLPK linear solver, scenarios with 1000 customers & 1000 buses have been tested
+* Pool finder to assign several customers to one bus, currently max 4 separate passengers/requests are allowed
 * low-cost method (aka greedy) pre-solver to decrease the size of models sent to solver 
 
 You can find theoretical foundations with code examples on GitHub: https://github.com/boguszjelinski/taxidispatcher
 
 ## Kabina subprojects:
 The idea behind Kabina is to provide an enabler (a software skeleton, testing framework and RestAPI standard proposal)
-for a taxi service that can assign up to 10+ passengers to 
-one cab (mini-bus), thus reducing cost of the driver per passenger (self-driven buses might not be allowed i many countries,
-we might need a 'driver' to prevent fraud). Such extended cab service would allow for the shift to sustainable transport,
+for a minibus service that can assign up to 10+ passengers to 
+one cab (minibus), thus reducing cost of the driver per passenger (self-driven buses might not be allowed i many countries,
+we might need a 'driver' to prevent fraud). Such extended minibus service would allow for the shift to sustainable transport,
 it might be cost-competitive with the public transport while providing better service quality including shorter travel time.
 It is not meant to be a market-ready solution due to limited resources. 
 
-* Kabina: mobile application for taxi customers 
-* Kab: mobile application for taxi drivers 
+* Kabina: mobile application for minibus customers 
+* Kab: mobile application for minibus drivers 
 * Kaboot: dispatcher with RestAPI
 * Kadm: administration and surveillance
 
@@ -44,10 +44,10 @@ Dispatcher is scheduled to run every minute.
 
 ### Clients
 In 'generators' directory you will find Rest API client applications that simulate
-behaviour of thousands of cabs and customers. Multiple Java threads are awakened to life, separate ones
-for each customer and cab. They submit requests to the server side (backend), checks statuses and write two logs. 
-Threads simulating cabs "move" virtually just by waiting specific amount of time (1min = 1km).
-You can start with just one cab and one customer in two separate command line windows:
+behaviour of thousands of buses and customers. Multiple Java threads are awakened to life, separate ones
+for each customer and bus. They submit requests to the server side (backend), checks statuses and write two logs. 
+Threads simulating buses "move" virtually just by waiting specific amount of time (1min = 1km).
+You can start with just one bus and one customer in two separate command line windows:
 ```
 javac OneCab.java
 java OneCab 0 1
@@ -83,7 +83,7 @@ java -Dnashorn.args="--no-deprecation-warning" CustomerGenerator
 
 ## How it works
 ### Core
-* available cabs and incoming requests from customers are read from database
+* available buses (cabs) and incoming requests from customers are read from database
 * requests that match routes currently executed (to be exact - their legs that still wait to be completed) get
   assigned to these routes
 * pool discoverer checks if we can assign more customers than one to a cab without affecting badly
@@ -126,7 +126,8 @@ java -Dnashorn.args="--no-deprecation-warning" CustomerGenerator
 ## Current work in kaboot
 There is a lot of work in progress in Kaboot:
 * big load tuning (60k requests per hour)
-* taxi order at a specific time, not ASAP - DONE, 2021-01-03
+* more accurate ETA 
+* minibus order at a specific time - DONE, 2021-01-03
 * adding passengers during a running route - DONE, 2021-01-10
 * ad-hoc passengers on stops ("hail and ride")
 * anticipatory allocation based on currently executed routes
