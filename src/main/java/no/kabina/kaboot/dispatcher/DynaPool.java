@@ -6,7 +6,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 // recursion deep down, n=500, 54s, Count: 348496095
-
+// dyna: Count n=500, count=(25825, 712277, 14161374), 8s
 public class DynaPool {
     final int MAX_CUST = 500;
     final int MAX_LEV = 4;
@@ -15,82 +15,58 @@ public class DynaPool {
     final double MAX_LOSS = 1.3;
     int count=0;
 
-    int[] dropoff = new int[MAX_LEV];
     int[] from = new int[MAX_CUST];
     int[] to = new int[MAX_CUST];
     Random rand = new Random(10L);
-    //List<Branch> myMap = new ArrayList<>();
-    Branch[][] myMap = new Branch[MAX_LEV-1][];
-    int mapCount[] = new int[MAX_LEV-1];
-    HashMap<String, Branch> myMap2 = new HashMap<String, Branch>();
+    List<Branch>[] node = /*(ArrayList<Branch>[])*/ new ArrayList[MAX_LEV-1];
 
     public static void main(String[] args) {
         DynaPool p = new DynaPool();
+        p.initMem();
         p.genDemand();
         p.storeLeaves();
         p.dive(0);
         p.raport();
-        
     }
 
     private void raport() {
-        System.out.println("Count: " + myCount[MAX_LEV-2]);
-        System.out.println("Count2: " + myCount[MAX_LEV-3]);
+        System.out.println("Count leaves: " + node[MAX_LEV-2].size());
+        System.out.println("Count between: " + node[MAX_LEV-3].size());
+        System.out.println("Count root: " + node[MAX_LEV-4].size());
         //System.out.println("Number of elements: " + myMap2.size());
     }
 
-    public void dive(int lev) {
-        if (lev == MAX_LEV-2) { 
-            // leaves have been computed
-            // frankly - we will never land here as there is this check below
-        }
-        else {
-            if (lev < MAX_LEV-3) { 
-                dive(lev + 1);
-            } 
-            if (lev == MAX_LEV-3) { 
-                for (int c = 0; c < MAX_CUST; c++) {
-                    // dropoff[lev] = c;
-                    // int wait = howLong(lev);
-                    // if ( // 'c' is dropped off earlier
-                    //     wait > cost(from[c], to[c]) * MAX_LOSS
-                    //     || isFound(lev, c) //wait > cost(from[c], to[c]) * MAX_LOSS // 'c' loses too much
-                    // ) {
-                    //     continue;
-                    // }
-                    // iterate thru leaves
-                    for(int i=0; i<mapCount[MAX_LEV-2]; i++) { // Entry<String, Branch> entry: myMap.entrySet()
-                        Branch b = myMap[i];
-                        //System.out.println(entry.getKey());
-                        //Branch b = entry.getValue();
-                        // checking if that leaf does not contain previous drop-offs
-                        // again checking if fine for leaves
+    private void initMem() {
+        for (int i=0; i<MAX_LEV-1; i++) 
+            node[i] = new ArrayList<>(); 
+    }
 
-                        if (isFoundInBranchOrTooLong(c, b) // one of two in 'b' is dropped off earlier
-                            //|| tooLongForBranch(c, b) // 'c' loses too much
-                        ) {
-                            continue;
-                        }
-                        // storing the branch as viable
-                        int[] drops = new int[MAX_LEV-1];
-                        drops[0] = c;
-                        drops[1] = b.dropoff[0];
-                        drops[2] = b.dropoff[1];
-                        
-                        Branch b2 = new Branch(cost(to[c], to[b.dropoff[0]]) + b.cost, drops);
-                        //myMap[MAX_LEV-3][mapCount[MAX_LEV-3]++] = b2;
-                    }
+    public void dive(int lev) {
+        if (lev > MAX_LEV-3) return; // last two levels are "leaves"
+
+        dive(lev + 1);
+
+        for (int c = 0; c < MAX_CUST; c++) {
+            for(Branch b : node[lev+1]) { // we iterate over product of the stage further in the tree: +1
+                if (!isFoundInBranchOrTooLong(c, b)) { // one of two in 'b' is dropped off earlier
+                    storeBranch(lev, c, b);
                 }
             }
         }
     }
 
+    private void storeBranch(int lev, int c, Branch b) {
+        int[] drops = new int[MAX_LEV-lev];
+        drops[0] = c;
+        for(int j=0; j<MAX_LEV-lev-1; j++) // further stage has one passenger less: -1
+            drops[j+1] = b.dropoff[j];
+        
+        Branch b2 = new Branch(cost(to[c], to[b.dropoff[0]]) + b.cost, drops);
+        node[lev].add(b2);
+    }
+
     private void storeLeaves() {
-        myMap[MAX_LEV-2] = new Branch[50000];
-        myMap[MAX_LEV-3] = new Branch[1000000];
-        myCount[MAX_LEV-2] = 0;
-        myCount[MAX_LEV-3] = 0;
-        myCount[MAX_LEV-4] = 0;
+     
         for (int c = 0; c < MAX_CUST; c++) 
             for (int d = 0; d < MAX_CUST; d++) 
                 if (c != d && 
@@ -99,28 +75,17 @@ public class DynaPool {
                         drops[0] = c;
                         drops[1] = d;
                         Branch b = new Branch(cost(to[c], to[d]), drops);
-                        String key = c + "-" + d;
-                        myMap[MAX_LEV-2][mapCount[MAX_LEV-2]++] = b;
+                        node[MAX_LEV-2].add(b);
         }
-        System.out.println("Number of leaves: " + mapCount);
-    }
-
-    public boolean isFound(int level, int c) {
-        for (int l = 0; l < level; l++) {
-          if (dropoff[l] == c) {
-            return true;
-          }
-        }
-        return false;
     }
 
     public boolean isFoundInBranchOrTooLong(int c, Branch b) {
-        for (i=0; i<b.dropoff.length; i++)
+        for (int i=0; i<b.dropoff.length; i++)
             if (b.dropoff[i] == c) return true; // current passenger is in the branch below -> reject that combination
         // now checking if anyone in the branch does not lose too much with the pool
         int wait = cost(to[c], to[b.dropoff[0]]);
         
-        for (i=0; i<b.dropoff.length; i++) {
+        for (int i=0; i<b.dropoff.length; i++) {
             if (wait > cost(from[b.dropoff[i]], to[b.dropoff[i]]) * MAX_LOSS ) 
                 return true;
             if (i+1 < b.dropoff.length)
@@ -129,34 +94,7 @@ public class DynaPool {
         return false;
     }
 
-    public int howLong(int lev) {
-        // even the drop-off way is longer than acceptable 
-        // somwhere whe have to check pick-up & drop-off
-        int sum = 0;
-        for (int l = 0; l < lev-1; l++) {
-           sum += cost(to[dropoff[l]], to[dropoff[l+1]]);
-        }
-        return sum; 
-    }
-
-    public boolean tooLongForBranch(int lev, int prevWait, Branch b) {
-        // even the drop-off way is longer than acceptable 
-        // somwhere whe have to check pick-up & drop-off
-        int c = b.dropoff[0];
-        int d = b.dropoff[1];
-        if (prevWait + cost(to[dropoff[lev]], to[c]) 
-                > cost(from[c], to[c]) * MAX_LOSS 
-            ||
-            prevWait + cost(to[dropoff[lev]], to[c]) + b.cost
-                > cost(from[d], to[d]) * MAX_LOSS 
-                ) {
-                    return true;
-                }
-        return false;
-    }
-
     public void genDemand() {
-        
         for (int i=0; i<MAX_CUST; i++) {
             from[i] = rand.nextInt(MAX_STAND);
             to[i] = randomTo(from[i], MAX_STAND);
@@ -177,7 +115,7 @@ public class DynaPool {
         return to;
     }
 
-    class Branch {
+    class Branch implements Comparable<Branch> {
         public int cost;
         public int[] dropoff; // we could get rid of it to gain on memory (key stores this too); but we would lose time on parsing 
 
@@ -185,6 +123,27 @@ public class DynaPool {
             this.cost = cost;
             this.dropoff = drops;
         }
-        
+
+        @Override
+        public int compareTo(Branch pool) {
+          return this.cost - pool.cost;
+        }
+      
+        @Override
+        public boolean equals(Object pool) {
+          if (pool == null || this.getClass() != pool.getClass()) {
+            return false;
+          }
+          return this.cost == ((Branch) pool).cost;
+        }
+      
+        @Override
+        public int hashCode() {
+            int result = (int) (dropoff[0] ^ (dropoff[0] >>> 32));
+            result = 31 * result + cost;
+            result = 31 * result + dropoff[1];
+            return result;
+        }
+      
     }
 }
