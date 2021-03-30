@@ -59,7 +59,15 @@ public class PoolUtilTests {
     public void testDynaPool4() {
         DynaPool util = new DynaPool(numbOfStands);
         PoolElement[] pool = util.findPool(orders, 4);
-        assertThat(pool.length).isSameAs(0);
+        assertThat(pool.length).isSameAs(15);
+        assertThat(poolIsValid(pool)).isSameAs(0);
+    }
+
+    @Test
+    public void testDynaPool3() {
+        DynaPool util = new DynaPool(numbOfStands);
+        PoolElement[] pool = util.findPool(orders, 3);
+        assertThat(pool.length).isSameAs(16);
         assertThat(poolIsValid(pool)).isSameAs(0);
     }
 

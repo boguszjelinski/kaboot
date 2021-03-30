@@ -233,7 +233,9 @@ public class DynaPool {
     for (Branch branch : arr) {
       if (branch.cost != -1) {
         String key = branch.key;
-        if (lev > 0) { // do not sort, it also means - for lev 0 there will be MAX_IN_POOL maps for the same combination, which is great for tree merging
+        if (lev > 0 || !makeHash) { // do not sort, it also means - for lev 0 there will be MAX_IN_POOL
+          // maps for the same combination, which is great for tree merging
+          // do sort if lev==0 in pick-up tree (!makeHash)
           int[] copiedArray = Arrays.copyOf(branch.dropoff, branch.dropoff.length);
           Arrays.sort(copiedArray);
           key = "";
@@ -279,6 +281,7 @@ public class DynaPool {
 
     for (Branch p : nodeP[0]) {
       // there might be as many as MAX_IN_POOL hash keys (drop-off plans) for this pick-up plan
+      // which means MAX_IN_POOL possible plans
       for (int k = 0; k < inPool; k++) {
         String key = genHashKey(p, k, inPool);
 
@@ -286,29 +289,41 @@ public class DynaPool {
         if (d == null) {
           continue; // drop-off was not acceptable
         }
-        // checking if drop-off still acceptable with that pick-up fase
+        // checking if drop-off still acceptable with that pick-up phase merged
         boolean tooLong = false;
-        int i = 0;
-
-        int wait = p.cost + cost[demand[p.dropoff[p.dropoff.length-1]].fromStand][demand[d.dropoff[i]].toStand];
-        while(true) {
-          if (wait > cost[demand[d.dropoff[i]].fromStand][demand[d.dropoff[i]].toStand]
-                  * (100.0 + demand[d.dropoff[i]].getMaxLoss()) / 100.0) {
+        // we have to check all passengers again in the drop-off phase,
+        // TASK: there must a method to write this code in a shorter way, it looks ugly ...
+        for (int c = 0; c < inPool && !tooLong; c++) {
+          int wait = 0;  // the trip does not start for all at the same stop, some get picked up later than others
+          // pick up phase
+          for (int ii = c; ii < inPool - 1; ii++) {
+            wait += cost[demand[p.dropoff[ii]].fromStand][demand[p.dropoff[ii+1]].fromStand];
+          }
+          // transition from pickup to dropoff
+          wait += cost[demand[p.dropoff[p.dropoff.length-1]].fromStand][demand[d.dropoff[0]].toStand];
+          if (wait > cost[demand[d.dropoff[0]].fromStand][demand[d.dropoff[0]].toStand]
+                  * (1.0 + demand[d.dropoff[0]].getMaxLoss() / 100.0)) {
             tooLong = true;
             break;
           }
-          if (i == d.dropoff.length - 1) {
-            break;
+          // drop off phase
+          int i = 0;
+          while (p.dropoff[c] != d.dropoff[i]/* && i != d.dropoff.length*/) {
+            wait += cost[demand[d.dropoff[i]].toStand][demand[d.dropoff[i + 1]].toStand];
+            i++;
+            if (wait > cost[demand[d.dropoff[i]].fromStand][demand[d.dropoff[i]].toStand]
+                    * (1.0 + demand[d.dropoff[i]].getMaxLoss() / 100.0)) {
+              tooLong = true;
+              break;
+            }
           }
-          wait += cost[demand[d.dropoff[i]].toStand][demand[d.dropoff[i+1]].toStand];
-          i++;
         }
         if (tooLong) {
           continue;
         }
         // a viable plan -> merge pickup and dropoff
         TaxiOrder[] both = new TaxiOrder[p.dropoff.length + d.dropoff.length];
-        i = 0;
+        int i = 0;
         for (; i < p.dropoff.length; i++) {
           both[i] = demand[p.dropoff[i]];
         }
@@ -322,6 +337,14 @@ public class DynaPool {
       }
     }
     return ret;
+  }
+
+  private int calcCost(int[] pickups, int k, int inPool) {
+    int sum = 0;
+    for (int i = k; i < inPool - 1; i++) {
+      sum += cost[demand[pickups[i]].fromStand][demand[pickups[i+1]].fromStand];
+    }
+    return sum;
   }
 
   private String genHashKey(Branch p, int k, int inPool) {

@@ -10,7 +10,7 @@ import java.util.List;
 // no duplicates: Count n=500, count=(25825, 513849, 4467560), 19s
 
 public class DynaPoolPoC {
-    final int MAX_CUST = 200;
+    final int MAX_CUST = 75;
     final int MAX_LEV = 4;
     final int MAX_TRIP = 4;
     final int MAX_STAND = 50;
@@ -212,7 +212,8 @@ public class DynaPoolPoC {
         for (int i = 0; i < arr.length; i++) 
             if (arr[i].cost != -1) {
                 String key = arr[i].key;
-                if (lev>0) { // do not sort, it also means - for lev 0 there will be MAX_LEV maps for the same combination, which is great for tree merging 
+                if (lev>0 || !makeHash) { // do not sort, it also means - for lev 0 there will be MAX_LEV maps for the same combination, which is great for tree merging 
+                    // do sort if lev==0 in pick-up tree (!makeHash)
                     int[] copiedArray = Arrays.copyOf(arr[i].dropoff, arr[i].dropoff.length);
                     Arrays.sort(copiedArray);
                     key="";
@@ -241,9 +242,6 @@ public class DynaPoolPoC {
                 // checking if drop-off still acceptable with that pick-up fase
                 boolean tooLong= false;
                 int i=0;
-                if (p.dropoff[0]==106 && p.dropoff[1]==37 && p.dropoff[2]==130 && p.dropoff[3]==197) {
-                    int a=1;
-                }
                 int wait = p.cost + cost(from[p.dropoff[p.dropoff.length-1]], to[d.dropoff[i]]);
                 while(true) {
                     if (wait > cost(from[d.dropoff[i]], to[d.dropoff[i]]) * (100.0+MAX_LOSS)/100.0) {
@@ -334,10 +332,10 @@ public class DynaPoolPoC {
 
     public void genDemand() {
         for (int i=0; i<MAX_CUST; i++) {
-            // from[i] = i%45 == MAX_STAND ? 0 : i%45;
-            // to[i] = Math.min((i+1)%45, MAX_CUST-1);
-            from[i] = rand.nextInt(MAX_STAND);
-            to[i] = randomTo(from[i], MAX_STAND);
+             from[i] = i%45 == MAX_STAND ? 0 : i%45;
+             to[i] = Math.min((i+1)%45, MAX_CUST-1);
+            //from[i] = rand.nextInt(MAX_STAND);
+            //to[i] = randomTo(from[i], MAX_STAND);
         }
     }
 
