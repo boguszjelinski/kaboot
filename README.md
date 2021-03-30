@@ -6,14 +6,15 @@ for receiving requests, share statuses and store them in a database.
 
 Kaboot dispatcher consists of three vital components:
 * GLPK linear solver, scenarios with 1000 customers & 1000 buses have been tested
-* Pool finder to assign several customers to one bus, currently max 4 separate passengers/requests are allowed
+* fast Pool finder to assign several customers to one bus and create routes with several stops, 5+ passengers with 10+ stops are 
+  allowed with finder based on [dynamic programming](https://en.wikipedia.org/wiki/Dynamic_programming) principles.  
 * low-cost method (aka greedy) pre-solver to decrease the size of models sent to solver 
 
 You can find theoretical foundations with code examples on GitHub: https://github.com/boguszjelinski/taxidispatcher
 
 ## Kabina subprojects:
 The idea behind Kabina is to provide an enabler (a software skeleton, testing framework and RestAPI standard proposal)
-for a minibus service that can assign up to 10+ passengers to 
+for a minibus service that can assign 10-20 passengers to 
 one cab (minibus), thus reducing cost of the driver per passenger (self-driven buses might not be allowed i many countries,
 we might need a 'driver' to prevent fraud). Such extended minibus service would allow for the shift to sustainable transport,
 it might be cost-competitive with the public transport while providing better service quality including shorter travel time.

@@ -1,385 +1,405 @@
-import static java.lang.StrictMath.abs;
-import java.util.Arrays;
-import java.util.Random;
-import java.util.HashMap;
+/*
+ * Copyright 2020 Bogusz Jelinski
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package no.kabina.kaboot.dispatcher;
+
+import no.kabina.kaboot.orders.TaxiOrder;
+import org.apache.commons.lang3.builder.HashCodeBuilder;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
 
-// recursion deep down, n=500, 54s, Count: 348496095
-// dyna: Count n=500, count=(25825, 712277, 14161374), 8s
-// no duplicates: Count n=500, count=(25825, 513849, 4467560), 19s
-
 public class DynaPool {
-    final int MAX_CUST = 200;
-    final int MAX_LEV = 4;
-    final int MAX_TRIP = 4;
-    final int MAX_STAND = 50;
-    final double MAX_LOSS = 1.2;
-    int count=0;
 
-    int[] from = new int[MAX_CUST];
-    int[] to = new int[MAX_CUST];
-    Random rand = new Random(10L);
-    List<Branch>[] node = new ArrayList[MAX_LEV-1];
-    List<Branch>[] nodeP = new ArrayList[MAX_LEV-1];
-    HashMap<String, Branch> map = new HashMap<>();
+  private static final Logger logger = LoggerFactory.getLogger(DynaPool.class);
+  
+  private int maxNumbStands;
 
-    public static void main(String[] args) {
-        long start = System.currentTimeMillis();
-        DynaPool p = new DynaPool();
-        p.initMem();
-        p.genDemand();
-        p.storeLeaves();
-        p.storePickUpLeaves();
-        p.dive(0);
-        p.diveP(0);
-        long time1 = System.currentTimeMillis();
-        p.raport();
-        p.raportP();
-        
-        List<Pool> ret = p.mergeTrees();
-        
-        long time2 = System.currentTimeMillis();
-        System.out.println("Time of merge: " + (time2-time1)/1000 + "s");
-        System.out.println("Size after merge: " + ret.size());
+  TaxiOrder[] demand;
+  int [][]cost;
+  private static final int MAX_IN_POOL = 4; // just for memory allocation, might be 10 as well
 
-        ret = p.removeDuplicates(ret);
-        
-        long time3 = System.currentTimeMillis();
-        System.out.println("Time of rm duplicates: " + (time3-time2)/1000 + "s");
-        System.out.println("Total time: " + (time3-start)/1000 + "s");
-        System.out.println("Size after removing duplicates: " + ret.size());
+  List<Branch>[] node = new ArrayList[MAX_IN_POOL-1];
+  List<Branch>[] nodeP = new ArrayList[MAX_IN_POOL-1];
+  HashMap<String, Branch> map = new HashMap<>();
+
+  public DynaPool(int stands) {
+    this.maxNumbStands = stands;
+    this.cost = setCosts();
+  }
+
+  /**
+   *
+   * @param dem
+   * @param inPool how many passengers can a cab take
+   * @return
+   */
+  public PoolElement[] findPool(TaxiOrder[] dem, int inPool) {
+    this.demand = dem;
+    initMem(inPool);
+    // TASK: two threads
+    storeLeaves(inPool, demand.length);
+    storePickUpLeaves(inPool, demand.length);
+    dive(0, inPool, demand.length);
+    diveP(0, inPool, demand.length);
+    List<PoolElement> poolList = mergeTrees(inPool);
+    return PoolUtil.removeDuplicates(poolList.toArray(new PoolElement[0]), inPool);
+  }
+
+  private void initMem(int inPool) {
+    for (int i = 0; i < inPool - 1; i++) {
+      node[i] = new ArrayList<>();
+      nodeP[i] = new ArrayList<>();
     }
+  }
 
-    private void raport() {
-        System.out.println("Count leaves: " + node[MAX_LEV-2].size());
-        System.out.println("Count between: " + node[MAX_LEV-3].size());
-        System.out.println("Count root: " + map.size());
-        //System.out.println("Number of elements: " + myMap2.size());
+  private void dive(int lev, int inPool, int custNumb) {
+    if (lev > inPool - 3) {
+      return; // last two levels are "leaves"
     }
+    dive(lev + 1, inPool, custNumb);
 
-    private void raportP() {
-        System.out.println("Count leaves: " + nodeP[MAX_LEV-2].size());
-        System.out.println("Count between: " + nodeP[MAX_LEV-3].size());
-        System.out.println("Count root: " + nodeP[MAX_LEV-4].size());
-        //System.out.println("Number of elements: " + myMap2.size());
-    }
-
-    private void initMem() {
-        for (int i=0; i<MAX_LEV-1; i++) {
-            node[i] = new ArrayList<>(); 
-            nodeP[i] = new ArrayList<>(); 
+    for (int c = 0; c < custNumb; c++) {
+      for (Branch b : node[lev + 1]) { // we iterate over product of the stage further in the tree: +1
+        if (!isFoundInBranchOrTooLong(c, b)) { // one of two in 'b' is dropped off earlier
+          storeBranch(lev, c, b, inPool);
         }
+      }
+    }
+    // removing duplicates which come from lev+1
+    node[lev] = rmDuplicates(node[lev], lev, true); // true - make hash
+  }
+
+  private void storeBranch(int lev, int c, Branch b, int inPool) {
+    int[] drops = new int[inPool - lev];
+    drops[0] = c;
+    for (int j = 0; j < inPool - lev - 1; j++) { // further stage has one passenger less: -1
+      drops[j + 1] = b.dropoff[j];
+    }
+    Branch b2 = new Branch(c + "-" + b.key, // no sorting as we have to remove lev+1 duplicates eg. 1-4-5 and 1-5-4
+                      cost[demand[c].toStand][demand[b.dropoff[0]].toStand] + b.cost,
+                          drops);
+    node[lev].add(b2);
+  }
+
+  private void storeLeaves(int inPool, int custNumb) {
+    for (int c = 0; c < custNumb; c++) {
+      for (int d = 0; d < custNumb; d++) {
+        if (c != d
+                && cost[demand[c].toStand][demand[d].toStand]
+                        < cost[demand[d].fromStand][demand[d].toStand] * (100.0 + demand[d].getMaxLoss()) / 100.0) {
+          int[] drops = new int[2];
+          drops[0] = c;
+          drops[1] = d;
+          String key = c > d ? d + "-" + c : c + "-" + d;
+          Branch b = new Branch(key, cost[demand[c].toStand][demand[d].toStand], drops);
+          node[inPool - 2].add(b);
+        }
+      }
+    }
+  }
+
+  private void storePickUpLeaves(int inPool, int custNumb) {
+    for (int c = 0; c < custNumb; c++) {
+      for (int d = 0; d < custNumb; d++) {
+        if (c != d
+                && cost[demand[c].fromStand][demand[d].fromStand]
+                        < cost[demand[d].fromStand][demand[d].toStand] * (100.0 + demand[d].getMaxLoss()) / 100.0) {
+          int[] pickUp = new int[2];
+          pickUp[0] = c;
+          pickUp[1] = d;
+          String key = c > d ? d + "-" + c : c + "-" + d;
+          Branch b = new Branch(key, cost[demand[c].fromStand][demand[d].fromStand], pickUp);
+          nodeP[inPool - 2].add(b);
+        }
+      }
+    }
+  }
+
+  private void diveP(int lev, int inPool, int custNumb) {
+    if (lev > inPool - 3) {
+      return; // last two levels are "leaves"
+    }
+    diveP(lev + 1, inPool, custNumb);
+
+    for (int c = 0; c < custNumb; c++) {
+      for (Branch b : nodeP[lev + 1]) { // we iterate over product of the stage further in the tree: +1
+        if (!isFoundInBranchOrTooLongP(c, b)) { // one of two in 'b' is dropped off earlier
+          storeBranchP(lev, c, b, inPool);
+        }
+      }
+    }
+    // removing duplicates which come from lev+1
+    nodeP[lev] = rmDuplicates(nodeP[lev], lev, false);
+  }
+
+  private void storeBranchP(int lev, int c, Branch b, int inPool) {
+    int[] pickups = new int[inPool - lev];
+    pickups[0] = c;
+    for(int j = 0; j < inPool - lev - 1; j++) { // further stage has one passenger less: -1
+      pickups[j + 1] = b.dropoff[j];
+    }
+    Branch b2 = new Branch(c + "-" + b.key, // no sorting as we have to remove lev+1 duplicates eg. 1-4-5 and 1-5-4
+                      cost[demand[c].fromStand][demand[b.dropoff[0]].fromStand] + b.cost,
+                          pickups);
+    nodeP[lev].add(b2);
+  }
+
+  private boolean isFoundInBranchOrTooLong(int c, Branch b) {
+    for (int i = 0; i < b.dropoff.length; i++) {
+      if (b.dropoff[i] == c) {
+        return true; // current passenger is in the branch below -> reject that combination
+      }
+    }
+    // now checking if anyone in the branch does not lose too much with the pool
+    int wait = cost[demand[c].toStand][demand[b.dropoff[0]].toStand];
+
+    for (int i = 0; i < b.dropoff.length; i++) {
+      if (wait > cost[demand[b.dropoff[i]].fromStand][demand[b.dropoff[i]].toStand]
+                  * (100.0 + demand[b.dropoff[i]].getMaxLoss()) / 100.0) {
+        return true;
+      }
+      if (i + 1 < b.dropoff.length) {
+        wait += cost[demand[b.dropoff[i]].toStand][demand[b.dropoff[i + 1]].toStand];
+      }
+    }
+    return false;
+  }
+
+  private boolean isFoundInBranchOrTooLongP(int c, Branch b) {
+    for (int i = 0; i < b.dropoff.length; i++) {
+      if (b.dropoff[i] == c) {
+        return true; // current passenger is in the branch below -> reject that combination
+      }
+    }
+    // now checking if anyone in the branch does not lose too much with the pool
+    int wait = cost[demand[c].fromStand][demand[b.dropoff[0]].fromStand];
+
+    for (int i = 0; i < b.dropoff.length; i++) {
+      if (wait > cost[demand[b.dropoff[i]].fromStand][demand[b.dropoff[i]].toStand]
+                * (100.0 + demand[b.dropoff[i]].getMaxLoss()) / 100.0) {
+        return true;
+      }
+      if (i + 1 < b.dropoff.length) {
+        wait += cost[demand[b.dropoff[i]].fromStand][demand[b.dropoff[i + 1]].fromStand];
+      }
+    }
+    return false;
+  }
+
+  private List<Branch> rmDuplicates(List<Branch> node, int lev, boolean makeHash) {
+    Branch[] arr = node.toArray(new Branch[0]);
+    if (arr == null || arr.length < 2) {
+      return null;
     }
 
-    public void dive(int lev) {
-        if (lev > MAX_LEV-3) return; // last two levels are "leaves"
+    // removing duplicates from the previous stage
+    // TASK: there might be more duplicates than one at lev==1 or 0 !!!!!!!!!!!!!
+    Arrays.sort(arr);
 
-        dive(lev + 1);
-        
-        for (int c = 0; c < MAX_CUST; c++) {
-            for (Branch b : node[lev+1]) { // we iterate over product of the stage further in the tree: +1
-                if (!isFoundInBranchOrTooLong(c, b)) { // one of two in 'b' is dropped off earlier
-                    storeBranch(lev, c, b);
-                }
+    for (int i = 0; i < arr.length - 1; i++) {
+      if (arr[i].cost == -1) { // this -1 marker is set below
+        continue;
+      }
+      if (arr[i].key.equals(arr[i + 1].key)) {
+        if (arr[i].cost > arr[i + 1].cost) {
+          arr[i].cost = -1; // to be deleted
+        } else {
+          arr[i + 1].cost = -1;
+        }
+      }
+    }
+    // removing but also recreating the key - must be sorted
+
+    List<Branch> list = new ArrayList<>();
+
+    for (Branch branch : arr) {
+      if (branch.cost != -1) {
+        String key = branch.key;
+        if (lev > 0) { // do not sort, it also means - for lev 0 there will be MAX_IN_POOL maps for the same combination, which is great for tree merging
+          int[] copiedArray = Arrays.copyOf(branch.dropoff, branch.dropoff.length);
+          Arrays.sort(copiedArray);
+          key = "";
+          for (int j = 0; j < copiedArray.length; j++) {
+            key += copiedArray[j];
+            if (j < copiedArray.length - 1) {
+              key += "-";
             }
+          }
+          branch.key = key;
         }
-        // removing duplicates which come from lev+1
-        node[lev] = rmDuplicates(node[lev], lev, true); // true - make hash
-    }
-
-    private void storeBranch(int lev, int c, Branch b) {
-        int[] drops = new int[MAX_LEV-lev];
-        drops[0] = c;
-        for(int j=0; j<MAX_LEV-lev-1; j++) // further stage has one passenger less: -1
-            drops[j+1] = b.dropoff[j];
-        
-        Branch b2 = new Branch(c + "-" + b.key, // no sorting as we have to remove lev+1 duplicates eg. 1-4-5 and 1-5-4
-                               cost(to[c], to[b.dropoff[0]]) + b.cost, 
-                               drops);
-        node[lev].add(b2);
-    }
-
-    private void storeLeaves() {
-        for (int c = 0; c < MAX_CUST; c++) 
-            for (int d = 0; d < MAX_CUST; d++) 
-                if (c != d && 
-                    cost(to[c], to[d]) < cost(from[d], to[d]) * MAX_LOSS) {
-                        int[] drops = new int[2];
-                        drops[0] = c;
-                        drops[1] = d;
-                        String key = c>d? d+"-"+c : c+"-"+d;
-                        Branch b = new Branch(key, cost(to[c], to[d]), drops);
-                        node[MAX_LEV-2].add(b);
+        if (lev == 0 && makeHash) {
+          map.put(key, branch);
+        } else {
+          list.add(branch);
         }
+      }
     }
-
-    private void storePickUpLeaves() {
-        for (int c = 0; c < MAX_CUST; c++) 
-            for (int d = 0; d < MAX_CUST; d++) 
-                if (c != d && 
-                    cost(from[c], from[d]) < cost(from[d], to[d]) * MAX_LOSS) {
-                        int[] pickup = new int[2];
-                        pickup[0] = c;
-                        pickup[1] = d;
-                        String key = c>d? d+"-"+c : c+"-"+d;
-                        Branch b = new Branch(key, cost(from[c], from[d]), pickup);
-                        nodeP[MAX_LEV-2].add(b);
+    /*
+    for (int i = 0; i < arr.length; i++) {
+      if (arr[i].cost != -1) {
+        String key = arr[i].key;
+        if (lev > 0) { // do not sort, it also means - for lev 0 there will be MAX_IN_POOL maps for the same combination, which is great for tree merging
+          int[] copiedArray = Arrays.copyOf(arr[i].dropoff, arr[i].dropoff.length);
+          Arrays.sort(copiedArray);
+          key = "";
+          for (int j = 0; j < copiedArray.length; j++) {
+            key += copiedArray[j];
+            if (j < copiedArray.length - 1) key += "-";
+          }
+          arr[i].key = key;
         }
+        if (lev == 0 && makeHash) map.put(key, arr[i]);
+        else list.add(arr[i]);
+      }
     }
+    */
+    return list;
+  }
 
-    public void diveP(int lev) {
-        if (lev > MAX_LEV-3) return; // last two levels are "leaves"
+  private List<PoolElement> mergeTrees(int inPool) {
+    List<PoolElement> ret = new ArrayList<>();
 
-        diveP(lev + 1);
-        
-        for (int c = 0; c < MAX_CUST; c++) {
-            for (Branch b : nodeP[lev+1]) { // we iterate over product of the stage further in the tree: +1
-                if (!isFoundInBranchOrTooLongP(c, b)) { // one of two in 'b' is dropped off earlier
-                    storeBranchP(lev, c, b);
-                }
-            }
+    for (Branch p : nodeP[0]) {
+      // there might be as many as MAX_IN_POOL hash keys (drop-off plans) for this pick-up plan
+      for (int k = 0; k < inPool; k++) {
+        String key = genHashKey(p, k, inPool);
+
+        Branch d = map.get(key); // get drop-offs for that key
+        if (d == null) {
+          continue; // drop-off was not acceptable
         }
-        // removing duplicates which come from lev+1
-        nodeP[lev] = rmDuplicates(nodeP[lev], lev, false);
-    }
+        // checking if drop-off still acceptable with that pick-up fase
+        boolean tooLong = false;
+        int i = 0;
 
-    private void storeBranchP(int lev, int c, Branch b) {
-        int[] pickups = new int[MAX_LEV-lev];
-        pickups[0] = c;
-        for(int j=0; j<MAX_LEV-lev-1; j++) // further stage has one passenger less: -1
-            pickups[j+1] = b.dropoff[j];
-        
-        Branch b2 = new Branch(c + "-" + b.key, // no sorting as we have to remove lev+1 duplicates eg. 1-4-5 and 1-5-4
-                               cost(from[c], from[b.dropoff[0]]) + b.cost, 
-                               pickups);
-        nodeP[lev].add(b2);
-    }
-
-    public boolean isFoundInBranchOrTooLong(int c, Branch b) {
-        for (int i=0; i<b.dropoff.length; i++)
-            if (b.dropoff[i] == c) return true; // current passenger is in the branch below -> reject that combination
-        // now checking if anyone in the branch does not lose too much with the pool
-        int wait = cost(to[c], to[b.dropoff[0]]);
-        
-        for (int i=0; i<b.dropoff.length; i++) {
-            if (wait > cost(from[b.dropoff[i]], to[b.dropoff[i]]) * MAX_LOSS ) 
-                return true;
-            if (i+1 < b.dropoff.length)
-                wait += cost(to[b.dropoff[i]], to[b.dropoff[i+1]]); 
+        int wait = p.cost + cost[demand[p.dropoff[p.dropoff.length-1]].fromStand][demand[d.dropoff[i]].toStand];
+        while(true) {
+          if (wait > cost[demand[d.dropoff[i]].fromStand][demand[d.dropoff[i]].toStand]
+                  * (100.0 + demand[d.dropoff[i]].getMaxLoss()) / 100.0) {
+            tooLong = true;
+            break;
+          }
+          if (i == d.dropoff.length - 1) {
+            break;
+          }
+          wait += cost[demand[d.dropoff[i]].toStand][demand[d.dropoff[i+1]].toStand];
+          i++;
         }
+        if (tooLong) {
+          continue;
+        }
+        // a viable plan -> merge pickup and dropoff
+        TaxiOrder[] both = new TaxiOrder[p.dropoff.length + d.dropoff.length];
+        i = 0;
+        for (; i < p.dropoff.length; i++) {
+          both[i] = demand[p.dropoff[i]];
+        }
+        // TASK: Use "Arrays.copyOf", "Arrays.asList", "Collections.addAll" or "System.arraycopy" instead.
+        for (; i < p.dropoff.length + d.dropoff.length; i++) {
+          both[i] = demand[d.dropoff[i - p.dropoff.length]];
+        }
+        int cst = p.cost + cost[demand[p.dropoff[p.dropoff.length - 1]].fromStand][demand[d.dropoff[0]].fromStand]
+                    + d.cost;
+        ret.add(new PoolElement(both, inPool, cst));
+      }
+    }
+    return ret;
+  }
+
+  private String genHashKey(Branch p, int k, int inPool) {
+    int [] tab = new int[inPool];
+    tab[0] = -1; // -1 will always come first during sorting, 
+    // now the other three passengers
+    for (int i = 0, j = 1; i < inPool; i++) {
+      if (i == k) {
+        continue; // we have this one, see above
+      }
+      tab[j++] = p.dropoff[i];
+    }
+    Arrays.sort(tab);
+    tab[0] = p.dropoff[k];
+
+    String key = "";
+    for (int j = 0; j < tab.length; j++) {
+      key += tab[j];
+      if (j < tab.length - 1) {
+        key += "-";
+      }
+    }
+    return key;
+  }
+
+  private int[][] setCosts() {
+    int[][] costMatrix = new int[maxNumbStands][maxNumbStands];
+    for (int i = 0; i < maxNumbStands; i++) {
+      for (int j = i; j < maxNumbStands; j++) {
+        // TASK: should we use BIG_COST to mark stands very distant from any cab ?
+        costMatrix[j][i] = DistanceService.getDistance(j, i); // simplification of distance - stop9 is closer to stop7 than to stop1
+        costMatrix[i][j] = costMatrix[j][i];
+      }
+    }
+    return costMatrix;
+  }
+  
+  class Branch implements Comparable<Branch> {
+    public String key; // used to remove duplicates and search in hashmap
+    public int cost;
+    public int[] dropoff; // we could get rid of it to gain on memory (key stores this too); but we would lose time on parsing 
+
+    Branch (String key, int cost, int[] drops) {
+      this.key = key;
+      this.cost = cost;
+      this.dropoff = drops;
+    }
+
+    @Override
+    public int compareTo(Branch pool) {
+      return this.key.compareTo(pool.key);
+    }
+
+    @Override
+    public boolean equals(Object pool) {
+      if (pool == null || this.getClass() != pool.getClass()) {
         return false;
+      }
+      return this.key.equals(((Branch) pool).key);
     }
 
-    public boolean isFoundInBranchOrTooLongP(int c, Branch b) {
-        for (int i=0; i<b.dropoff.length; i++)
-            if (b.dropoff[i] == c) return true; // current passenger is in the branch below -> reject that combination
-        // now checking if anyone in the branch does not lose too much with the pool
-        int wait = cost(from[c], from[b.dropoff[0]]);
-        
-        for (int i=0; i<b.dropoff.length; i++) {
-            if (wait > cost(from[b.dropoff[i]], to[b.dropoff[i]]) * MAX_LOSS ) 
-                return true;
-            if (i+1 < b.dropoff.length)
-                wait += cost(from[b.dropoff[i]], from[b.dropoff[i+1]]); 
-        }
-        return false;
+    @Override
+    public int hashCode() {
+      return new HashCodeBuilder(17, 37)
+              .append(key)
+              .append(cost)
+              .append(dropoff[0])
+              .append(dropoff[1])
+              .toHashCode();
     }
-
-    private List<Branch> rmDuplicates(List<Branch> node, int lev, boolean makeHash) {
-        Branch[] arr = node.toArray(new Branch[0]);
-        if (arr == null || arr.length<2) return null;
-
-        Arrays.sort(arr);
-        
-        for (int i = 0; i < arr.length-1; i++) {
-            if (arr[i].cost == -1) { // this -1 marker is set below
-                continue;
-            }
-            if (arr[i].key.equals(arr[i+1].key)) {
-                if (arr[i].cost > arr[i+1].cost)
-                    arr[i].cost = -1; // to be deleted
-                else arr[i+1].cost = -1;
-            }
-        }
-        // removing but also recreating the key - must be sorted
-        
-        List<Branch> list = new ArrayList<>();
-        
-        for (int i = 0; i < arr.length; i++) 
-            if (arr[i].cost != -1) {
-                int[] copiedArray = Arrays.copyOf(arr[i].dropoff, arr[i].dropoff.length);
-                Arrays.sort(copiedArray);
-                String key="";
-                for (int j = 0; j < copiedArray.length; j++) {
-                    key += copiedArray[j];
-                    if (j < copiedArray.length-1) key += "-";
-                }
-                arr[i].key = key;
-                if (lev == 0 && makeHash) map.put(key, arr[i]);
-                else list.add(arr[i]);
-            }
-        return list;
+    /*
+    @Override
+    public int hashCode() {
+      int result = (int) (dropoff[0] ^ (dropoff[0] >>> 32));
+      result = 31 * result + cost;
+      result = 31 * result + dropoff[1];
+      return result;
     }
-
-    private List<Pool> mergeTrees() {
-        List<Pool> ret = new ArrayList<>();
-
-        for (Branch p : nodeP[0]) {
-            Branch d = map.get(p.key); // get drop-offs for that key
-            if (d==null) continue; // drop-off was not acceptable
-            // checking if drop-off still acceptable with that pick-up fase
-            int wait = p.cost + cost(p.dropoff[p.dropoff.length-1], d.dropoff[0]);
-            int i=0;
-            boolean tooLong= false;
-            while(true) {
-                if (wait > cost(from[d.dropoff[i]], to[d.dropoff[i]]) * MAX_LOSS) {
-                    tooLong = true;
-                    break;
-                }
-                if (i == d.dropoff.length -1) break;
-                wait += cost(to[d.dropoff[i]], to[d.dropoff[i+1]]);
-                i++;
-            }
-            if (tooLong) continue;
-            // a viable plan -> merge pickup and dropoff
-            int[] both = new int[p.dropoff.length + d.dropoff.length];
-            i=0;
-            for (; i<p.dropoff.length; i++) both[i] = p.dropoff[i];
-            for (; i<p.dropoff.length+d.dropoff.length; i++) both[i] = d.dropoff[i-p.dropoff.length];
-            int cost = p.cost + cost(p.dropoff[p.dropoff.length-1], d.dropoff[0]) + d.cost;
-            ret.add(new Pool(cost, both));
-        }
-        return ret;
-    }
-
-    public List<Pool> removeDuplicates(List<Pool> list) {
-        int inPool = MAX_LEV;
-        Pool[] arr = list.toArray(new Pool[0]);
-
-        if (arr == null) {
-          return null;
-        }
-        Arrays.sort(arr);
-
-        // removing duplicates
-        int i = 0, j = 0;
-        for (i = 0; i < arr.length; i++) {
-          if (arr[i].cost == -1) { // this -1 marker is set below
-            continue;
-          }
-          for (j = i + 1; j < arr.length; j++) {
-            if (arr[j].cost != -1 // not invalidated; this check is for performance reasons
-                    && isFound(arr, i, j)) {
-              arr[j].cost = -1; // duplicated; we remove an element with greater costs (list is pre-sorted)
-            }
-          }
-        }
-        
-        // just collect non-duplicated pool plans
-        List<Pool> ret = new ArrayList<>();
-
-        for (i = 0; i < arr.length; i++) {
-          if (arr[i].cost != -1) {
-            ret.add(arr[i]);
-          }
-        }
-        return ret;
-    }
-
-    public boolean isFound(Pool[] arr, int i, int j) {
-        for (int x = 0; x < arr[j].stops.length; x++) { 
-          for (int y = 0; y < arr[i].stops.length; y++) {
-            if (arr[j].stops[x] == arr[i].stops[y]) {
-              return true;
-            }
-          }
-        }
-        return false;
-    }
-
-    public void genDemand() {
-        for (int i=0; i<MAX_CUST; i++) {
-            from[i] = rand.nextInt(MAX_STAND);
-            to[i] = randomTo(from[i], MAX_STAND);
-        }
-    }
-
-    public int cost(int from, int to) {
-        return abs(from - to);
-    }
-
-    private int randomTo(int from, int maxStand) {
-        int diff = rand.nextInt(MAX_TRIP * 2) - MAX_TRIP;
-        if (diff == 0) diff = 1;
-        int to = 0;
-        if (from + diff > maxStand -1 ) to = from - diff;
-        else if (from + diff < 0) to = 0;
-        else to = from + diff;
-        return to;
-    }
-
-    class Branch implements Comparable<Branch> {
-        public String key; // used to remove duplicates and search in hashmap
-        public int cost;
-        public int[] dropoff; // we could get rid of it to gain on memory (key stores this too); but we would lose time on parsing 
-
-        Branch (String key, int cost, int[] drops){
-            this.key = key;
-            this.cost = cost;
-            this.dropoff = drops;
-        }
-
-        @Override
-        public int compareTo(Branch pool) {
-          return this.key.compareTo(pool.key);        }
-      
-        @Override
-        public boolean equals(Object pool) {
-          if (pool == null || this.getClass() != pool.getClass()) {
-            return false;
-          }
-          return this.key.equals(((Branch) pool).key);
-        }
-      
-        @Override
-        public int hashCode() {
-            int result = (int) (dropoff[0] ^ (dropoff[0] >>> 32));
-            result = 31 * result + cost;
-            result = 31 * result + dropoff[1];
-            return result;
-        }
-      
-    }
-    class Pool implements Comparable<Pool> {
-        public int cost;
-        public int[] stops; // we could get rid of it to gain on memory (key stores this too); but we would lose time on parsing 
-
-        Pool (int cost, int[] stops){
-            this.cost = cost;
-            this.stops = stops;
-        }
-
-        @Override
-        public int compareTo(Pool pool) {
-          return this.cost - pool.cost;
-        }
-      
-        @Override
-        public boolean equals(Object pool) {
-          if (pool == null || this.getClass() != pool.getClass()) {
-            return false;
-          }
-          return this.cost == ((Pool) pool).cost;
-        }
-      
-        @Override
-        public int hashCode() {
-            int result = (int) (stops[0] ^ (stops[0] >>> 32));
-            result = 31 * result + cost;
-            result = 31 * result + stops[1];
-            return result;
-        }
-      
-    }
+     */
+  }
 }

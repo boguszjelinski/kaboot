@@ -20,7 +20,7 @@ import java.util.logging.Logger;
 
 public class CabRunnable extends ApiClient implements Runnable {
 
-    static final int MAX_TIME = 120; // minutes 120
+    static final int MAX_TIME = 60; // minutes 120
     static final int CHECK_INTERVAL = 15; // secs
 
     private int cabId;

@@ -58,7 +58,7 @@ public class PoolUtil {
         }
         for (int i = 0; i < custInPool; i++) {
           orders[i] = demand[pickup[i]]; // pickup
-          orders[i + custInPool] = demand[pickup[dropoff[i]]];  // dropp-off
+          orders[i + custInPool] = demand[pickup[dropoff[i]]];  // drop-off
         }
         int poolCost = getPoolCost(0, custInPool - 1, custInPool);
         // that is an important decision - is this the 'goal' function to be optimized ?
@@ -79,9 +79,9 @@ public class PoolUtil {
   }
 
   private boolean allAreHappy(int custInPool) {
-    for (int d = 0; d < custInPool; d++) { // checking if all 3(?) passengers get happy, starting from the one who gets dropped-off first
+    for (int d = 0; d < custInPool; d++) { // checking if all passengers get happy, starting from the one who gets dropped-off first
       int poolCost = getPoolCost(dropoff[d], d, custInPool);
-      // three depth levels of indexes - how about that!
+      // four depth levels of indexes (with cost[]) - how about that!
       TaxiOrder o = demand[pickup[dropoff[d]]];
       if (poolCost > cost[o.fromStand][o.toStand] * (1 + o.getMaxLoss()/100.0)) { // TASK: how much will floating point affect performance ?
         return false; // not happy

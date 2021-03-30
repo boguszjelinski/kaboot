@@ -22,7 +22,7 @@ import java.time.LocalDateTime;
 import java.util.Random;
 
 public class CustomerGenerator extends ApiClient {
-    static int DURATION =  120; // min
+    static int DURATION =  30; // min
     static int REQ_PER_MIN = 300;
     static int MAX_WAIT = 10;
     static int MAX_POOL_LOSS = 1; // 1%
@@ -30,7 +30,6 @@ public class CustomerGenerator extends ApiClient {
     static int AT_TIME_LAG = 30;
     static int maxStand = 50; // default
     static Random rand;
-
     public static void main(String[] args) throws InterruptedException {
         logger = Logger.getLogger("kaboot.simulator.customergenerator");
         logger = ApiClient.configureLogger(logger, "customer.log");
