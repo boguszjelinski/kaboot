@@ -93,17 +93,17 @@ public class DispatcherService {
   private final RouteRepository routeRepository;
   private final LegRepository legRepository;
   private final StatService statSrvc;
-  private final ExternPool externPool;
+  private final DynaPool dynaPool;
 
   public DispatcherService(TaxiOrderRepository taxiOrderRepository, CabRepository cabRepository,
                            RouteRepository routeRepository, LegRepository legRepository,
-                           StatService statService, ExternPool externPool) {
+                           StatService statService, DynaPool dynaPool) {
     this.taxiOrderRepository = taxiOrderRepository;
     this.cabRepository = cabRepository;
     this.routeRepository = routeRepository;
     this.legRepository = legRepository;
     this.statSrvc = statService;
-    this.externPool = externPool;
+    this.dynaPool = dynaPool;
   }
 
   public void runPlan() {
@@ -350,7 +350,7 @@ public class DispatcherService {
 
     if (demand.length < max4Pool) { // pool4 takes a lot of time, it cannot analyze big data sets
       final long startPool4 = System.currentTimeMillis();
-      pl4 = externPool.findPool(demand, 4); // four passengers: size^4 combinations (full search)
+      pl4 = dynaPool.findPool(demand, 4); // four passengers: size^4 combinations (full search)
       statSrvc.updateMaxAndAvgTime("pool4_time", startPool4);
     }
     // with 3 & 2 passengers, add plans with 4 passengers
@@ -368,7 +368,7 @@ public class DispatcherService {
       PoolElement[] pl3;
       if (demand3.length < max3Pool) { // not too big for three customers, let's find out!
         final long startPool3 = System.currentTimeMillis();
-        pl3 = externPool.findPool(demand3, 3);
+        pl3 = dynaPool.findPool(demand3, 3);
         statSrvc.updateMaxAndAvgTime("pool3_time", startPool3);
         if (pl3.length == 0) {
           pl3 = pl4;
@@ -390,7 +390,7 @@ public class DispatcherService {
     PoolElement[] ret;
     TaxiOrder[] demand2 = PoolUtil.findCustomersWithoutPool(pl3, demand3);
     if (demand2 != null && demand2.length > 0) {
-      PoolElement[] pl2 = externPool.findPool(demand2, 2);
+      PoolElement[] pl2 = dynaPool.findPool(demand2, 2);
       if (pl2.length == 0) {
         ret = pl3;
       } else {

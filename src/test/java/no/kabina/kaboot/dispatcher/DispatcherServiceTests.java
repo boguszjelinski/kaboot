@@ -93,7 +93,7 @@ public class DispatcherServiceTests {
             orders[i].setId((long) i);
         }
         PoolElement[] pool = service.generatePool(orders);
-        assertThat(pool.length).isSameAs(6);
+        assertThat(pool.length).isSameAs(5);
     }
 
     @Test

@@ -2,15 +2,12 @@ package no.kabina.kaboot.dispatcher;
 
 import no.kabina.kaboot.orders.TaxiOrder;
 import org.junit.Before;
-import org.junit.Ignore;
 import org.junit.Test;
 import org.springframework.test.context.ActiveProfiles;
 import java.util.Random;
-import java.io.IOException;
 import java.util.concurrent.ExecutionException;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.fail;
 
 @ActiveProfiles("test")
 public class PoolUtilTests {
@@ -71,37 +68,6 @@ public class PoolUtilTests {
         assertThat(poolIsValid(pool)).isSameAs(0);
     }
 
-    private int poolIsValid(PoolElement[] pool) {
-        boolean valid = true;
-        // first checking if acceptably long
-        int failCount = 0;
-        for (PoolElement e : pool) {
-            boolean isOk = true;
-            int cost = 0;
-            int j=0;
-            for (; j < e.getNumbOfCust()-1; j++) {  // pickup
-                cost += DistanceService.getDistance(e.getCust()[j].fromStand, e.getCust()[j+1].fromStand);
-            }
-            cost += DistanceService.getDistance(e.getCust()[j].fromStand, e.getCust()[j+1].toStand);
-            j++;
-            for (;j < 2 * e.getNumbOfCust()-1; j++) {
-                if (cost > DistanceService.getDistance(e.getCust()[j].fromStand, e.getCust()[j].toStand) * (100.0+MAX_LOSS)/100.0) {
-                    isOk = false;
-                    break;
-                }
-                cost += DistanceService.getDistance(e.getCust()[j].toStand, e.getCust()[j+1].toStand);
-            }
-            if (cost > DistanceService.getDistance(e.getCust()[j].fromStand, e.getCust()[j].toStand) * (100.0+MAX_LOSS)/100.0) {
-                isOk = false;
-            }
-            if (!isOk) failCount++;
-        }
-
-        // if a passenger does not appear in two pools
-
-        return failCount;
-    }
-
     @Test
     public void testSmpPool3() {
         SmpPool util = new SmpPool(8, numbOfStands);
@@ -160,5 +126,43 @@ public class PoolUtilTests {
         else if (from + diff < 0) to = 0;
         else to = from + diff;
         return to;
+    }
+
+    private int poolIsValid(PoolElement[] pool) {
+        boolean valid = true;
+        // first checking if acceptably long
+        int failCount = 0;
+        for (PoolElement e : pool) {
+            boolean isOk = true;
+            for (int c = 0; c < e.getNumbOfCust() && isOk; c++) {
+                int cost = 0;
+                int i = c;
+                for (; i < e.getNumbOfCust()-1; i++) {  // pickup
+                    cost += DistanceService.getDistance(e.getCust()[i].fromStand, e.getCust()[i + 1].fromStand);
+                }
+                cost += DistanceService.getDistance(e.getCust()[i].fromStand,
+                        e.getCust()[i + 1].toStand);
+                for (i++; i < 2 * e.getNumbOfCust() -1 && e.getCust()[c] != e.getCust()[i]; i++) {
+                    cost += DistanceService.getDistance(e.getCust()[i].toStand, e.getCust()[i + 1].toStand);
+                }
+                if (cost > DistanceService.getDistance(e.getCust()[c].fromStand, e.getCust()[c].toStand)
+                        * (100.0+MAX_LOSS)/100.0) {
+                    isOk = false;
+                }
+            }
+            if (!isOk) failCount++;
+        }
+        // check also if a passenger does not appear in two pools
+
+        boolean isOk = true;
+        for (int i = 0; i < pool.length && isOk; i++) {
+            for (int j = i + 1; j < pool.length && isOk; j++) {
+                if (PoolUtil.isFound(pool, i, j, pool[i].getNumbOfCust())) { // maybe not 100% kosher to use tested code in tests ...
+                    isOk = false;
+                }
+            }
+        }
+        if (!isOk) failCount = -1;
+        return failCount;
     }
 }

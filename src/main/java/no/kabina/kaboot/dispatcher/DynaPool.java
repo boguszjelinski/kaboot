@@ -16,20 +16,25 @@
 
 package no.kabina.kaboot.dispatcher;
 
-import no.kabina.kaboot.orders.TaxiOrder;
-import org.apache.commons.lang3.builder.HashCodeBuilder;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 
+import no.kabina.kaboot.orders.TaxiOrder;
+import org.apache.commons.lang3.builder.HashCodeBuilder;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Component;
+
+
+@Component
 public class DynaPool {
 
   private static final Logger logger = LoggerFactory.getLogger(DynaPool.class);
-  
+
+  @Value("${kaboot.consts.max-stand}")
   private int maxNumbStands;
 
   TaxiOrder[] demand;
@@ -40,8 +45,14 @@ public class DynaPool {
   List<Branch>[] nodeP = new ArrayList[MAX_IN_POOL-1];
   HashMap<String, Branch> map = new HashMap<>();
 
-  public DynaPool(int stands) {
-    this.maxNumbStands = stands;
+  public DynaPool() {
+    if (maxNumbStands == 0) maxNumbStands = 50;
+    this.cost = setCosts();
+  }
+
+  public DynaPool(int maxNumbStands) {
+    if (maxNumbStands == 0) maxNumbStands = 50;
+    this.maxNumbStands = maxNumbStands;
     this.cost = setCosts();
   }
 
@@ -91,10 +102,10 @@ public class DynaPool {
     int[] drops = new int[inPool - lev];
     drops[0] = c;
     for (int j = 0; j < inPool - lev - 1; j++) { // further stage has one passenger less: -1
-      drops[j + 1] = b.dropoff[j];
+      drops[j + 1] = b.custIDs[j];
     }
     Branch b2 = new Branch(c + "-" + b.key, // no sorting as we have to remove lev+1 duplicates eg. 1-4-5 and 1-5-4
-                      cost[demand[c].toStand][demand[b.dropoff[0]].toStand] + b.cost,
+                      cost[demand[c].toStand][demand[b.custIDs[0]].toStand] + b.cost,
                           drops);
     node[lev].add(b2);
   }
@@ -154,51 +165,51 @@ public class DynaPool {
     int[] pickups = new int[inPool - lev];
     pickups[0] = c;
     for(int j = 0; j < inPool - lev - 1; j++) { // further stage has one passenger less: -1
-      pickups[j + 1] = b.dropoff[j];
+      pickups[j + 1] = b.custIDs[j];
     }
     Branch b2 = new Branch(c + "-" + b.key, // no sorting as we have to remove lev+1 duplicates eg. 1-4-5 and 1-5-4
-                      cost[demand[c].fromStand][demand[b.dropoff[0]].fromStand] + b.cost,
+                      cost[demand[c].fromStand][demand[b.custIDs[0]].fromStand] + b.cost,
                           pickups);
     nodeP[lev].add(b2);
   }
 
   private boolean isFoundInBranchOrTooLong(int c, Branch b) {
-    for (int i = 0; i < b.dropoff.length; i++) {
-      if (b.dropoff[i] == c) {
+    for (int i = 0; i < b.custIDs.length; i++) {
+      if (b.custIDs[i] == c) {
         return true; // current passenger is in the branch below -> reject that combination
       }
     }
     // now checking if anyone in the branch does not lose too much with the pool
-    int wait = cost[demand[c].toStand][demand[b.dropoff[0]].toStand];
+    int wait = cost[demand[c].toStand][demand[b.custIDs[0]].toStand];
 
-    for (int i = 0; i < b.dropoff.length; i++) {
-      if (wait > cost[demand[b.dropoff[i]].fromStand][demand[b.dropoff[i]].toStand]
-                  * (100.0 + demand[b.dropoff[i]].getMaxLoss()) / 100.0) {
+    for (int i = 0; i < b.custIDs.length; i++) {
+      if (wait > cost[demand[b.custIDs[i]].fromStand][demand[b.custIDs[i]].toStand]
+                  * (100.0 + demand[b.custIDs[i]].getMaxLoss()) / 100.0) {
         return true;
       }
-      if (i + 1 < b.dropoff.length) {
-        wait += cost[demand[b.dropoff[i]].toStand][demand[b.dropoff[i + 1]].toStand];
+      if (i + 1 < b.custIDs.length) {
+        wait += cost[demand[b.custIDs[i]].toStand][demand[b.custIDs[i + 1]].toStand];
       }
     }
     return false;
   }
 
   private boolean isFoundInBranchOrTooLongP(int c, Branch b) {
-    for (int i = 0; i < b.dropoff.length; i++) {
-      if (b.dropoff[i] == c) {
+    for (int i = 0; i < b.custIDs.length; i++) {
+      if (b.custIDs[i] == c) {
         return true; // current passenger is in the branch below -> reject that combination
       }
     }
     // now checking if anyone in the branch does not lose too much with the pool
-    int wait = cost[demand[c].fromStand][demand[b.dropoff[0]].fromStand];
+    int wait = cost[demand[c].fromStand][demand[b.custIDs[0]].fromStand];
 
-    for (int i = 0; i < b.dropoff.length; i++) {
-      if (wait > cost[demand[b.dropoff[i]].fromStand][demand[b.dropoff[i]].toStand]
-                * (100.0 + demand[b.dropoff[i]].getMaxLoss()) / 100.0) {
+    for (int i = 0; i < b.custIDs.length; i++) {
+      if (wait > cost[demand[b.custIDs[i]].fromStand][demand[b.custIDs[i]].toStand]
+                * (100.0 + demand[b.custIDs[i]].getMaxLoss()) / 100.0) {
         return true;
       }
-      if (i + 1 < b.dropoff.length) {
-        wait += cost[demand[b.dropoff[i]].fromStand][demand[b.dropoff[i + 1]].fromStand];
+      if (i + 1 < b.custIDs.length) {
+        wait += cost[demand[b.custIDs[i]].fromStand][demand[b.custIDs[i + 1]].fromStand];
       }
     }
     return false;
@@ -236,7 +247,7 @@ public class DynaPool {
         if (lev > 0 || !makeHash) { // do not sort, it also means - for lev 0 there will be MAX_IN_POOL
           // maps for the same combination, which is great for tree merging
           // do sort if lev==0 in pick-up tree (!makeHash)
-          int[] copiedArray = Arrays.copyOf(branch.dropoff, branch.dropoff.length);
+          int[] copiedArray = Arrays.copyOf(branch.custIDs, branch.custIDs.length);
           Arrays.sort(copiedArray);
           key = "";
           for (int j = 0; j < copiedArray.length; j++) {
@@ -293,46 +304,42 @@ public class DynaPool {
         boolean tooLong = false;
         // we have to check all passengers again in the drop-off phase,
         // TASK: there must a method to write this code in a shorter way, it looks ugly ...
-        for (int c = 0; c < inPool && !tooLong; c++) {
+        for (int c = 0; c < inPool; c++) {
           int wait = 0;  // the trip does not start for all at the same stop, some get picked up later than others
           // pick up phase
-          for (int ii = c; ii < inPool - 1; ii++) {
-            wait += cost[demand[p.dropoff[ii]].fromStand][demand[p.dropoff[ii+1]].fromStand];
+          for (int i = c; i < inPool - 1; i++) {
+            wait += cost[demand[p.custIDs[i]].fromStand][demand[p.custIDs[i + 1]].fromStand];
           }
           // transition from pickup to dropoff
-          wait += cost[demand[p.dropoff[p.dropoff.length-1]].fromStand][demand[d.dropoff[0]].toStand];
-          if (wait > cost[demand[d.dropoff[0]].fromStand][demand[d.dropoff[0]].toStand]
-                  * (1.0 + demand[d.dropoff[0]].getMaxLoss() / 100.0)) {
-            tooLong = true;
-            break;
-          }
+          wait += cost[demand[p.custIDs[p.custIDs.length-1]].fromStand][demand[d.custIDs[0]].toStand];
           // drop off phase
           int i = 0;
-          while (p.dropoff[c] != d.dropoff[i]/* && i != d.dropoff.length*/) {
-            wait += cost[demand[d.dropoff[i]].toStand][demand[d.dropoff[i + 1]].toStand];
+          while (p.custIDs[c] != d.custIDs[i]/* && i != d.dropoff.length*/) {
+            wait += cost[demand[d.custIDs[i]].toStand][demand[d.custIDs[i + 1]].toStand];
             i++;
-            if (wait > cost[demand[d.dropoff[i]].fromStand][demand[d.dropoff[i]].toStand]
-                    * (1.0 + demand[d.dropoff[i]].getMaxLoss() / 100.0)) {
-              tooLong = true;
-              break;
-            }
+          }
+          if (wait > cost[demand[d.custIDs[c]].fromStand][demand[d.custIDs[c]].toStand]
+                  * (1.0 + demand[d.custIDs[c]].getMaxLoss() / 100.0)) {
+            tooLong = true;
+            break;
           }
         }
         if (tooLong) {
           continue;
         }
         // a viable plan -> merge pickup and dropoff
-        TaxiOrder[] both = new TaxiOrder[p.dropoff.length + d.dropoff.length];
+        TaxiOrder[] both = new TaxiOrder[p.custIDs.length + d.custIDs.length];
         int i = 0;
-        for (; i < p.dropoff.length; i++) {
-          both[i] = demand[p.dropoff[i]];
+        for (; i < p.custIDs.length; i++) {
+          both[i] = demand[p.custIDs[i]];
         }
         // TASK: Use "Arrays.copyOf", "Arrays.asList", "Collections.addAll" or "System.arraycopy" instead.
-        for (; i < p.dropoff.length + d.dropoff.length; i++) {
-          both[i] = demand[d.dropoff[i - p.dropoff.length]];
+        for (; i < p.custIDs.length + d.custIDs.length; i++) {
+          both[i] = demand[d.custIDs[i - p.custIDs.length]];
         }
-        int cst = p.cost + cost[demand[p.dropoff[p.dropoff.length - 1]].fromStand][demand[d.dropoff[0]].fromStand]
-                    + d.cost;
+        int cst = p.cost
+                  + cost[demand[p.custIDs[p.custIDs.length - 1]].fromStand][demand[d.custIDs[0]].toStand]
+                  + d.cost;
         ret.add(new PoolElement(both, inPool, cst));
       }
     }
@@ -355,10 +362,10 @@ public class DynaPool {
       if (i == k) {
         continue; // we have this one, see above
       }
-      tab[j++] = p.dropoff[i];
+      tab[j++] = p.custIDs[i];
     }
     Arrays.sort(tab);
-    tab[0] = p.dropoff[k];
+    tab[0] = p.custIDs[k];
 
     String key = "";
     for (int j = 0; j < tab.length; j++) {
@@ -385,12 +392,12 @@ public class DynaPool {
   class Branch implements Comparable<Branch> {
     public String key; // used to remove duplicates and search in hashmap
     public int cost;
-    public int[] dropoff; // we could get rid of it to gain on memory (key stores this too); but we would lose time on parsing 
+    public int[] custIDs; // we could get rid of it to gain on memory (key stores this too); but we would lose time on parsing
 
     Branch (String key, int cost, int[] drops) {
       this.key = key;
       this.cost = cost;
-      this.dropoff = drops;
+      this.custIDs = drops;
     }
 
     @Override
@@ -411,8 +418,8 @@ public class DynaPool {
       return new HashCodeBuilder(17, 37)
               .append(key)
               .append(cost)
-              .append(dropoff[0])
-              .append(dropoff[1])
+              .append(custIDs[0])
+              .append(custIDs[1])
               .toHashCode();
     }
     /*
