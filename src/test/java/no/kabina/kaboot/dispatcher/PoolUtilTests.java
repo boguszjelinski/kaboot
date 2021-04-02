@@ -12,29 +12,16 @@ import static org.assertj.core.api.Assertions.assertThat;
 @ActiveProfiles("test")
 public class PoolUtilTests {
 
-
     private TaxiOrder[] orders;
     private final int numbOfStands = 50;
-    private final int numbOfOrders = 75;
     Random rand = new Random(10L);
     final int MAX_TRIP = 4;
     final int MAX_LOSS = 50;
 
     @Before
     public void before() {
-
-        orders = new TaxiOrder[numbOfOrders];
-        for (int i = 0; i < numbOfOrders; i++) {
-            //int from = rand.nextInt(numbOfStands);
-            orders[i] = new TaxiOrder(i%45 == numbOfStands -1 ? 0 : i%45, // from
-                                    Math.min((i+1)%45,numbOfStands-1), // randomTo(from, numbOfStands)
-                                    10,
-                                    MAX_LOSS,
-                                    true,
-                                    TaxiOrder.OrderStatus.RECEIVED,
-                                    null);
-            orders[i].setId((long)i);
-        }
+        int numbOfOrders = 75;
+        orders = genDemand(numbOfOrders);
     }
 
     @Test
@@ -57,6 +44,22 @@ public class PoolUtilTests {
         DynaPool util = new DynaPool(numbOfStands);
         PoolElement[] pool = util.findPool(orders, 4);
         assertThat(pool.length).isSameAs(15);
+        assertThat(poolIsValid(pool)).isSameAs(0);
+    }
+
+    @Test
+    public void testDynaPool5() {
+        DynaPool util = new DynaPool(numbOfStands);
+        PoolElement[] pool = util.findPool(genDemand(150), 5);
+        assertThat(pool.length).isSameAs(22);
+        assertThat(poolIsValid(pool)).isSameAs(0);
+    }
+
+    @Test
+    public void testDynaPool6() {
+        DynaPool util = new DynaPool(numbOfStands);
+        PoolElement[] pool = util.findPool(genDemand(150), 6);
+        assertThat(pool.length).isSameAs(22);
         assertThat(poolIsValid(pool)).isSameAs(0);
     }
 
@@ -101,7 +104,7 @@ public class PoolUtilTests {
         ExternPool util = new ExternPool("findpool", "pool-in.csv", "pool-out.csv", 8);
         PoolElement[] pool = new PoolElement[0];
         pool = util.findPool(orders, 4);
-        assertThat(pool.length).isSameAs(15);
+        assertThat(pool.length).isSameAs(15); // 14 when run from maven, not from Idea (which is what, not maven?)
         assertThat(poolIsValid(pool)).isSameAs(0);
     }
 
@@ -164,5 +167,21 @@ public class PoolUtilTests {
         }
         if (!isOk) failCount = -1;
         return failCount;
+    }
+
+    private TaxiOrder[] genDemand(int size) {
+        TaxiOrder[] orders = new TaxiOrder[size];
+        for (int i = 0; i < size; i++) {
+            //int from = rand.nextInt(numbOfStands);
+            orders[i] = new TaxiOrder(i%45 == numbOfStands -1 ? 0 : i%45, // from
+                    Math.min((i+1)%45,numbOfStands-1), // randomTo(from, numbOfStands)
+                    10,
+                    MAX_LOSS,
+                    true,
+                    TaxiOrder.OrderStatus.RECEIVED,
+                    null);
+            orders[i].setId((long)i);
+        }
+        return orders;
     }
 }

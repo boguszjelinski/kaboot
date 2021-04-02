@@ -20,74 +20,75 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
-
 import no.kabina.kaboot.orders.TaxiOrder;
 import org.apache.commons.lang3.builder.HashCodeBuilder;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Component;
+import org.springframework.stereotype.Service;
 
-
-@Component
+@Service
 public class DynaPool {
-
-  private static final Logger logger = LoggerFactory.getLogger(DynaPool.class);
 
   @Value("${kaboot.consts.max-stand}")
   private int maxNumbStands;
 
   TaxiOrder[] demand;
   int [][]cost;
-  private static final int MAX_IN_POOL = 4; // just for memory allocation, might be 10 as well
+  private static final int MAX_IN_POOL = 6; // just for memory allocation, might be 10 as well
 
-  List<Branch>[] node = new ArrayList[MAX_IN_POOL-1];
-  List<Branch>[] nodeP = new ArrayList[MAX_IN_POOL-1];
+  List<Branch>[] node;
+  List<Branch>[] nodeP;
   HashMap<String, Branch> map = new HashMap<>();
 
   public DynaPool() {
-    if (maxNumbStands == 0) maxNumbStands = 50;
+    if (maxNumbStands == 0) maxNumbStands = 50; // TASK: temp fix of tests
     this.cost = setCosts();
   }
 
   public DynaPool(int maxNumbStands) {
-    if (maxNumbStands == 0) maxNumbStands = 50;
     this.maxNumbStands = maxNumbStands;
     this.cost = setCosts();
   }
 
   /**
    *
-   * @param dem
+   * @param dem requests from potential passengers
    * @param inPool how many passengers can a cab take
-   * @return
+   * @return array of pools
    */
   public PoolElement[] findPool(TaxiOrder[] dem, int inPool) {
     this.demand = dem;
     initMem(inPool);
-    // TASK: two threads
-    storeLeaves(inPool, demand.length);
-    storePickUpLeaves(inPool, demand.length);
-    dive(0, inPool, demand.length);
-    diveP(0, inPool, demand.length);
+    // TASK: two threads for these two trees
+    // the code is mirrored in these trees due to different source of data - from & to
+    dive(0, inPool);
+    diveP(0, inPool);
     List<PoolElement> poolList = mergeTrees(inPool);
     return PoolUtil.removeDuplicates(poolList.toArray(new PoolElement[0]), inPool);
   }
 
   private void initMem(int inPool) {
+    node = new ArrayList[MAX_IN_POOL - 1];
+    nodeP = new ArrayList[MAX_IN_POOL - 1];
     for (int i = 0; i < inPool - 1; i++) {
       node[i] = new ArrayList<>();
       nodeP[i] = new ArrayList<>();
     }
   }
 
-  private void dive(int lev, int inPool, int custNumb) {
+  /** recursion to go through all stages but leaves of the tree
+   * at each stage, starting with the last, calculate the permutation cost and store the branch if feasible
+   *
+   * @param lev starting with 0
+   * @param inPool how many passengers can a cab take
+   */
+  private void dive(int lev, int inPool) {
     if (lev > inPool - 3) {
+      storeLeaves(inPool);
       return; // last two levels are "leaves"
     }
-    dive(lev + 1, inPool, custNumb);
+    dive(lev + 1, inPool);
 
-    for (int c = 0; c < custNumb; c++) {
+    for (int c = 0; c < demand.length; c++) {
       for (Branch b : node[lev + 1]) { // we iterate over product of the stage further in the tree: +1
         if (!isFoundInBranchOrTooLong(c, b)) { // one of two in 'b' is dropped off earlier
           storeBranch(lev, c, b, inPool);
@@ -110,9 +111,9 @@ public class DynaPool {
     node[lev].add(b2);
   }
 
-  private void storeLeaves(int inPool, int custNumb) {
-    for (int c = 0; c < custNumb; c++) {
-      for (int d = 0; d < custNumb; d++) {
+  private void storeLeaves(int inPool) {
+    for (int c = 0; c < demand.length; c++) {
+      for (int d = 0; d < demand.length; d++) {
         if (c != d
                 && cost[demand[c].toStand][demand[d].toStand]
                         < cost[demand[d].fromStand][demand[d].toStand] * (100.0 + demand[d].getMaxLoss()) / 100.0) {
@@ -127,9 +128,9 @@ public class DynaPool {
     }
   }
 
-  private void storePickUpLeaves(int inPool, int custNumb) {
-    for (int c = 0; c < custNumb; c++) {
-      for (int d = 0; d < custNumb; d++) {
+  private void storePickUpLeaves(int inPool) {
+    for (int c = 0; c < demand.length; c++) {
+      for (int d = 0; d < demand.length; d++) {
         if (c != d
                 && cost[demand[c].fromStand][demand[d].fromStand]
                         < cost[demand[d].fromStand][demand[d].toStand] * (100.0 + demand[d].getMaxLoss()) / 100.0) {
@@ -144,13 +145,14 @@ public class DynaPool {
     }
   }
 
-  private void diveP(int lev, int inPool, int custNumb) {
+  private void diveP(int lev, int inPool) {
     if (lev > inPool - 3) {
+      storePickUpLeaves(inPool);
       return; // last two levels are "leaves"
     }
-    diveP(lev + 1, inPool, custNumb);
+    diveP(lev + 1, inPool);
 
-    for (int c = 0; c < custNumb; c++) {
+    for (int c = 0; c < demand.length; c++) {
       for (Branch b : nodeP[lev + 1]) { // we iterate over product of the stage further in the tree: +1
         if (!isFoundInBranchOrTooLongP(c, b)) { // one of two in 'b' is dropped off earlier
           storeBranchP(lev, c, b, inPool);
@@ -217,8 +219,8 @@ public class DynaPool {
 
   private List<Branch> rmDuplicates(List<Branch> node, int lev, boolean makeHash) {
     Branch[] arr = node.toArray(new Branch[0]);
-    if (arr == null || arr.length < 2) {
-      return null;
+    if (arr.length < 2) {
+      return new ArrayList<>();
     }
 
     // removing duplicates from the previous stage
@@ -265,25 +267,6 @@ public class DynaPool {
         }
       }
     }
-    /*
-    for (int i = 0; i < arr.length; i++) {
-      if (arr[i].cost != -1) {
-        String key = arr[i].key;
-        if (lev > 0) { // do not sort, it also means - for lev 0 there will be MAX_IN_POOL maps for the same combination, which is great for tree merging
-          int[] copiedArray = Arrays.copyOf(arr[i].dropoff, arr[i].dropoff.length);
-          Arrays.sort(copiedArray);
-          key = "";
-          for (int j = 0; j < copiedArray.length; j++) {
-            key += copiedArray[j];
-            if (j < copiedArray.length - 1) key += "-";
-          }
-          arr[i].key = key;
-        }
-        if (lev == 0 && makeHash) map.put(key, arr[i]);
-        else list.add(arr[i]);
-      }
-    }
-    */
     return list;
   }
 
@@ -297,35 +280,8 @@ public class DynaPool {
         String key = genHashKey(p, k, inPool);
 
         Branch d = map.get(key); // get drop-offs for that key
-        if (d == null) {
+        if (d == null || !allAreHappy(inPool, p, d)) {
           continue; // drop-off was not acceptable
-        }
-        // checking if drop-off still acceptable with that pick-up phase merged
-        boolean tooLong = false;
-        // we have to check all passengers again in the drop-off phase,
-        // TASK: there must a method to write this code in a shorter way, it looks ugly ...
-        for (int c = 0; c < inPool; c++) {
-          int wait = 0;  // the trip does not start for all at the same stop, some get picked up later than others
-          // pick up phase
-          for (int i = c; i < inPool - 1; i++) {
-            wait += cost[demand[p.custIDs[i]].fromStand][demand[p.custIDs[i + 1]].fromStand];
-          }
-          // transition from pickup to dropoff
-          wait += cost[demand[p.custIDs[p.custIDs.length-1]].fromStand][demand[d.custIDs[0]].toStand];
-          // drop off phase
-          int i = 0;
-          while (p.custIDs[c] != d.custIDs[i]/* && i != d.dropoff.length*/) {
-            wait += cost[demand[d.custIDs[i]].toStand][demand[d.custIDs[i + 1]].toStand];
-            i++;
-          }
-          if (wait > cost[demand[d.custIDs[c]].fromStand][demand[d.custIDs[c]].toStand]
-                  * (1.0 + demand[d.custIDs[c]].getMaxLoss() / 100.0)) {
-            tooLong = true;
-            break;
-          }
-        }
-        if (tooLong) {
-          continue;
         }
         // a viable plan -> merge pickup and dropoff
         TaxiOrder[] both = new TaxiOrder[p.custIDs.length + d.custIDs.length];
@@ -346,12 +302,31 @@ public class DynaPool {
     return ret;
   }
 
-  private int calcCost(int[] pickups, int k, int inPool) {
-    int sum = 0;
-    for (int i = k; i < inPool - 1; i++) {
-      sum += cost[demand[pickups[i]].fromStand][demand[pickups[i+1]].fromStand];
+  private boolean allAreHappy(int inPool, Branch p, Branch d) {
+    // checking if drop-off still acceptable with that pick-up phase merged
+    // we have to check all passengers again in the drop-off phase,
+    // TASK: there must a method to write this code in a shorter way, it looks ugly ...
+    for (int c = 0; c < inPool; c++) {
+      int wait = 0;  // the trip does not start for all at the same stop, some get picked up later than others
+      // pick up phase
+      for (int i = c; i < inPool - 1; i++) {
+        wait += cost[demand[p.custIDs[i]].fromStand][demand[p.custIDs[i + 1]].fromStand];
+      }
+      // transition from pickup to dropoff
+      wait += cost[demand[p.custIDs[p.custIDs.length-1]].fromStand][demand[d.custIDs[0]].toStand];
+      // drop off phase
+      int i = 0;
+      while (p.custIDs[c] != d.custIDs[i]/* && i != d.dropoff.length*/) {
+        wait += cost[demand[d.custIDs[i]].toStand][demand[d.custIDs[i + 1]].toStand];
+        i++;
+      }
+      // now the verdict; this 'if' might be executed after pick-up above too
+      if (wait > cost[demand[d.custIDs[c]].fromStand][demand[d.custIDs[c]].toStand]
+              * (1.0 + demand[d.custIDs[c]].getMaxLoss() / 100.0)) {
+        return false;
+      }
     }
-    return sum;
+    return true;
   }
 
   private String genHashKey(Branch p, int k, int inPool) {
@@ -360,7 +335,7 @@ public class DynaPool {
     // now the other three passengers
     for (int i = 0, j = 1; i < inPool; i++) {
       if (i == k) {
-        continue; // we have this one, see above
+        continue; // we have this one, see below tab[0]=...
       }
       tab[j++] = p.custIDs[i];
     }
@@ -422,14 +397,5 @@ public class DynaPool {
               .append(custIDs[1])
               .toHashCode();
     }
-    /*
-    @Override
-    public int hashCode() {
-      int result = (int) (dropoff[0] ^ (dropoff[0] >>> 32));
-      result = 31 * result + cost;
-      result = 31 * result + dropoff[1];
-      return result;
-    }
-     */
   }
 }

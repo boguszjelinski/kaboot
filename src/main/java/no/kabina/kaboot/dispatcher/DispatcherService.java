@@ -107,7 +107,7 @@ public class DispatcherService {
   }
 
   public void runPlan() {
-    findPlan(false); // do nto force-run
+    findPlan(false); //D do nto force-run
   }
   /** 1) get the data from DB
   *   2) find a (sub)optimal plan
