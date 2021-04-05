@@ -2,6 +2,7 @@ package no.kabina.kaboot.stats;
 
 
 import no.kabina.kaboot.KabootApplication;
+import no.kabina.kaboot.dispatcher.DistanceService;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -23,6 +24,9 @@ public class StatsTests {
 
     @MockBean
     StatRepository statRepo;
+
+    @MockBean
+    DistanceService distanceService;
 
     @Before
     public void before() {

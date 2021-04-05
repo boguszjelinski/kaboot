@@ -22,31 +22,27 @@ import java.util.HashMap;
 import java.util.List;
 import no.kabina.kaboot.orders.TaxiOrder;
 import org.apache.commons.lang3.builder.HashCodeBuilder;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Service;
 
-@Service
 public class DynaPool {
 
-  @Value("${kaboot.consts.max-stand}")
-  private int maxNumbStands;
+  private DistanceService distSrvc;
 
   TaxiOrder[] demand;
-  int [][]cost;
   private static final int MAX_IN_POOL = 6; // just for memory allocation, might be 10 as well
 
   List<Branch>[] node;
   List<Branch>[] nodeP;
   HashMap<String, Branch> map = new HashMap<>();
 
-  public DynaPool() {
-    if (maxNumbStands == 0) maxNumbStands = 50; // TASK: temp fix of tests
-    this.cost = setCosts();
+  public DynaPool(DistanceService srvc) {
+    this.distSrvc = srvc;
   }
 
-  public DynaPool(int maxNumbStands) {
-    this.maxNumbStands = maxNumbStands;
-    this.cost = setCosts();
+  // for tests
+  public DynaPool(int [][] dists) {
+    if (distSrvc == null) {
+      distSrvc = new DistanceService(dists);
+    }
   }
 
   /**
@@ -95,18 +91,20 @@ public class DynaPool {
         }
       }
     }
-    // removing duplicates which come from lev+1
+    // removing duplicates which come from lev+1,
+    // as for that level it does not matter which order is better in stages towards leaves
     node[lev] = rmDuplicates(node[lev], lev, true); // true - make hash
   }
 
   private void storeBranch(int lev, int c, Branch b, int inPool) {
     int[] drops = new int[inPool - lev];
     drops[0] = c;
+    // !! System.arraycopy is slower
     for (int j = 0; j < inPool - lev - 1; j++) { // further stage has one passenger less: -1
       drops[j + 1] = b.custIDs[j];
     }
     Branch b2 = new Branch(c + "-" + b.key, // no sorting as we have to remove lev+1 duplicates eg. 1-4-5 and 1-5-4
-                      cost[demand[c].toStand][demand[b.custIDs[0]].toStand] + b.cost,
+                      distSrvc.getDistances()[demand[c].toStand][demand[b.custIDs[0]].toStand] + b.cost,
                           drops);
     node[lev].add(b2);
   }
@@ -115,13 +113,13 @@ public class DynaPool {
     for (int c = 0; c < demand.length; c++) {
       for (int d = 0; d < demand.length; d++) {
         if (c != d
-                && cost[demand[c].toStand][demand[d].toStand]
-                        < cost[demand[d].fromStand][demand[d].toStand] * (100.0 + demand[d].getMaxLoss()) / 100.0) {
+                && distSrvc.getDistances()[demand[c].toStand][demand[d].toStand]
+                        < distSrvc.getDistances()[demand[d].fromStand][demand[d].toStand] * (100.0 + demand[d].getMaxLoss()) / 100.0) {
           int[] drops = new int[2];
           drops[0] = c;
           drops[1] = d;
           String key = c > d ? d + "-" + c : c + "-" + d;
-          Branch b = new Branch(key, cost[demand[c].toStand][demand[d].toStand], drops);
+          Branch b = new Branch(key, distSrvc.getDistances()[demand[c].toStand][demand[d].toStand], drops);
           node[inPool - 2].add(b);
         }
       }
@@ -132,13 +130,13 @@ public class DynaPool {
     for (int c = 0; c < demand.length; c++) {
       for (int d = 0; d < demand.length; d++) {
         if (c != d
-                && cost[demand[c].fromStand][demand[d].fromStand]
-                        < cost[demand[d].fromStand][demand[d].toStand] * (100.0 + demand[d].getMaxLoss()) / 100.0) {
+                && distSrvc.getDistances()[demand[c].fromStand][demand[d].fromStand]
+                        < distSrvc.getDistances()[demand[d].fromStand][demand[d].toStand] * (100.0 + demand[d].getMaxLoss()) / 100.0) {
           int[] pickUp = new int[2];
           pickUp[0] = c;
           pickUp[1] = d;
           String key = c > d ? d + "-" + c : c + "-" + d;
-          Branch b = new Branch(key, cost[demand[c].fromStand][demand[d].fromStand], pickUp);
+          Branch b = new Branch(key, distSrvc.getDistances()[demand[c].fromStand][demand[d].fromStand], pickUp);
           nodeP[inPool - 2].add(b);
         }
       }
@@ -166,11 +164,12 @@ public class DynaPool {
   private void storeBranchP(int lev, int c, Branch b, int inPool) {
     int[] pickups = new int[inPool - lev];
     pickups[0] = c;
-    for(int j = 0; j < inPool - lev - 1; j++) { // further stage has one passenger less: -1
+    // !! System.arraycopy is slower
+    for (int j = 0; j < inPool - lev - 1; j++) { // further stage has one passenger less: -1
       pickups[j + 1] = b.custIDs[j];
     }
     Branch b2 = new Branch(c + "-" + b.key, // no sorting as we have to remove lev+1 duplicates eg. 1-4-5 and 1-5-4
-                      cost[demand[c].fromStand][demand[b.custIDs[0]].fromStand] + b.cost,
+                      distSrvc.getDistances()[demand[c].fromStand][demand[b.custIDs[0]].fromStand] + b.cost,
                           pickups);
     nodeP[lev].add(b2);
   }
@@ -182,15 +181,15 @@ public class DynaPool {
       }
     }
     // now checking if anyone in the branch does not lose too much with the pool
-    int wait = cost[demand[c].toStand][demand[b.custIDs[0]].toStand];
+    int wait = distSrvc.getDistances()[demand[c].toStand][demand[b.custIDs[0]].toStand];
 
     for (int i = 0; i < b.custIDs.length; i++) {
-      if (wait > cost[demand[b.custIDs[i]].fromStand][demand[b.custIDs[i]].toStand]
+      if (wait > distSrvc.getDistances()[demand[b.custIDs[i]].fromStand][demand[b.custIDs[i]].toStand]
                   * (100.0 + demand[b.custIDs[i]].getMaxLoss()) / 100.0) {
         return true;
       }
       if (i + 1 < b.custIDs.length) {
-        wait += cost[demand[b.custIDs[i]].toStand][demand[b.custIDs[i + 1]].toStand];
+        wait += distSrvc.getDistances()[demand[b.custIDs[i]].toStand][demand[b.custIDs[i + 1]].toStand];
       }
     }
     return false;
@@ -202,16 +201,16 @@ public class DynaPool {
         return true; // current passenger is in the branch below -> reject that combination
       }
     }
-    // now checking if anyone in the branch does not lose too much with the pool
-    int wait = cost[demand[c].fromStand][demand[b.custIDs[0]].fromStand];
+    // now checking if c does not lose too much with the pool
+    int wait = distSrvc.getDistances()[demand[c].fromStand][demand[b.custIDs[0]].fromStand];
 
     for (int i = 0; i < b.custIDs.length; i++) {
-      if (wait > cost[demand[b.custIDs[i]].fromStand][demand[b.custIDs[i]].toStand]
-                * (100.0 + demand[b.custIDs[i]].getMaxLoss()) / 100.0) {
+      if (wait > distSrvc.getDistances()[demand[c].fromStand][demand[c].toStand]
+                * (100.0 + demand[c].getMaxLoss()) / 100.0) {
         return true;
       }
       if (i + 1 < b.custIDs.length) {
-        wait += cost[demand[b.custIDs[i]].fromStand][demand[b.custIDs[i + 1]].fromStand];
+        wait += distSrvc.getDistances()[demand[b.custIDs[i]].fromStand][demand[b.custIDs[i + 1]].fromStand];
       }
     }
     return false;
@@ -294,7 +293,7 @@ public class DynaPool {
           both[i] = demand[d.custIDs[i - p.custIDs.length]];
         }
         int cst = p.cost
-                  + cost[demand[p.custIDs[p.custIDs.length - 1]].fromStand][demand[d.custIDs[0]].toStand]
+                  + distSrvc.getDistances()[demand[p.custIDs[p.custIDs.length - 1]].fromStand][demand[d.custIDs[0]].toStand]
                   + d.cost;
         ret.add(new PoolElement(both, inPool, cst));
       }
@@ -310,19 +309,19 @@ public class DynaPool {
       int wait = 0;  // the trip does not start for all at the same stop, some get picked up later than others
       // pick up phase
       for (int i = c; i < inPool - 1; i++) {
-        wait += cost[demand[p.custIDs[i]].fromStand][demand[p.custIDs[i + 1]].fromStand];
+        wait += distSrvc.getDistances()[demand[p.custIDs[i]].fromStand][demand[p.custIDs[i + 1]].fromStand];
       }
       // transition from pickup to dropoff
-      wait += cost[demand[p.custIDs[p.custIDs.length-1]].fromStand][demand[d.custIDs[0]].toStand];
+      wait += distSrvc.getDistances()[demand[p.custIDs[p.custIDs.length-1]].fromStand][demand[d.custIDs[0]].toStand];
       // drop off phase
       int i = 0;
       while (p.custIDs[c] != d.custIDs[i]/* && i != d.dropoff.length*/) {
-        wait += cost[demand[d.custIDs[i]].toStand][demand[d.custIDs[i + 1]].toStand];
+        wait += distSrvc.getDistances()[demand[d.custIDs[i]].toStand][demand[d.custIDs[i + 1]].toStand];
         i++;
       }
       // now the verdict; this 'if' might be executed after pick-up above too
-      if (wait > cost[demand[d.custIDs[c]].fromStand][demand[d.custIDs[c]].toStand]
-              * (1.0 + demand[d.custIDs[c]].getMaxLoss() / 100.0)) {
+      if (wait > distSrvc.getDistances()[demand[p.custIDs[c]].fromStand][demand[p.custIDs[c]].toStand]
+              * (1.0 + demand[p.custIDs[c]].getMaxLoss() / 100.0)) {
         return false;
       }
     }
@@ -352,18 +351,6 @@ public class DynaPool {
     return key;
   }
 
-  private int[][] setCosts() {
-    int[][] costMatrix = new int[maxNumbStands][maxNumbStands];
-    for (int i = 0; i < maxNumbStands; i++) {
-      for (int j = i; j < maxNumbStands; j++) {
-        // TASK: should we use BIG_COST to mark stands very distant from any cab ?
-        costMatrix[j][i] = DistanceService.getDistance(j, i); // simplification of distance - stop9 is closer to stop7 than to stop1
-        costMatrix[i][j] = costMatrix[j][i];
-      }
-    }
-    return costMatrix;
-  }
-  
   class Branch implements Comparable<Branch> {
     public String key; // used to remove duplicates and search in hashmap
     public int cost;

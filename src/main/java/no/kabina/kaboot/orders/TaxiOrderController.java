@@ -5,10 +5,12 @@ import java.time.LocalDateTime;
 import java.util.Optional;
 
 import no.kabina.kaboot.dispatcher.DispatcherService;
+import no.kabina.kaboot.dispatcher.DistanceService;
 import no.kabina.kaboot.stats.StatService;
 import no.kabina.kaboot.utils.AuthUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -25,11 +27,17 @@ public class TaxiOrderController {
   private final TaxiOrderRepository repository;
   private final TaxiOrderService service;
   private final StatService statSrvc;
+  private final DistanceService distanceService;
 
-  public TaxiOrderController(TaxiOrderRepository repository, TaxiOrderService service, StatService statSrvc) {
+  @Value("${kaboot.consts.max-trip}")
+  private int maxTrip;
+
+  public TaxiOrderController(TaxiOrderRepository repository, TaxiOrderService service, StatService statSrvc,
+                              DistanceService distanceService) {
     this.repository = repository;
     this.service = service;
     this.statSrvc = statSrvc;
+    this.distanceService = distanceService;
   }
 
   @GetMapping("/orders/{id}")
@@ -58,7 +66,7 @@ public class TaxiOrderController {
     return to;
   }
 
-  //  curl -d '{"fromStand":0, "toStand": 1, "maxWait":1, "maxLoss": 30, "shared": true}' -H 'Content-Type: application/json' http://localhost:8080/orders
+  //  curl -v --user cust0:cust0 -d '{"fromStand":0, "toStand": 1, "maxWait":1, "maxLoss": 30, "shared": true}' -H 'Content-Type: application/json' http://localhost:8080/orders
   @PostMapping(value = "/orders", consumes = "application/json")
   public TaxiOrder newTaxiOrder(@RequestBody TaxiOrderPojo newTaxiOrder, Authentication auth) {
     // TASK: should fail if another order is RECEIVED
@@ -68,6 +76,10 @@ public class TaxiOrderController {
       return null; // not authorised
     }
     if (newTaxiOrder.fromStand == newTaxiOrder.toStand) { // a joker
+      return null;
+    }
+    if (distanceService.getDistances()[newTaxiOrder.fromStand][newTaxiOrder.toStand] > maxTrip) {
+      logger.info("POST order - requested trip too long");
       return null;
     }
     TaxiOrder order = new TaxiOrder(newTaxiOrder.fromStand, newTaxiOrder.toStand, newTaxiOrder.maxWait,

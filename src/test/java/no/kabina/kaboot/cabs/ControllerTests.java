@@ -71,7 +71,7 @@ public class ControllerTests {
 
     @Test
     public void whenGetNonExistingCab_thenReturns200() throws Exception {
-        given(cabRepo.findById(1)).willReturn(new Cab(0, Cab.CabStatus.ASSIGNED));
+        given(cabRepo.findById(1)).willReturn(new Cab(0, "A1", Cab.CabStatus.ASSIGNED));
         mvc.perform(get("/cabs/1", 1L) // cab1 by cab0
             .header("Authorization", token)
             .contentType(MediaType.APPLICATION_JSON))
@@ -80,7 +80,7 @@ public class ControllerTests {
 
     @Test
     public void testPojo() throws Exception {
-        CabPojo pojo = new CabPojo(1, Cab.CabStatus.ASSIGNED);
+        CabPojo pojo = new CabPojo(1, "A1", Cab.CabStatus.ASSIGNED);
         assertThat(pojo).isNotNull();
         assertThat(pojo.getStatus()).isSameAs(Cab.CabStatus.ASSIGNED);
     }

@@ -25,6 +25,7 @@ public class CabRunnable extends ApiClient implements Runnable {
 
     private int cabId;
     private int stand;
+    private List<Stop> stops;
 
     public CabRunnable(int id, int stand) { 
         this.cabId = id; 
@@ -53,6 +54,9 @@ public class CabRunnable extends ApiClient implements Runnable {
             logger.warning("Cab=" +  cab_id + " not activated");
             return;
         }
+
+        stops = getStops("stops/", cab_id);
+
         // non-random, nice deterministic distribution so that simulations are reproducible
         logger.info("Updating cab=" + cab_id + ", free at: " + stand);
         String json = "{\"location\":\"" + stand + "\", \"status\": \""+ CabStatus.FREE +"\"}";
@@ -78,7 +82,7 @@ public class CabRunnable extends ApiClient implements Runnable {
                 if (task.fromStand != cab.location) { 
                     // strange - scheduler did not know cab's location (! never found in logs)
                     log("Error, first leg does not start at cabs location. Moving", task.fromStand, cab.location, cab_id, + task.id);
-                    waitMins(Math.abs(cab.location - task.fromStand)); // cab is moving
+                    waitMins(getDistance(stops, cab.location, task.fromStand)); // cab is moving
                     cab.location = task.fromStand;
                     // inform that cab is at the stand -> update Cab entity, 'complete' previous Task
                     updateCab(cab.id, cab);
@@ -97,7 +101,7 @@ public class CabRunnable extends ApiClient implements Runnable {
             Task task = legs.get(i);
             log("Moving", task.fromStand, task.toStand, this.cabId, task.id);
 
-            waitMins(Math.abs(task.fromStand - task.toStand)); // cab is moving
+            waitMins(getDistance(stops, task.fromStand, task.toStand)); // cab is moving
             task.status = RouteStatus.COMPLETE;
             updateLeg(cab.id, task);
             cab.location = task.toStand;

@@ -79,6 +79,11 @@ public class ApiClient {
         return getCabFromJson(json);
     }
 
+    protected List<Stop> getStops(String entityUrl, int userId) {
+        String json = getEntityAsJson("cab" + userId, entityUrl);
+        return getStopsFromJson(json);
+    }
+
     protected void updateCab(int cab_id, Cab cab) {
         String json = "{\"location\":\"" + cab.location + "\", \"status\": \""+ cab.status +"\"}";
         log("cab", cab_id, json);
@@ -119,6 +124,26 @@ public class ApiClient {
                                 (int) m.get("place")));
         }
         return new Route(id, tasks);
+    }
+
+    private List<Stop> getStopsFromJson(String str) {
+        //{"id":1, "no":"20001", "name":" ", "type":"No Shelter or Seating Available",
+        //  "bearing":null,"latitude":36.2182242820001,"longitude":-115.247021856}
+        List<Map> lista = getListOfMap(str, this.engine);
+        if (lista == null) {
+            return null;
+        }
+        List<Stop> stops = new ArrayList<>();
+        for (Map m : lista) {
+            stops.add(new Stop( (int) m.get("id"),
+                                (String) m.get("no"),
+                                (String) m.get("name"),
+                                (String) m.get("type"),
+                                (String) m.get("place"),
+                                (double) m.get("latitude"),
+                                (double) m.get("longitude")));
+        }
+        return stops;
     }
 
     private Cab getCabFromJson(String json) {
@@ -261,6 +286,17 @@ public class ApiClient {
         }
     }
 
+    
+    private static List<Map> getListOfMap(String json, ScriptEngine engine) {
+        try {
+            String script = "Java.asJSONCompatible(" + json + ")";
+            Object result = engine.eval(script);
+            return (List<Map>) result;
+        } catch (ScriptException se) {
+            return null;
+        }
+    }
+
     public static void waitSecs(int secs) {
         try { Thread.sleep(secs*1000); } catch (InterruptedException e) {} // one minute
     }
@@ -372,5 +408,42 @@ public class ApiClient {
         }
         catch (IOException ioe) { }
         return -1;
+    }
+
+    protected int getDistance(List<Stop> stops, int from, int to) {
+        Stop f = stops.stream().filter(s -> from == s.id).findAny().orElse(null);
+        Stop t = stops.stream().filter(s -> to == s.id).findAny().orElse(null);
+        if (f == null || t == null) return -1; // ERR
+        return (int) dist(f.latitude, f.longitude, t.latitude, t.longitude, 'K');
+    }
+
+    // https://dzone.com/articles/distance-calculation-using-3
+    private double dist(double lat1, double lon1, double lat2, double lon2, char unit) {
+        double theta = lon1 - lon2;
+        double dist = Math.sin(deg2rad(lat1)) * Math.sin(deg2rad(lat2)) + Math.cos(deg2rad(lat1))
+                    * Math.cos(deg2rad(lat2)) * Math.cos(deg2rad(theta));
+        dist = Math.acos(dist);
+        dist = rad2deg(dist);
+        dist = dist * 60 * 1.1515;
+        if (unit == 'K') {
+        dist = dist * 1.609344;
+        } else if (unit == 'N') {
+        dist = dist * 0.8684;
+        }
+        return (dist);
+    }
+
+    /*:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::*/
+    /*::  This function converts decimal degrees to radians             :*/
+    /*:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::*/
+    private double deg2rad(double deg) {
+        return (deg * Math.PI / 180.0);
+    }
+
+    /*:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::*/
+    /*::  This function converts radians to decimal degrees             :*/
+    /*:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::*/
+    private double rad2deg(double rad) {
+        return (rad * 180.0 / Math.PI);
     }
 }

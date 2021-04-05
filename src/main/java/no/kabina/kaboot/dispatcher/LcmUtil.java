@@ -26,10 +26,14 @@ import no.kabina.kaboot.cabs.Cab;
 import no.kabina.kaboot.orders.TaxiOrder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 @Component
 public class LcmUtil {
+
+  @Autowired
+  private DistanceService distanceService;
 
   private static final Logger logger = LoggerFactory.getLogger(LcmUtil.class);
 
@@ -100,7 +104,7 @@ public class LcmUtil {
    * @param tmpSupply cabs available
    * @return matrix
    */
-  public static int[][] calculateCost(String inputFile, String outputFile, TaxiOrder[] tmpDemand, Cab[] tmpSupply) {
+  public int[][] calculateCost(String inputFile, String outputFile, TaxiOrder[] tmpDemand, Cab[] tmpSupply) {
     int c;
     int d;
     int numbSupply = tmpSupply.length;
@@ -118,8 +122,8 @@ public class LcmUtil {
     }
     for (c = 0; c < numbSupply; c++) {
       for (d = 0; d < numbDemand; d++) {
-        // check that cans and customers are in range is done in getRidOfDistantCabs & Customers
-        cost[c][d] = DistanceService.getDistance(tmpSupply[c].getLocation(), tmpDemand[d].fromStand);
+        // check that cabs and customers are in range is done in getRidOfDistantCabs & Customers
+        cost[c][d] = distanceService.getDistances()[tmpSupply[c].getLocation()][tmpDemand[d].fromStand];
       }
     }
     // for the external solver only
@@ -215,11 +219,11 @@ public class LcmUtil {
    * @param supply cabs
    * @return cabs
    */
-  public static Cab[] getRidOfDistantCabs(TaxiOrder[] demand, Cab[] supply) {
+  public Cab[] getRidOfDistantCabs(TaxiOrder[] demand, Cab[] supply) {
     List<Cab> list = new ArrayList<>();
     for (Cab cab : supply) {
       for (TaxiOrder taxiOrder : demand) {
-        int dst = DistanceService.getDistance(cab.getLocation(), taxiOrder.fromStand);
+        int dst = distanceService.getDistances()[cab.getLocation()][taxiOrder.fromStand];
         if (dst + SCHEDULING_DURATION <= taxiOrder.getMaxWait()) {
           // great, we have at least one customer in range for this cab
           list.add(cab);
@@ -236,11 +240,11 @@ public class LcmUtil {
    * @param supply cabs
    * @return orders
    */
-  public static TaxiOrder[] getRidOfDistantCustomers(TaxiOrder[] demand, Cab[] supply) {
+  public TaxiOrder[] getRidOfDistantCustomers(TaxiOrder[] demand, Cab[] supply) {
     List<TaxiOrder> list = new ArrayList<>();
     for (TaxiOrder taxiOrder : demand) {
       for (Cab cab : supply) {
-        int dst = DistanceService.getDistance(cab.getLocation(), taxiOrder.fromStand);
+        int dst = distanceService.getDistances()[cab.getLocation()][taxiOrder.fromStand];
         if (dst + SCHEDULING_DURATION <= taxiOrder.getMaxWait()) { // SCHEDULING_DURATION is an average duration, at this stage we don't know how long it will take
           // TASK: maybe we could forecast SCHEDULING_DURAION based on demand size
           // great, we have at least one cab in range for this customer

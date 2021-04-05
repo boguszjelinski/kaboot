@@ -42,6 +42,7 @@ kaboot:
         max-pool4: 300
         max-pool3: 400
         max-stand: 50
+        max-trip: 15
     scheduler:
         online: false
         at-time-lag: 3

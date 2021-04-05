@@ -44,7 +44,7 @@ public class CabController {
   @PutMapping(value = "/cabs/{id}", consumes = "application/json")
   public String updateCab(@PathVariable Long id, @RequestBody CabPojo cabIn, Authentication auth) {
     logger.info("PUT cab={}", id);
-    Cab cab = new Cab(cabIn.getLocation(), cabIn.getStatus());
+    Cab cab = new Cab(cabIn.getLocation(), cabIn.getName(), cabIn.getStatus());
     cab.setId(id);
     Long usrId = AuthUtils.getUserId(auth, "ROLE_CAB");
     if (usrId.longValue() != cab.getId().longValue()) { // now it is that simple - cab_id == usr_id
@@ -67,7 +67,7 @@ public class CabController {
       logger.warn("Not authorised");
       return null;
     }
-    Cab c = new Cab(cab.getLocation(), cab.getStatus());
+    Cab c = new Cab(cab.getLocation(), cab.getName(), cab.getStatus());
     return repository.save(c);
   }
 }

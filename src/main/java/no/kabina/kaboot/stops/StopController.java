@@ -1,0 +1,25 @@
+package no.kabina.kaboot.stops;
+
+import java.util.List;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.security.core.Authentication;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+@RestController
+public class StopController {
+  private final Logger logger = LoggerFactory.getLogger(StopController.class);
+
+  private final StopRepository stopRepository;
+
+  public StopController(StopRepository stopRepository) {
+    this.stopRepository = stopRepository;
+  }
+
+  @GetMapping("/stops")
+  public List<Stop> all(Authentication auth) {
+    logger.info("GET stops");
+    return stopRepository.findAll();
+  }
+}

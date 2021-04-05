@@ -23,6 +23,8 @@ import no.kabina.kaboot.orders.TaxiOrder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import static java.lang.Math.abs;
+
 public class PoolUtil {
 
   private static final Logger logger = LoggerFactory.getLogger(PoolUtil.class);
@@ -38,7 +40,7 @@ public class PoolUtil {
 
   public PoolUtil(int stands) {
     this.maxNumbStands = stands;
-    this.cost = setCosts();
+    this.cost = setCosts(stands);
   }
 
   /**
@@ -200,12 +202,12 @@ public class PoolUtil {
     return ret.toArray(new PoolElement[0]);
   }
 
-  private int[][] setCosts() {
-    int[][] costMatrix = new int[maxNumbStands][maxNumbStands];
-    for (int i = 0; i < maxNumbStands; i++) {
-      for (int j = i; j < maxNumbStands; j++) {
+  public static int[][] setCosts(int size) {
+    int[][] costMatrix = new int[size][size];
+    for (int i = 0; i < size; i++) {
+      for (int j = i; j < size; j++) {
         // TASK: should we use BIG_COST to mark stands very distant from any cab ?
-        costMatrix[j][i] = DistanceService.getDistance(j, i); // simplification of distance - stop9 is closer to stop7 than to stop1
+        costMatrix[j][i] = abs(i - j); // abs; simplification of distance - stop9 is closer to stop7 than to stop1
         costMatrix[i][j] = costMatrix[j][i];
       }
     }

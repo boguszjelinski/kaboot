@@ -27,13 +27,15 @@ public class Cab {
   private Long id;
 
   private int location; // updated while in route
+  private String name;
   private CabStatus status;
 
   public Cab() {}
 
-  public Cab(int loc, CabStatus status) {
+  public Cab(int loc, String name, CabStatus status) {
     this.location = loc;
     this.status = status;
+    this.name = name;
   }
 
   @OneToMany(fetch = FetchType.LAZY)
@@ -50,6 +52,14 @@ public class Cab {
 
   public int getLocation() {
     return location;
+  }
+
+  public String getName() {
+    return name;
+  }
+
+  public void setName(String name) {
+    this.name = name;
   }
 
   public void setItems(Set<TaxiOrder> i) {

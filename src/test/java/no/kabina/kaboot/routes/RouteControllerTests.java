@@ -56,7 +56,7 @@ public class RouteControllerTests {
     @Test
     public void whenUpdateValidRoute_thenReturns200() throws Exception {
         Route r = new Route();
-        Cab c = new Cab(1, Cab.CabStatus.ASSIGNED);
+        Cab c = new Cab(1, "", Cab.CabStatus.ASSIGNED);
         c.setId(0L);
         r.setCab(c);
         given(routeRepo.findById(123L)).willReturn(java.util.Optional.of(r));

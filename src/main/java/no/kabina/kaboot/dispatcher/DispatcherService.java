@@ -34,6 +34,7 @@ import no.kabina.kaboot.routes.Route;
 import no.kabina.kaboot.routes.Route.RouteStatus;
 import no.kabina.kaboot.routes.RouteRepository;
 import no.kabina.kaboot.stats.StatService;
+import no.kabina.kaboot.stops.StopRepository;
 import org.apache.commons.lang3.ArrayUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -93,21 +94,31 @@ public class DispatcherService {
   private final RouteRepository routeRepository;
   private final LegRepository legRepository;
   private final StatService statSrvc;
-  private final DynaPool dynaPool;
+  private final DistanceService distanceService;
+  private final LcmUtil lcmUtil;
+
+  private DynaPool dynaPool;
 
   public DispatcherService(TaxiOrderRepository taxiOrderRepository, CabRepository cabRepository,
                            RouteRepository routeRepository, LegRepository legRepository,
-                           StatService statService, DynaPool dynaPool) {
+                           StatService statService, DistanceService distanceService,
+                           LcmUtil lcmUtil, StopRepository stopRepository) {
     this.taxiOrderRepository = taxiOrderRepository;
     this.cabRepository = cabRepository;
     this.routeRepository = routeRepository;
     this.legRepository = legRepository;
     this.statSrvc = statService;
-    this.dynaPool = dynaPool;
+    this.distanceService = distanceService;
+    this.lcmUtil = lcmUtil;
+
+    if (distanceService.getDistances() == null) {
+      distanceService.initDistance(stopRepository);
+    }
+    dynaPool = new DynaPool(distanceService);
   }
 
   public void runPlan() {
-    findPlan(false); //D do nto force-run
+    findPlan(false);
   }
   /** 1) get the data from DB
   *   2) find a (sub)optimal plan
@@ -123,6 +134,7 @@ public class DispatcherService {
       logger.info("Scheduler will not be run");
       return;
     }
+
     updateAvgStats();
     long startSheduler = System.currentTimeMillis();
 
@@ -143,10 +155,12 @@ public class DispatcherService {
         logger.info("Route matcher found allocated {} requests", lenBefore - lenAfter);
       }
       PoolElement[] pl = generatePool(demand);
-      demand = PoolUtil.findFirstLegInPoolOrLone(pl, demand); // only the first leg will be sent to LCM or solver
-      logger.info("Demand after pooling: {}", demand.length);
+      if (pl != null && pl.length > 0) {
+        demand = PoolUtil.findFirstLegInPoolOrLone(pl, demand); // only the first leg will be sent to LCM or solver
+        logger.info("Demand after pooling: {}", demand.length);
+      }
       // now build a balanced cost matrix for solver
-      cost = LcmUtil.calculateCost(solverInput, solverOutput, demand, supply);
+      cost = lcmUtil.calculateCost(solverInput, solverOutput, demand, supply);
 
       statSrvc.updateMaxAndAvgStats("model_size", cost.length);
       if (demand.length > maxSolverSize && supply.length > maxSolverSize) { // too big to send to solver, it has to be cut by LCM
@@ -156,7 +170,7 @@ public class DispatcherService {
         supply = tempModel.getSupply();
         // to be sent to solver
         logger.info("After LCM: demand={}, supply={}", demand.length, supply.length);
-        cost = LcmUtil.calculateCost(solverInput, solverOutput, demand, supply);
+        cost = lcmUtil.calculateCost(solverInput, solverOutput, demand, supply);
       }
       runSolver(supply, demand, cost, pl);
       statSrvc.updateMaxAndAvgTime("sheduler_time", startSheduler);
@@ -199,7 +213,7 @@ public class DispatcherService {
         tempDemand = GcmUtil.reduceDemand(cost, tempDemand, maxSolverSize);
       }
       // recalculate cost matrix again
-      cost = LcmUtil.calculateCost(solverInput, solverOutput, tempDemand, tempSupply); // it writes input file for solver
+      cost = lcmUtil.calculateCost(solverInput, solverOutput, tempDemand, tempSupply); // it writes input file for solver
     }
     statSrvc.updateMaxAndAvgStats("solver_size", cost.length);
     logger.info("Runnnig solver: demand={}, supply={}", tempDemand.length, tempSupply.length);
@@ -211,7 +225,6 @@ public class DispatcherService {
       logger.warn("Solver returned wrong data set");
       // TASK: LCM should be called here !!!
     } else {
-
       int assgnd = assignCustomers(x, cost, tempDemand, tempSupply, pl);
       logger.info("Customers assigned by solver: {}", assgnd);
     }
@@ -319,12 +332,12 @@ public class DispatcherService {
     }
     logger.info("Initial count of demand={}, supply={}", tempDemand.length, tempSupply.length);
 
-    tempDemand = LcmUtil.getRidOfDistantCustomers(tempDemand, tempSupply);
+    tempDemand = lcmUtil.getRidOfDistantCustomers(tempDemand, tempSupply);
     if (tempDemand.length == 0) {
       logger.info("No suitable demand, too distant");
       return null; // don't solve anything
     }
-    tempSupply = LcmUtil.getRidOfDistantCabs(tempDemand, tempSupply);
+    tempSupply = lcmUtil.getRidOfDistantCabs(tempDemand, tempSupply);
     if (tempSupply.length == 0) {
       logger.info("No cabs available, too distant");
       return null; // don't solve anything
@@ -491,7 +504,7 @@ public class DispatcherService {
     Leg leg = null;
     int legId = 0;
     if (cab.getLocation() != order.fromStand) { // cab has to move to pickup the first customer
-      eta = DistanceService.getDistance(cab.getLocation(), order.fromStand);
+      eta = distanceService.distance[cab.getLocation()][order.fromStand];
       leg = new Leg(cab.getLocation(), order.fromStand, legId++, Route.RouteStatus.ASSIGNED);
       leg.setRoute(route);
       legRepository.save(leg);
@@ -499,12 +512,14 @@ public class DispatcherService {
     }
     // legs & routes are assigned to customers in Pool
     // if not assigned to a Pool we have to create a single-task route here
-    for (PoolElement e : pool) { // PoolElement contains TaxiOrder IDs (primary keys)
-      if (e.getCust()[0].id.equals(order.id)) { // yeap, this id is in a pool
-        // checking number
-        // save pick-up phase
-        assignOrdersAndSaveLegs(cab, route, legId, e, eta);
-        return e.getNumbOfCust();
+    if (pool != null) {
+      for (PoolElement e : pool) { // PoolElement contains TaxiOrder IDs (primary keys)
+        if (e.getCust()[0].id.equals(order.id)) { // yeap, this id is in a pool
+          // checking number
+          // save pick-up phase
+          assignOrdersAndSaveLegs(cab, route, legId, e, eta);
+          return e.getNumbOfCust();
+        }
       }
     }
     // Pool not found
@@ -526,7 +541,7 @@ public class DispatcherService {
       assignOrder(leg, e.getCust()[c], cab, route, eta);
       // c + 1 means that this distance will add to 'eta' of the next customer being picked up
       if (e.getCust()[c].fromStand != e.getCust()[c + 1].fromStand) {
-        eta += DistanceService.getDistance(e.getCust()[c].fromStand, e.getCust()[c + 1].fromStand);
+        eta += distanceService.distance[e.getCust()[c].fromStand][e.getCust()[c + 1].fromStand];
       }
     }
     leg = null;

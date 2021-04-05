@@ -1,18 +1,33 @@
 package no.kabina.kaboot.dispatcher;
 
+import no.kabina.kaboot.KabootApplication;
 import no.kabina.kaboot.cabs.Cab;
 import no.kabina.kaboot.orders.TaxiOrder;
 import org.junit.Before;
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.junit4.SpringRunner;
 
 import java.util.ArrayList;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.BDDMockito.given;
 
+@RunWith(SpringRunner.class)
+@SpringBootTest(classes = KabootApplication.class)
 @ActiveProfiles("test")
 public class LcmUtilTests {
+
+    @Autowired
+    LcmUtil lcmUtil;
+
+    @MockBean
+    DistanceService distanceService;
 
     private Cab[] cabs;
     private TaxiOrder[] orders;
@@ -21,14 +36,17 @@ public class LcmUtilTests {
 
     @Before
     public void before() {
+        given(distanceService.getDistances()).willReturn(PoolUtil.setCosts(numbOfStands));
+
         cabs = new Cab[numbOfStands];
+
         orders = new TaxiOrder[numbOfStands];
         for (int i = 0; i < numbOfStands; i++) {
-            cabs[i] = new Cab(i, Cab.CabStatus.FREE);
+            cabs[i] = new Cab(i, "", Cab.CabStatus.FREE);
             orders[i] = new TaxiOrder(i, numbOfStands - i == i ? 0 : numbOfStands - i,
                     10,10, true, TaxiOrder.OrderStatus.RECEIVED, null);
         }
-        cost = LcmUtil.calculateCost("glpk.mod", "out.txt", orders, cabs);
+        cost = lcmUtil.calculateCost("glpk.mod", "out.txt", orders, cabs);
     }
 
     @Test
@@ -57,18 +75,18 @@ public class LcmUtilTests {
     @Test
     public void testGetRidOfDistandCabs() {
         // these aren't distant
-        Cab[] c = LcmUtil.getRidOfDistantCabs(orders, cabs);
-        TaxiOrder[] o = LcmUtil.getRidOfDistantCustomers(orders, cabs);
+        Cab[] c = lcmUtil.getRidOfDistantCabs(orders, cabs);
+        TaxiOrder[] o = lcmUtil.getRidOfDistantCustomers(orders, cabs);
         assertThat(c.length).isSameAs(numbOfStands);
         assertThat(o.length).isSameAs(numbOfStands);
         // these are distant
         for (int i = 0; i < numbOfStands; i++) {
-            cabs[i] = new Cab(0, Cab.CabStatus.FREE);
-            orders[i] = new TaxiOrder(numbOfStands, numbOfStands - 1,
+            cabs[i] = new Cab(0,"", Cab.CabStatus.FREE);
+            orders[i] = new TaxiOrder(numbOfStands - 1, numbOfStands - 2,
                     10,10, true, TaxiOrder.OrderStatus.RECEIVED, null);
         }
-        c = LcmUtil.getRidOfDistantCabs(orders, cabs);
-        o = LcmUtil.getRidOfDistantCustomers(orders, cabs);
+        c = lcmUtil.getRidOfDistantCabs(orders, cabs);
+        o = lcmUtil.getRidOfDistantCustomers(orders, cabs);
         assertThat(c.length).isSameAs(0);
         assertThat(o.length).isSameAs(0);
     }

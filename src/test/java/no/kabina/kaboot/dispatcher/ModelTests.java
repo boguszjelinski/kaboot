@@ -36,8 +36,8 @@ public class ModelTests {
         assertThat(pair).isNotNull();
     }
 
-    @Test
+  /*  @Test
     public void testGetDistance() throws Exception {
         assertThat(DistanceService.getDistance(0,1)).isSameAs(1);
-    }
+    }*/
 }
