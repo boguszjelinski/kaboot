@@ -3,7 +3,6 @@ package no.kabina.kaboot.orders;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.Optional;
-
 import no.kabina.kaboot.dispatcher.DispatcherService;
 import no.kabina.kaboot.dispatcher.DistanceService;
 import no.kabina.kaboot.stats.StatService;
@@ -111,7 +110,7 @@ public class TaxiOrderController {
     Duration duration = Duration.between(ord.get().getRcvdTime(), LocalDateTime.now());
     if (newTaxiOrder.status == TaxiOrder.OrderStatus.PICKEDUP) {
       statSrvc.addAverageElement(DispatcherService.AVG_ORDER_PICKUP_TIME, duration.getSeconds());
-    } else if (newTaxiOrder.status == TaxiOrder.OrderStatus.COMPLETE) {
+    } else if (newTaxiOrder.status == TaxiOrder.OrderStatus.COMPLETED) {
       statSrvc.addAverageElement(DispatcherService.AVG_ORDER_COMPLETE_TIME, duration.getSeconds());
     }
     ord.get().setStatus(newTaxiOrder.getStatus()); // we care only about status for now

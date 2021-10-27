@@ -46,7 +46,8 @@ public class Route {
         ACCEPTED,  // plan accepted by customer, waiting for the cab
         REJECTED,  // proposal rejected by customer(s)
         ABANDONED, // cancelled after assignment but before 'PICKEDUP'
-        COMPLETE
+        STARTED,   // status needed by legs
+        COMPLETED
   }
 
   public Long getId() {

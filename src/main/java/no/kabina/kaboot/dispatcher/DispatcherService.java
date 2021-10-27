@@ -283,7 +283,7 @@ public class DispatcherService {
       for (i = 1; i < legs.size() && !wontFind; i++) { // not from 0 as each leg we are looking for must have a predecessor
         if (demand[j].fromStand == legs.get(i).getFromStand() 
             && legs.get(i-1).getRoute().getId().equals(legs.get(i).getRoute().getId()) // previous leg is from the same route
-            && legs.get(i-1).getStatus() != RouteStatus.COMPLETE // the previous leg cannot be completed TASK !! in the future consider other statuses here
+            && legs.get(i-1).getStatus() != RouteStatus.COMPLETED // the previous leg cannot be completed TASK !! in the future consider other statuses here
             // we want the previous leg to be active to give some time for both parties to get the assignment
            ) { 
           for (k = i; k < legs.size() && !foundTo; k++) {

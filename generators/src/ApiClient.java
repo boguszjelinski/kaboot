@@ -343,7 +343,7 @@ public class ApiClient {
             case "ABANDONED": return OrderStatus.ABANDONED;
             case "ACCEPTED":  return OrderStatus.ACCEPTED;
             case "CANCELLED": return OrderStatus.CANCELLED;
-            case "COMPLETE":  return OrderStatus.COMPLETE;
+            case "COMPLETED":  return OrderStatus.COMPLETED;
             case "PICKEDUP":  return OrderStatus.PICKEDUP;
             case "RECEIVED":  return OrderStatus.RECEIVED;
             case "REFUSED":   return OrderStatus.REFUSED;
@@ -358,7 +358,8 @@ public class ApiClient {
         ACCEPTED,  // plan accepted by customer, waiting for the cab
         REJECTED,  // proposal rejected by customer(s)
         ABANDONED, // cancelled after assignment but before 'PICKEDUP'
-        COMPLETE
+        STARTED,
+        COMPLETED
     }
 
     public enum OrderStatus {
@@ -370,7 +371,7 @@ public class ApiClient {
         ABANDONED, // cancelled after assignment but before 'PICKEDUP'
         REFUSED,   // no cab available, cab broke down at any stage
         PICKEDUP,
-        COMPLETE
+        COMPLETED
     }
 
     public enum CabStatus {

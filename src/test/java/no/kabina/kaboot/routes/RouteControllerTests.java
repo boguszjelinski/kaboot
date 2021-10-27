@@ -45,7 +45,7 @@ public class RouteControllerTests {
 
     @Test
     public void whenUpdateInvalidRoute_thenReturns200() throws Exception {
-        String body = "{\"status\": \"COMPLETE\"}";
+        String body = "{\"status\": \"COMPLETED\"}";
         mvc.perform(put("/routes/1")
                 .header("Authorization", token)
                 .contentType(MediaType.APPLICATION_JSON)
@@ -60,7 +60,7 @@ public class RouteControllerTests {
         c.setId(0L);
         r.setCab(c);
         given(routeRepo.findById(123L)).willReturn(java.util.Optional.of(r));
-        String body = "{\"status\": \"COMPLETE\"}";
+        String body = "{\"status\": \"COMPLETED\"}";
         mvc.perform(put("/routes/123")
                 .header("Authorization", token)
                 .contentType(MediaType.APPLICATION_JSON)
@@ -79,8 +79,8 @@ public class RouteControllerTests {
     @Test
     public void whenPojoMeansBusiness() throws Exception {
         RoutePojo pojo = new RoutePojo();
-        pojo.setStatus(Route.RouteStatus.COMPLETE);
-        assertThat(pojo.getStatus()).isSameAs(Route.RouteStatus.COMPLETE);
+        pojo.setStatus(Route.RouteStatus.COMPLETED);
+        assertThat(pojo.getStatus()).isSameAs(Route.RouteStatus.COMPLETED);
         pojo = new RoutePojo(Route.RouteStatus.ASSIGNED);
         assertThat(pojo.getStatus()).isSameAs(Route.RouteStatus.ASSIGNED);
     }
@@ -88,10 +88,10 @@ public class RouteControllerTests {
     @Test
     public void whenEntityMeansBusiness() throws Exception {
         Route pojo = new Route();
-        pojo.setStatus(Route.RouteStatus.COMPLETE);
+        pojo.setStatus(Route.RouteStatus.COMPLETED);
         pojo.setLegs(null);
         pojo.setCab(null);
-        assertThat(pojo.getStatus()).isSameAs(Route.RouteStatus.COMPLETE);
+        assertThat(pojo.getStatus()).isSameAs(Route.RouteStatus.COMPLETED);
         assertThat(pojo.getLegs()).isNull();
         assertThat(pojo.getCab()).isNull();
     }

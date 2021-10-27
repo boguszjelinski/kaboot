@@ -84,11 +84,11 @@ public class CabRunnable extends ApiClient implements Runnable {
                     log("Error, first leg does not start at cabs location. Moving", task.fromStand, cab.location, cab_id, + task.id);
                     waitMins(getDistance(stops, cab.location, task.fromStand)); // cab is moving
                     cab.location = task.fromStand;
-                    // inform that cab is at the stand -> update Cab entity, 'complete' previous Task
+                    // inform that cab is at the stand -> update Cab entity, 'completed' previous Task
                     updateCab(cab.id, cab);
                 }
                 deliverPassengers(legs, cab);
-                route.status = RouteStatus.COMPLETE;
+                route.status = RouteStatus.COMPLETED;
                 updateRoute(cab.id, route);
             } 
             waitSecs(CHECK_INTERVAL);
@@ -100,16 +100,17 @@ public class CabRunnable extends ApiClient implements Runnable {
             // go from where you are to task.stand
             Task task = legs.get(i);
             log("Moving", task.fromStand, task.toStand, this.cabId, task.id);
-
+            task.status = RouteStatus.STARTED;
+            updateLeg(cab.id, task);
             waitMins(getDistance(stops, task.fromStand, task.toStand)); // cab is moving
-            task.status = RouteStatus.COMPLETE;
+            task.status = RouteStatus.COMPLETED;
             updateLeg(cab.id, task);
             cab.location = task.toStand;
             // inform sheduler / customer
             if (i == legs.size() - 1) {
                 cab.status = CabStatus.FREE;
             }
-            updateCab(cab.id, cab); // such call should 'complete' tasks; at the last task -> 'complete' route and 'free' that cab
+            updateCab(cab.id, cab); // such call should 'completed' tasks; at the last task -> 'complete' route and 'free' that cab
             // !! update leg here -> completed
             waitMins(1); // wait 1min: pickup + dropout
         }

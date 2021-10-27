@@ -108,9 +108,9 @@ class CustomerRunnable extends ApiClient implements Runnable {
        
         takeATrip(custId, order); 
       
-        if (order.status != OrderStatus.COMPLETE) {
+        if (order.status != OrderStatus.COMPLETED) {
             order.status = OrderStatus.CANCELLED; // just not to kill scheduler
-            log("Status is not COMPLETE, cancelling the trip", custId, orderId, order.cab_id);
+            log("Status is not COMPLETED, cancelling the trip", custId, orderId, order.cab_id);
             saveOrder("PUT", order, custId); 
         }
     }
@@ -153,13 +153,13 @@ class CustomerRunnable extends ApiClient implements Runnable {
         for (; duration<MAX_TRIP_LEN * (60/CHECK_INTERVAL); duration++) {
             waitSecs(CHECK_INTERVAL);
             /*order = getEntity("orders/", cust_id, order_id);
-            if (order.status == OrderStatus.COMPLETE && order.cab_id != -1)  {
+            if (order.status == OrderStatus.COMPLETED && order.cab_id != -1)  {
                 break;
             }*/
             Cab cab = getCab("cabs/", custId, order.cab_id);
             if (cab.location == order.to) {
                 log("Arrived at " + order.to, custId, order.id, order.cab_id);
-                order.status = OrderStatus.COMPLETE;
+                order.status = OrderStatus.COMPLETED;
                 saveOrder("PUT", order, custId); 
                 break;
             }

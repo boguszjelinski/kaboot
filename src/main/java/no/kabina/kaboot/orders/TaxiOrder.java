@@ -138,7 +138,7 @@ public class TaxiOrder {
         ABANDONED, // cancelled after assignment but before 'PICKEDUP'
         REFUSED,   // no cab available, cab broke down at any stage
         PICKEDUP,
-        COMPLETE
+        COMPLETED
   }
 
   public void setCustomer(Customer cust) {

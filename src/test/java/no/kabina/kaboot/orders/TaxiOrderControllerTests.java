@@ -12,6 +12,7 @@ import java.util.Base64;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import no.kabina.kaboot.customers.Customer;
+import no.kabina.kaboot.dispatcher.DistanceService;
 import no.kabina.kaboot.stats.StatService;
 import org.junit.Before;
 import org.junit.Test;
@@ -41,6 +42,9 @@ public class TaxiOrderControllerTests {
     @MockBean
     private StatService statService;
 
+    @MockBean
+    private DistanceService distanceService;
+
     private String token;
 
     @Before
@@ -52,6 +56,9 @@ public class TaxiOrderControllerTests {
 
     @Test
     public void whenInsertOrder_thenReturns200() throws Exception {
+        int[][] dist = new int[2][3];
+        dist[1][2] = 1;
+        given(distanceService.getDistances()).willReturn(dist);
         String body = "{\"fromStand\":1, \"toStand\": 2, \"maxWait\":10, \"maxLoss\": 10, \"shared\": true}";
         mvc.perform(post("/orders")
                 .header("Authorization", token)

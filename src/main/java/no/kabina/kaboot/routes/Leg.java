@@ -1,15 +1,11 @@
 package no.kabina.kaboot.routes;
 
+import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.Set;
-import javax.persistence.Entity;
-import javax.persistence.FetchType;
-import javax.persistence.GeneratedValue;
-import javax.persistence.GenerationType;
-import javax.persistence.Id;
-import javax.persistence.JoinColumn;
-import javax.persistence.ManyToOne;
-import javax.persistence.OneToMany;
+import javax.persistence.*;
+
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import no.kabina.kaboot.orders.TaxiOrder;
 
 @Entity
@@ -22,6 +18,8 @@ public class Leg { // a leg of a route
   private int toStand;
   private int place; // place in line; ID of the next would be better, but we don't have this id while creating 'entities' in JPA
   private Route.RouteStatus status;
+  private LocalDateTime started;
+  private LocalDateTime completed;
 
   protected Leg() { }
 
@@ -36,6 +34,7 @@ public class Leg { // a leg of a route
   @JoinColumn(name = "leg_id")
   private Set<TaxiOrder> orders = new HashSet<>();
 
+  @JsonIgnore
   @ManyToOne(optional = true, fetch = FetchType.LAZY)
   @JoinColumn(name = "route_id", nullable = true)
   private Route route;
@@ -74,5 +73,21 @@ public class Leg { // a leg of a route
 
   public Route getRoute() {
     return this.route;
+  }
+
+  public LocalDateTime getCompleted() {
+    return completed;
+  }
+
+  public void setCompleted(LocalDateTime completed) {
+    this.completed = completed;
+  }
+
+  public LocalDateTime getStarted() {
+    return started;
+  }
+
+  public void setStarted(LocalDateTime started) {
+    this.started = started;
   }
 }

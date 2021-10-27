@@ -1,5 +1,6 @@
 package no.kabina.kaboot.routes;
 
+import java.time.LocalDateTime;
 import java.util.Optional;
 import no.kabina.kaboot.utils.AuthUtils;
 import org.slf4j.Logger;
@@ -41,6 +42,11 @@ public class LegController {
       return null;
     }
     l.setStatus(leg.getStatus());
+    if (leg.getStatus().equals(Route.RouteStatus.STARTED)) {
+      l.setStarted(LocalDateTime.now());
+    } else if (leg.getStatus().equals(Route.RouteStatus.COMPLETED)) {
+      l.setCompleted(LocalDateTime.now());
+    }
     legRepo.save(l);
     return "OK";
   }

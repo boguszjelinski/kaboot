@@ -45,7 +45,7 @@ public class LegControllerTests {
 
     @Test
     public void whenUpdateInvalidId_thenReturns200() throws Exception {
-        String body = "{\"status\": \"COMPLETE\"}";
+        String body = "{\"status\": \"COMPLETED\"}";
         mvc.perform(put("/legs/1")
                 .header("Authorization", token)
                 .contentType(MediaType.APPLICATION_JSON)
@@ -56,7 +56,7 @@ public class LegControllerTests {
     @Test
     public void whenUpdateValidId_thenReturns200() throws Exception {
         given(legRepo.findById(123L)).willReturn(java.util.Optional.of(new Leg()));
-        String body = "{\"status\": \"COMPLETE\"}";
+        String body = "{\"status\": \"COMPLETED\"}";
         mvc.perform(put("/legs/123")
                 .header("Authorization", token)
                 .contentType(MediaType.APPLICATION_JSON)
@@ -74,14 +74,14 @@ public class LegControllerTests {
 
     @Test
     public void whenPojoMeansBusiness() throws Exception {
-        LegPojo leg = new LegPojo(Route.RouteStatus.COMPLETE);
+        LegPojo leg = new LegPojo(Route.RouteStatus.COMPLETED);
         leg.setStatus(Route.RouteStatus.ASSIGNED);
         assertThat(leg.getStatus()).isSameAs(Route.RouteStatus.ASSIGNED);
     }
 
     @Test
     public void whenEntityMeansBusiness() throws Exception {
-        Leg leg = new Leg(0,1,2, Route.RouteStatus.COMPLETE);
+        Leg leg = new Leg(0,1,2, Route.RouteStatus.COMPLETED);
         leg.setRoute(null);
         leg.setId(0L);
         leg.setStatus(Route.RouteStatus.ASSIGNED);

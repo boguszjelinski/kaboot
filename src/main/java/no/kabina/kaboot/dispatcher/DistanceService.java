@@ -3,13 +3,15 @@ package no.kabina.kaboot.dispatcher;
 import java.util.List;
 import no.kabina.kaboot.stops.Stop;
 import no.kabina.kaboot.stops.StopRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.Scope;
 import org.springframework.stereotype.Component;
 
 @Component
 @Scope("singleton")
 public class DistanceService {
-
+  private final Logger logger = LoggerFactory.getLogger(DistanceService.class);
   public int [][] distance; // DB IDs will be used to address this table, so beware with IDs in the DB
 
   public DistanceService() { }
@@ -20,6 +22,7 @@ public class DistanceService {
   }
 
   public void initDistance(StopRepository stopRepository) {
+    logger.info("initDistance START");
     List<Stop> stops = stopRepository.findAll();
     distance = new int[stops.size()][stops.size()];
 
@@ -37,6 +40,7 @@ public class DistanceService {
         distance[jj][ii] = distance[ii][jj];
       }
     }
+    logger.info("initDistance STOP");
     // max=55, avg=12 for Las Vegas
   }
 

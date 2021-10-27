@@ -56,10 +56,10 @@ java OneCab 0 1
 2020-12-19 16:45:21 INFO   CabRunnable live Updating cab=0, free at: 1
 2020-12-19 16:45:52 INFO   ApiClient log New route to run, cab_id=0, route_id=418781,
 2020-12-19 16:45:52 INFO   ApiClient log Moving, from=1, to=2, cab_id=0, leg_id=418782,
-2020-12-19 16:46:52 INFO   ApiClient log Saving leg=418782, JSON={"status":"COMPLETE"}
+2020-12-19 16:46:52 INFO   ApiClient log Saving leg=418782, JSON={"status":"COMPLETED"}
 2020-12-19 16:46:52 INFO   ApiClient log Saving cab=0, JSON={"location":"2", "status": "ASSIGNED"}
 2020-12-19 16:47:52 INFO   ApiClient log Moving, from=2, to=3, cab_id=0, leg_id=418783,
-2020-12-19 16:48:52 INFO   ApiClient log Saving leg=418783, JSON={"status":"COMPLETE"}
+2020-12-19 16:48:52 INFO   ApiClient log Saving leg=418783, JSON={"status":"COMPLETED"}
 2020-12-19 16:48:53 INFO   ApiClient log Saving cab=0, JSON={"location":"3", "status": "FREE"}
 
 javac OneCustomer.java
@@ -108,7 +108,7 @@ java -Dnashorn.args="--no-deprecation-warning" CustomerGenerator
   - ABANDONED: cancelled after assignment but before PICKEDUP
   - REFUSED: no cab available
   - PICKEDUP: cab has arrived
-  - COMPLETE: customer dropped off
+  - COMPLETED: customer dropped off
   
 ### Cab
 * wait for a route
@@ -122,7 +122,7 @@ java -Dnashorn.args="--no-deprecation-warning" CustomerGenerator
 * do you like it ?
 * wait for a cab
 * take a trip
-* mark the end (COMPLETE)
+* mark the end (COMPLETED)
 
 ## Current work in kaboot
 There is a lot of work in progress in Kaboot:
@@ -180,10 +180,10 @@ The following endpoints are available now with described purposes:
 | /cabs/{id} | GET | Inform customer about location | { "id": 1, "location": 10, "status": "FREE" }
 | /cabs/{id} | PUT | Update location of the cab, mark as FREE | { "location": 9, "status": "ASSIGNED" }
 | /cabs/ | POST | not used
-| /orders/{id} | GET | inform about a cab assignment |  { "id": 421901,    "status": "COMPLETE", "fromStand": 15, "toStand": 12, "maxWait": 20,    "maxLoss": 1,    "shared": true,    "rcvdTime": "2020-12-22T00:35:54.291618",    "eta": 0,    "inPool": false,    "cab": null,    "customer": {        "id": 5,        "hibernateLazyInitializer": {}    },    "leg": {        "id": 422128,        "fromStand": 15,        "toStand": 14,        "place": 0,        "status": "COMPLETE",        "route": null,        "hibernateLazyInitializer": {}    },    "route": {        "id": 422127,        "status": "COMPLETE",        "cab": {            "id": 165,            "location": 10,            "status": "FREE",            "hibernateLazyInitializer": {}        },        "legs": null,        "hibernateLazyInitializer": {}    }}
+| /orders/{id} | GET | inform about a cab assignment |  { "id": 421901,    "status": "COMPLETED", "fromStand": 15, "toStand": 12, "maxWait": 20,    "maxLoss": 1,    "shared": true,    "rcvdTime": "2020-12-22T00:35:54.291618",    "eta": 0,    "inPool": false,    "cab": null,    "customer": {        "id": 5,        "hibernateLazyInitializer": {}    },    "leg": {        "id": 422128,        "fromStand": 15,        "toStand": 14,        "place": 0,        "status": "COMPLETE",        "route": null,        "hibernateLazyInitializer": {}    },    "route": {        "id": 422127,        "status": "COMPLETE",        "cab": {            "id": 165,            "location": 10,            "status": "FREE",            "hibernateLazyInitializer": {}        },        "legs": null,        "hibernateLazyInitializer": {}    }}
 | /orders/{id} | PUT | accepting, canceling a trip, mark as completed | { "status": "ACCEPTED" }
 | /orders/ | POST | submit a trip request - a cab is needed | {"fromStand": 1, "toStand": 2, "status": "RECEIVED", "maxWait": 10, "maxLoss": 20, "shared": true} 
-| /routes/ | GET | get ONE route that a cab should follow with all legs | {    "id": 422127,    "status": "ASSIGNED",    "cab": {        "id": 165,        "location": 10,        "status": "FREE",        "hibernateLazyInitializer": {}    },    "legs": [        {            "id": 422128,            "fromStand": 15,            "toStand": 14,            "place": 0,            "status": "COMPLETE",            "route": null        },        {            "id": 422131,            "fromStand": 12,            "toStand": 10,            "place": 3,            "status": "COMPLETE",            "route": null        },        {            "id": 422130,            "fromStand": 13,            "toStand": 12,            "place": 2,            "status": "COMPLETE",            "route": null        },        {            "id": 422129,            "fromStand": 14,            "toStand": 13,            "place": 1,            "status": "COMPLETE",            "route": null        }    ]}
+| /routes/ | GET | get ONE route that a cab should follow with all legs | {    "id": 422127,    "status": "ASSIGNED",    "cab": {        "id": 165,        "location": 10,        "status": "FREE",        "hibernateLazyInitializer": {}    },    "legs": [        {            "id": 422128,            "fromStand": 15,            "toStand": 14,            "place": 0,            "status": "COMPLETED",            "route": null        },        {            "id": 422131,            "fromStand": 12,            "toStand": 10,            "place": 3,            "status": "COMPLETE",            "route": null        },        {            "id": 422130,            "fromStand": 13,            "toStand": 12,            "place": 2,            "status": "COMPLETE",            "route": null        },        {            "id": 422129,            "fromStand": 14,            "toStand": 13,            "place": 1,            "status": "COMPLETE",            "route": null        }    ]}
 | /routes/{id} | PUT | mark as completed  | { "status": "completed" }
 | /legs/{id} | PUT | mark as completed  | { "status": "completed" }
 | /schedulework/ | GET | manually trigger dispatcher 
