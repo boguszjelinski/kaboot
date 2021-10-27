@@ -38,6 +38,7 @@ You have to insert rows to 'cab' and 'customer' tables, which tells Kaboot to au
 these clients. You will find SQL scripts in the db directory, you can import them with:
 ```
 psql -U kabina kabina < create_cabs.sql
+psql -U kabina kabina < Bus_Stops_Las_Vegas.sql
 ```
 The same with customers. Be sure your database configuration (host, database, user and password) is reflected in *application.yml*. 
 
