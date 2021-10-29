@@ -55,6 +55,10 @@ public class ApiClient {
         }
         json += "}"; // TODO: hardcode, should be a parameter too
         json = saveJSON(method, "orders", "cust" + usrId, d.id, json); // TODO: FAIL, this is not customer id
+        if (json == null || json.length() == 0) {
+            logger.info("Method " + method + " on 'orders' rejected for cust_id=" + usrId + ", order_id=" + d.id);
+            return null;
+        }
         return getOrderFromJson(json);
     }
 
@@ -85,7 +89,8 @@ public class ApiClient {
     }
 
     protected void updateCab(int cab_id, Cab cab) {
-        String json = "{\"location\":\"" + cab.location + "\", \"status\": \""+ cab.status +"\"}";
+        String json = "{\"location\":\"" + cab.location + "\", \"status\": \""+ cab.status +"\"," +
+                        "\"name\": \"A"+ cab_id +"\"}";
         log("cab", cab_id, json);
         saveJSON("PUT", "cabs", "cab" + cab_id, cab_id, json);
     }
@@ -154,7 +159,8 @@ public class ApiClient {
         }
         return new Cab( (int) map.get("id"),
                         (int) map.get("location"),
-                        getCabStatus((String) map.get("status")));
+                        getCabStatus((String) map.get("status")),
+                        (String) map.get("name"));
     }
 
     protected Demand getOrderFromJson(String str) {
@@ -232,6 +238,9 @@ public class ApiClient {
             con = (HttpURLConnection) url.openConnection();
             setAuthentication(con, user, user);
             result = getResponse(con);
+            if (!"routes".equals(urlStr) && (result == null || result.toString().length() == 0)) {
+               logger.info("http conn to " + urlStr+ " returned null or empty string");
+            }
         } catch(Exception e) { e.printStackTrace(); }
         finally { con.disconnect(); }
         return result.toString();
@@ -305,11 +314,11 @@ public class ApiClient {
         try { Thread.sleep(mins*60*1000); } catch (InterruptedException e) {} // one minute
     }
 
-    protected void log (String msg, int cabId, int routeId) {
+    protected void log(String msg, int cabId, int routeId) {
         logger.info(msg + ", cab_id=" + cabId + ", route_id=" + routeId + ",");
     }
 
-    protected void log (String msg, int from, int to, int cabId, int taskId) {
+    protected void log(String msg, int from, int to, int cabId, int taskId) {
         logger.info(msg + ", from=" + from + ", to=" + to + ", cab_id=" + cabId + ", leg_id=" + taskId + ",");
     }
 

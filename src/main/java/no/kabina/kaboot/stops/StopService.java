@@ -38,23 +38,35 @@ public class StopService {
   }
 
   private StopTraffic findTrafficForLegs(int standId, List<Leg> legs) {
-    List<RouteWithEta> ret = new ArrayList<>();
+    List<Route> temp = new ArrayList<>();
     // estimate ETA
     for (Leg l : legs) {
-      int eta = calculateEta(standId, l.getRoute());
-      if (eta == -1) {
-        continue;
+      temp.add(l.getRoute());
+    }
+    List<RouteWithEta> routes = new ArrayList<>();
+    for (int i = 0; i < temp.size(); i++) {
+      Route r = temp.get(i);
+      // find duplicates
+      boolean found = false;
+      for (int j = i + 1; j < temp.size(); j++) {
+        if (r.getId().equals(temp.get(j).getId())) {
+          found = true;
+          break;
+        }
       }
-      ret.add(new RouteWithEta(eta, l.getRoute()));
+      if (!found) {
+        int eta = calculateEta(standId, r);
+        routes.add(new RouteWithEta(eta, r));
+      }
     }
     // the nearest cabs should appear first
-    ret.sort(Comparator.comparing(RouteWithEta::getEta));
+    routes.sort(Comparator.comparing(RouteWithEta::getEta));
     Stop s = null;
     Optional<Stop> o = stopRepository.findById((long) standId);
     if (o.isPresent()) {
       s = o.get();
     }
-    return new StopTraffic(s, ret);
+    return new StopTraffic(s, routes);
   }
 
   private int calculateEta(int standId, Route route) {

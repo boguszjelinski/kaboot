@@ -41,10 +41,10 @@ kaboot:
         max-non-lcm: 200
         max-pool4: 300
         max-pool3: 400
-        max-stand: 50
+        max-stand: 3300
         max-trip: 15
     scheduler:
-        online: false
+        online: true
         at-time-lag: 3
     solver:
         cmd: "glpsol -m glpk.mod"

@@ -61,6 +61,7 @@ public class CabRunnable extends ApiClient implements Runnable {
         logger.info("Updating cab=" + cab_id + ", free at: " + stand);
         String json = "{\"location\":\"" + stand + "\", \"status\": \""+ CabStatus.FREE +"\"}";
         saveJSON("PUT", "cabs", "cab" + cab_id, cab_id, json);
+        cab.location = stand; // the cab location read from DB (see above) might be wrong, that was the day before e.g.
 
         for (int t = 0; t < MAX_TIME * (60/CHECK_INTERVAL); t++) { 
             Route route = getRoute(cab_id); // TODO: status NULL
@@ -81,7 +82,7 @@ public class CabRunnable extends ApiClient implements Runnable {
                 // but let's check
                 if (task.fromStand != cab.location) { 
                     // strange - scheduler did not know cab's location (! never found in logs)
-                    log("Error, first leg does not start at cabs location. Moving", task.fromStand, cab.location, cab_id, + task.id);
+                    log("Error, first leg does not start at cabs location. Moving", cab.location, task.fromStand, cab_id, + task.id);
                     waitMins(getDistance(stops, cab.location, task.fromStand)); // cab is moving
                     cab.location = task.fromStand;
                     // inform that cab is at the stand -> update Cab entity, 'completed' previous Task

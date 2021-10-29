@@ -302,8 +302,20 @@ public class DispatcherService {
       }
       if (foundTo) {
         // TASK: eta should be calculated
-        logger.info("Customer {} assigned to existing route: {}", demand[j].getId(), legs.get(i).getRoute().getId());
-        assignOrder(legs.get(i), demand[j], legs.get(i).getRoute().getCab() , legs.get(i).getRoute(), 0);
+        Route route = legs.get(i).getRoute();
+        logger.info("Customer {} assigned to existing route: {}", demand[j].getId(), route.getId());
+        Cab cab = null;
+        try {
+          cab = route.getCab();
+        } catch (Exception e) {
+          logger.info("Rereading Cab from Route {}", route.getId());
+          Route r = routeRepository.findById(route.getId()).get();
+          cab = r.getCab();
+          if (cab == null) {
+            logger.info("Cab is still null in Route {}", route.getId());
+          }
+        }
+        assignOrder(legs.get(i), demand[j], cab, route, 0);
       } else {
         ret.add(demand[j]);
       }
@@ -588,10 +600,17 @@ public class DispatcherService {
     Duration duration = Duration.between(o.getRcvdTime(), LocalDateTime.now());
     statSrvc.addAverageElement(AVG_ORDER_ASSIGN_TIME, duration.getSeconds());
 
+    /*if (c == null) {
+      c = r.getCab();
+      if (c == null) {
+        logger.info("assignOrder got Cab=null, Route did not have a Cab either");
+      }
+    }*/
     o.setStatus(TaxiOrder.OrderStatus.ASSIGNED);
     o.setCab(c);
     o.setRoute(r);
     // TASK: order.eta to be set
+    logger.info("Assigning order {} to cab {}, route {}", o.id, c.getId(), r.getId());
     taxiOrderRepository.save(o);
   }
 

@@ -10,6 +10,7 @@ import javax.persistence.Id;
 import javax.persistence.JoinColumn;
 import javax.persistence.ManyToOne;
 import javax.persistence.OneToMany;
+import javax.persistence.OrderBy;
 import no.kabina.kaboot.cabs.Cab;
 import no.kabina.kaboot.orders.TaxiOrder;
 
@@ -28,12 +29,13 @@ public class Route {
     this.status = status;
   }
 
-  @ManyToOne(optional = true, fetch = FetchType.LAZY)
-  @JoinColumn(name = "cab_id", nullable = true)
+  @ManyToOne(optional = false, fetch = FetchType.EAGER)
+  @JoinColumn(name = "cab_id", nullable = false)
   private Cab cab;
 
   @OneToMany(fetch = FetchType.LAZY) // mappedBy = "route", cascade = CascadeType.ALL
   @JoinColumn(name = "route_id")
+  @OrderBy("place")
   private Set<Leg> legs = new HashSet<>();
 
   @OneToMany(fetch = FetchType.LAZY) // many customers that can ride within one route (pool)

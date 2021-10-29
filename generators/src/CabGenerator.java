@@ -19,7 +19,7 @@
 import java.util.logging.Logger;
 
 public class CabGenerator extends ApiClient {
-    static final int MAX_CABS = 1000;
+    static final int MAX_CABS = 300;
 
     public static void main(String[] args) throws InterruptedException {
         logger = Logger.getLogger("kaboot.simulator.cabgenerator");
@@ -31,7 +31,7 @@ public class CabGenerator extends ApiClient {
         }
         for (int c = 0; c < MAX_CABS; c++) {
             final int id = c;
-            (new Thread(new CabRunnable(id, id % maxStand))).start();
+            (new Thread(new CabRunnable(id, id * (int)(maxStand/MAX_CABS)))).start(); // disperse cabs evenly
             Thread.sleep(5); // so that to disperse them a bit and not to kill backend
         }
     }

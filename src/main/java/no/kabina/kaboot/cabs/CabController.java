@@ -43,7 +43,7 @@ public class CabController {
 
   @PutMapping(value = "/cabs/{id}", consumes = "application/json")
   public String updateCab(@PathVariable Long id, @RequestBody CabPojo cabIn, Authentication auth) {
-    logger.info("PUT cab={}", id);
+    logger.info("PUT cab_id={}, location={}, status={}", id, cabIn.getLocation(), cabIn.getStatus());
     Cab cab = new Cab(cabIn.getLocation(), cabIn.getName(), cabIn.getStatus());
     cab.setId(id);
     Long usrId = AuthUtils.getUserId(auth, "ROLE_CAB");

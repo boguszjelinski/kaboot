@@ -23,12 +23,12 @@ import java.util.Random;
 
 public class CustomerGenerator extends ApiClient {
     static int DURATION =  30; // min
-    static int REQ_PER_MIN = 300;
-    static int MAX_WAIT = 10;
-    static int MAX_POOL_LOSS = 1; // 1%
-    static int MAX_TRIP = 4;
+    static int REQ_PER_MIN = 100;
+    static int MAX_WAIT = 15;
+    static int MAX_POOL_LOSS = 10; // 1%
+    static int MAX_TRIP = 4; // this does not have any impact, distance not based on ID any more
     static int AT_TIME_LAG = 30;
-    static int maxStand = 50; // default
+    static int maxStand = 3300; // default
     static Random rand;
     public static void main(String[] args) throws InterruptedException {
         logger = Logger.getLogger("kaboot.simulator.customergenerator");
@@ -39,12 +39,12 @@ public class CustomerGenerator extends ApiClient {
             logger.warning("Error reading max-stand from YML");     
             System.exit(0);
         }
-
+        int id = 0;
         for (int t = 0; t < DURATION; t++) { // time axis
             // filter out demand for this time point
             for (int i = 0; i < REQ_PER_MIN; i++) {
-                int id = t + i;
-                int from = rand.nextInt(maxStand);
+                int from = 10 * rand.nextInt((int)(maxStand/10)); // concentrate demand in one tenth of stops
+                                                        // to make common trips more probable
                 LocalDateTime atTime = null;
                 if (from % 3 == 0 && t < DURATION - AT_TIME_LAG) {
                     atTime = LocalDateTime.now().plusMinutes(AT_TIME_LAG);
@@ -58,8 +58,9 @@ public class CustomerGenerator extends ApiClient {
                                            );
                 (new Thread(new CustomerRunnable(d))).start();
                 Thread.sleep(5); // so that to disperse them a bit and not to kill backend
+                id++;
             }
-            TimeUnit.SECONDS.sleep(60); // 120min
+            TimeUnit.SECONDS.sleep(60);
         }
     }
     

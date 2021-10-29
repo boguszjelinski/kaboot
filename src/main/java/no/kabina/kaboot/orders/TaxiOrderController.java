@@ -3,6 +3,7 @@ package no.kabina.kaboot.orders;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.Optional;
+import no.kabina.kaboot.cabs.Cab;
 import no.kabina.kaboot.dispatcher.DispatcherService;
 import no.kabina.kaboot.dispatcher.DistanceService;
 import no.kabina.kaboot.stats.StatService;
@@ -101,21 +102,38 @@ public class TaxiOrderController {
     logger.info("PUT order={}, status={}", id, newTaxiOrder.getStatus());
     Long usrId = AuthUtils.getUserId(auth, ROLE_CUSTOMER);
     if (usrId == null) {
-      return null; // not authorised
+      return "Not authorised"; // not authorised
     }
     Optional<TaxiOrder> ord = repository.findById(id);
     if (ord.isEmpty()) {
-      return null;
+      return "Not found";
     }
-    Duration duration = Duration.between(ord.get().getRcvdTime(), LocalDateTime.now());
+    TaxiOrder order = ord.get();
+    Duration duration = Duration.between(order.getRcvdTime(), LocalDateTime.now());
     if (newTaxiOrder.status == TaxiOrder.OrderStatus.PICKEDUP) {
       statSrvc.addAverageElement(DispatcherService.AVG_ORDER_PICKUP_TIME, duration.getSeconds());
     } else if (newTaxiOrder.status == TaxiOrder.OrderStatus.COMPLETED) {
       statSrvc.addAverageElement(DispatcherService.AVG_ORDER_COMPLETE_TIME, duration.getSeconds());
     }
-    ord.get().setStatus(newTaxiOrder.getStatus()); // we care only about status for now
-    logger.debug("Updating order={}, status={}", ord.get().getId(), ord.get().getStatus());
-    service.updateTaxiOrder(ord.get());
+    order.setStatus(newTaxiOrder.getStatus()); // we care only about status for now
+    if (order.getCab() == null) {
+      if (order.getRoute() != null) {
+        Cab cab = null;
+        try {
+          cab = order.getRoute().getCab();
+        } catch (Exception e) {
+          cab = null;
+        }
+        if (cab == null) {
+          logger.info("Cab is still null when Route {} is not", order.getRoute().getId());
+        }
+        order.setCab(cab);
+      } else {
+        logger.info("Not nice, Cab and Route is null for order {}", order.getId());
+      }
+    }
+    logger.debug("Updating order={}, status={}", order.getId(), order.getStatus());
+    service.updateTaxiOrder(order);
     return "OK";
   }
 }

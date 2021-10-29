@@ -35,7 +35,7 @@ public class Leg { // a leg of a route
   private Set<TaxiOrder> orders = new HashSet<>();
 
   @JsonIgnore
-  @ManyToOne(optional = true, fetch = FetchType.LAZY)
+  @ManyToOne(optional = false, fetch = FetchType.LAZY)
   @JoinColumn(name = "route_id", nullable = true)
   private Route route;
 

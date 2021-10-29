@@ -64,13 +64,13 @@ public class TaxiOrder {
     this.rcvdTime = LocalDateTime.now();
     this.atTime = atTime;
   }
-  // @JsonIgnore
+
   // asigned cab
   @ManyToOne(optional = true, fetch = FetchType.LAZY)
   @JoinColumn(name = "cab_id", nullable = true)
   private Cab cab;  // an order can be serviced by ONE cab only, but one cab can service MANY orders throughout the day
 
-  @ManyToOne(optional = true, fetch = FetchType.LAZY)
+  @ManyToOne(optional = false, fetch = FetchType.LAZY)
   @JoinColumn(name = "customer_id", nullable = true)
   private Customer customer;
 

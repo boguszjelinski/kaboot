@@ -1,32 +1,32 @@
 import psycopg2
 import time
 
-def execSql(cursor, sql, column):
+def execSql(cursor, fil, sql, column):
     cursor.execute(sql)
     rows = cursor.fetchall()
     for row in rows:
-        print(row[column], end = ', ')
+        print(row[column], end = ', ', file=fil, flush=True)
+    print('', file=fil, flush=True)
 
 try:
     conn = psycopg2.connect("dbname=kabina user=kabina password=kaboot")
     cur = conn.cursor()
+    file1 = open('C:\\Users\\dell\\TAXI\\GITLAB\\kpis.txt', 'w')
+    file2 = open('C:\\Users\\dell\\TAXI\\GITLAB\\cab_status.txt', 'w')
+    file3 = open('C:\\Users\\dell\\TAXI\\GITLAB\\order_status.txt', 'w')
     # column names
-  
-    print('')
-    for t in range(0,250):
-          # first stats
-        execSql(cur, 'select * from stat order by name', 0)
-        execSql(cur, 'select status, count(*) from cab group by status order by status', 0)
-        execSql(cur, 'select status, count(*) from taxi_order group by status order by status', 0)
-        
-        print('') # new line
-        execSql(cur, 'select * from stat order by name', 2)
-        execSql(cur, 'select status, count(*) from cab group by status order by status', 1)
-        execSql(cur, 'select status, count(*) from taxi_order group by status order by status', 1)
-        
-        print('') # new line
+    execSql(cur, file1, 'select * from stat order by name', 0)
+    
+    for t in range(0,60):
+        execSql(cur, file1, 'select * from stat order by name', 2)
+        execSql(cur, file2, 'select status, count(*) from cab group by status order by status', 0)
+        execSql(cur, file2, 'select status, count(*) from cab group by status order by status', 1)
+        execSql(cur, file3, 'select status, count(*) from taxi_order group by status order by status', 0)
+        execSql(cur, file3, 'select status, count(*) from taxi_order group by status order by status', 1)
         time.sleep(60) # 60 seconds
-
+    file1.close()
+    file2.close()
+    file3.close()
 except (Exception, psycopg2.DatabaseError) as error:
     print(error)
 finally:

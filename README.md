@@ -152,7 +152,7 @@ There is a lot of work in progress in Kaboot:
 | max-non-lcm | 200 | application.yml | limit the size of model which is sent to solver to speed up performance
 | max-pool4 | 600 | application.yml | max size of demand that can be sent to pool discoverer with 4 passengers; to speed up performance
 | max-pool3 | 1200 | application.yml | max size of demand that can be sent to pool discoverer with 3 passengers; to speed up performance
-| max-stand | 50 | application.yml | cost matrix generation in PoolUtil; for future use in CabGenerator.java - random start location
+| max-stand | 3300 | application.yml | cost matrix generation in PoolUtil; for future use in CabGenerator.java - random start location
 | at-time-lag | 3 | application.yml | take into consideration requests for cabs that will be due in a few minutes time - number of minutes. This concerns requests sent for a specific timestamp, not ASAP
 | solver.cmd | glpsol -m glpk.mod | application.yml | GLPK command (solver)
 | solver.input | glpk.mod | application.yml | temporary GLPK programme with cost matrix sent to solver
