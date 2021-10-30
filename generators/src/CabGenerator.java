@@ -19,7 +19,7 @@
 import java.util.logging.Logger;
 
 public class CabGenerator extends ApiClient {
-    static final int MAX_CABS = 300;
+    static final int MAX_CABS = 1000;
 
     public static void main(String[] args) throws InterruptedException {
         logger = Logger.getLogger("kaboot.simulator.cabgenerator");
