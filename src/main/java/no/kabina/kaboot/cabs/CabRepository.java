@@ -6,6 +6,6 @@ import org.springframework.data.jpa.repository.JpaRepository;
 public interface CabRepository extends JpaRepository<Cab, Long> {
 
   Cab findById(long id);
-
   List<Cab> findByStatus(Cab.CabStatus status);
+  List<Cab> findByLocationAndStatus(int location, Cab.CabStatus status);
 }

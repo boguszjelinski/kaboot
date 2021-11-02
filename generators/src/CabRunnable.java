@@ -38,7 +38,7 @@ public class CabRunnable extends ApiClient implements Runnable {
     }
 
     private void live(int cab_id, int stand) {
-        logger.info("Starting my shift, cab=" + cab_id);
+        logger.info("Starting my shift, cab_id=" + cab_id);
         /*
             1. check if any valid route
             2. if not - wait 30sec
@@ -51,14 +51,14 @@ public class CabRunnable extends ApiClient implements Runnable {
         Cab cab = getCabAsCab("cabs/", cab_id, cab_id);
         if (cab == null) { 
             // cab should be activated by an admin
-            logger.warning("Cab=" +  cab_id + " not activated");
+            logger.warning("cab_id=" +  cab_id + " not activated");
             return;
         }
 
         stops = getStops("stops/", cab_id);
 
         // non-random, nice deterministic distribution so that simulations are reproducible
-        logger.info("Updating cab=" + cab_id + ", free at: " + stand);
+        logger.info("Updating cab_id=" + cab_id + ", free at: " + stand);
         String json = "{\"location\":\"" + stand + "\", \"status\": \""+ CabStatus.FREE +"\"}";
         saveJSON("PUT", "cabs", "cab" + cab_id, cab_id, json);
         cab.location = stand; // the cab location read from DB (see above) might be wrong, that was the day before e.g.

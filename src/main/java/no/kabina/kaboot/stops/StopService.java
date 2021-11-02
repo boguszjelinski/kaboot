@@ -8,6 +8,8 @@ import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import no.kabina.kaboot.cabs.Cab;
+import no.kabina.kaboot.cabs.CabRepository;
 import no.kabina.kaboot.dispatcher.DistanceService;
 import no.kabina.kaboot.routes.Leg;
 import no.kabina.kaboot.routes.LegRepository;
@@ -21,11 +23,14 @@ public class StopService {
   private final Logger logger = LoggerFactory.getLogger(StopService.class);
   private final StopRepository stopRepository;
   private final LegRepository legRepository;
+  private final CabRepository cabRepository;
   private final DistanceService distanceService;
 
-  public StopService(StopRepository stopRepository, LegRepository legRepository, DistanceService distanceService) {
+  public StopService(StopRepository stopRepository, LegRepository legRepository, CabRepository cabRepository,
+                     DistanceService distanceService) {
     this.stopRepository = stopRepository;
     this.legRepository = legRepository;
+    this.cabRepository = cabRepository;
     this.distanceService = distanceService;
   }
 
@@ -59,14 +64,16 @@ public class StopService {
         routes.add(new RouteWithEta(eta, r));
       }
     }
-    // the nearest cabs should appear first
+    // the nearest cab should appear first
     routes.sort(Comparator.comparing(RouteWithEta::getEta));
     Stop s = null;
     Optional<Stop> o = stopRepository.findById((long) standId);
     if (o.isPresent()) {
       s = o.get();
     }
-    return new StopTraffic(s, routes);
+    // finally find free cabs standing at the stop and waiting for assignments
+    List<Cab> cabs = cabRepository.findByLocationAndStatus(standId, Cab.CabStatus.FREE);
+    return new StopTraffic(s, routes, cabs);
   }
 
   private int calculateEta(int standId, Route route) {
@@ -85,7 +92,8 @@ public class StopService {
           eta += distance;
         } else {
           int minutes = (int) ChronoUnit.MINUTES.between(legs[idx].getStarted(), LocalDateTime.now());
-          eta += distance - minutes; // TASK: assumption 1km = 1min, see also CabRunnable: waitMins(getDistance
+          eta += Math.max(distance - minutes, 0);// it has taken longer than planned
+                  // TASK: assumption 1km = 1min, see also CabRunnable: waitMins(getDistance
         }
       } else if (legs[idx].getStatus().equals(Route.RouteStatus.ASSIGNED)) {
         eta += distance;

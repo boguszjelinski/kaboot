@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 // javac CabGenerator.java
-// java -Dnashorn.args="--no-deprecation-warning" CabGenerator
+// java -Dnashorn.args="--no-deprecation-warning" -Xms5g -Xmx5g CabGenerator
 
 import java.util.logging.Logger;
 

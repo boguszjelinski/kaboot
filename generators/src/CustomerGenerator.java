@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-// javac CustomerGenerator.java 
+// javac -Dnashorn.args="--no-deprecation-warning" -Xms5g -Xmx5g CustomerGenerator.java
 
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;

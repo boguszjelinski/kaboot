@@ -26,7 +26,7 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
                 .antMatchers("/schedulework").hasRole("ADMIN")
                 .antMatchers("/api-docs").permitAll()
             .anyRequest().authenticated()
-            .and().csrf().disable()
+            .and().cors().and().csrf().disable()
             .httpBasic()
             .and()
             .logout().permitAll().logoutSuccessUrl("/login")
@@ -45,10 +45,8 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
     return new UserDetailsServiceImp();
   }
 
-
   @Bean
   public BCryptPasswordEncoder passwordEncoder() {
     return new BCryptPasswordEncoder();
   }
-
 }
