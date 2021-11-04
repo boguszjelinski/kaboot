@@ -2,16 +2,14 @@ package no.kabina.kaboot.routes;
 
 import java.util.List;
 import java.util.Optional;
+import no.kabina.kaboot.orders.TaxiOrder;
+import no.kabina.kaboot.orders.TaxiOrderRepository;
 import no.kabina.kaboot.utils.AuthUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.Authentication;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PutMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 @RestController
 public class RouteController {
@@ -19,9 +17,11 @@ public class RouteController {
   private final Logger logger = LoggerFactory.getLogger(RouteController.class);
 
   private final RouteRepository repository;
+  private final TaxiOrderRepository taxiOrderRepository;
 
-  public RouteController(RouteRepository repository) {
+  public RouteController(RouteRepository repository, TaxiOrderRepository taxiOrderRepository) {
     this.repository = repository;
+    this.taxiOrderRepository = taxiOrderRepository;
   }
 
   /**
@@ -33,7 +33,26 @@ public class RouteController {
   @GetMapping(path = "/routes", produces = MediaType.APPLICATION_JSON_VALUE)
   public Route getValidRouteByCab(Authentication auth) {
     Long cabId = AuthUtils.getUserId(auth, "ROLE_CAB");
-    List<Route> routes = retrieveByCabIdAndStatus(cabId, Route.RouteStatus.ASSIGNED);
+    return getFirstRoute(retrieveByCabIdAndStatus(cabId, Route.RouteStatus.ASSIGNED));
+  }
+
+  @CrossOrigin("http://localhost:3000")
+  @GetMapping(path = "/routeswithorders", produces = MediaType.APPLICATION_JSON_VALUE)
+  public RouteWithOrders getValidRouteWithOrdersByCab(Authentication auth) {
+    Long cabId = AuthUtils.getUserId(auth, "ROLE_CAB");
+    Route r = getFirstRoute(retrieveByCabIdAndStatus(cabId, Route.RouteStatus.ASSIGNED));
+    return new RouteWithOrders(r, taxiOrderRepository.findByRoute(r));
+  }
+
+  private Route getFirstRoute(List<Route> routes) {
+    if (routes == null || routes.isEmpty()) {
+      return null;
+    } else {
+      return routes.get(0);
+    }
+  }
+
+  private Route clearRoute(List<Route> routes) {
     if (routes == null || routes.isEmpty()) {
       return null;
     } else {
