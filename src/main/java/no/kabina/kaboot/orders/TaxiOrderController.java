@@ -2,8 +2,10 @@ package no.kabina.kaboot.orders;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 import no.kabina.kaboot.cabs.Cab;
+import no.kabina.kaboot.customers.Customer;
 import no.kabina.kaboot.dispatcher.DispatcherService;
 import no.kabina.kaboot.dispatcher.DistanceService;
 import no.kabina.kaboot.stats.StatService;
@@ -12,6 +14,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.Authentication;
+import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -19,6 +22,7 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 
+@CrossOrigin("http://localhost:3000")
 @RestController
 public class TaxiOrderController {
 
@@ -64,6 +68,19 @@ public class TaxiOrderController {
       to.getLeg().setRoute(null); // too much detail
     }
     return to;
+  }
+
+  @GetMapping("/orders")
+  public List<TaxiOrder> byCustomer(Authentication auth) {
+    Long custId = AuthUtils.getUserId(auth, ROLE_CUSTOMER);
+    if (custId == -1) {
+      logger.info("GET orders not authorised");
+      return null;
+    }
+    logger.info("GET orders for customer {}", custId);
+    Customer customer = new Customer();
+    customer.setId(custId);
+    return repository.findByCustomerAndStatusNot(customer, TaxiOrder.OrderStatus.COMPLETED); // TASK: ABANDONED?
   }
 
   //  curl -v --user cust0:cust0 -d '{"fromStand":0, "toStand": 1, "maxWait":1, "maxLoss": 30, "shared": true}' -H 'Content-Type: application/json' http://localhost:8080/orders
