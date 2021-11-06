@@ -2,7 +2,6 @@ package no.kabina.kaboot.orders;
 
 import java.time.LocalDateTime;
 import java.util.List;
-
 import no.kabina.kaboot.customers.Customer;
 import no.kabina.kaboot.routes.Leg;
 import no.kabina.kaboot.routes.Route;
@@ -22,4 +21,7 @@ public interface TaxiOrderRepository extends JpaRepository<TaxiOrder, Long> {
   @Query("select o from TaxiOrder o where o.status = :status and (o.atTime is NULL or o.atTime < :time)")
   List<TaxiOrder> findByStatusAndTime(@Param("status") TaxiOrder.OrderStatus status,
                                       @Param("time")LocalDateTime atTime);
+
+  @Query("select o.status, count(o.status) from TaxiOrder o group by o.status order by o.status")
+  List<Object[]> countStatus();
 }

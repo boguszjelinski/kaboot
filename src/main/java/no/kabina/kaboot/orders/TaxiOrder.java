@@ -53,8 +53,7 @@ public class TaxiOrder {
    * @param status
    */
   public TaxiOrder(int fromStand, int toStand, int maxWait, int maxLoss, boolean shared, OrderStatus status,
-                   LocalDateTime atTime
-                  ) {
+                   LocalDateTime atTime) {
     this.fromStand = fromStand;
     this.toStand = toStand;
     this.maxWait = maxWait;
