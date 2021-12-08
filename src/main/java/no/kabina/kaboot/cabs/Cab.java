@@ -66,6 +66,10 @@ public class Cab {
     this.items = i;
   }
 
+  public Set<TaxiOrder> getItems() {
+    return items;
+  }
+
   public CabStatus getStatus() {
     return status;
   }

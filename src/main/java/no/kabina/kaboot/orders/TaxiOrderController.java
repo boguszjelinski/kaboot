@@ -46,7 +46,7 @@ public class TaxiOrderController {
 
   @GetMapping("/orders/{id}")
   public TaxiOrder one(@PathVariable int id, Authentication auth) {
-    logger.info("GET order={}", id);
+    logger.info("GET order_id={}", id);
 
     Long custId = AuthUtils.getUserId(auth, ROLE_CUSTOMER);
     TaxiOrder to = repository.findById(id);
@@ -55,7 +55,7 @@ public class TaxiOrderController {
       return null;
     }
     if (to.getCustomer() == null || !to.getCustomer().getId().equals(custId)) {
-      logger.warn("Customer {} not allowed to see order {}", custId, id);
+      logger.warn("Customer {} not allowed to see order_id={}", custId, id);
       return null;
     }
     //Route r = to.getRoute(); // don't be lazy
@@ -116,7 +116,7 @@ public class TaxiOrderController {
    */
   @PutMapping(value="/orders/{id}", consumes = "application/json")
   public String updateTaxiOrder(@PathVariable Long id, @RequestBody TaxiOrderPojo newTaxiOrder, Authentication auth) {
-    logger.info("PUT order={}, status={}", id, newTaxiOrder.getStatus());
+    logger.info("PUT order_id={}, status={}", id, newTaxiOrder.getStatus());
     Long usrId = AuthUtils.getUserId(auth, ROLE_CUSTOMER);
     if (usrId == null) {
       return "Not authorised"; // not authorised
@@ -133,7 +133,7 @@ public class TaxiOrderController {
       statSrvc.addAverageElement(DispatcherService.AVG_ORDER_COMPLETE_TIME, duration.getSeconds());
     }
     order.setStatus(newTaxiOrder.getStatus()); // we care only about status for now
-    if (order.getCab() == null) {
+    if (order.getStatus() != TaxiOrder.OrderStatus.RECEIVED && order.getCab() == null) {
       if (order.getRoute() != null) {
         Cab cab = null;
         try {
@@ -141,15 +141,17 @@ public class TaxiOrderController {
         } catch (Exception e) {
           cab = null;
         }
-        if (cab == null) {
-          logger.info("Cab is still null when Route {} is not", order.getRoute().getId());
+        if (cab == null || cab.getId() == null) {
+          logger.info("Updating order_id={}, Cab is still null when Route {} is not",
+                      order.getId(), order.getRoute().getId());
         }
         order.setCab(cab);
       } else {
-        logger.info("Not nice, Cab and Route is null for order {}", order.getId());
+        logger.info("Updating order_id={}, not nice - order is ASSIGNED and Cab and Route are null",
+                    order.getId());
       }
     }
-    logger.debug("Updating order={}, status={}", order.getId(), order.getStatus());
+    logger.debug("Updating order_id={}, status={}", order.getId(), order.getStatus());
     service.updateTaxiOrder(order);
     return "OK";
   }

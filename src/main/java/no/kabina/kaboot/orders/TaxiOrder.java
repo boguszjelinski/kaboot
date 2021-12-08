@@ -65,7 +65,7 @@ public class TaxiOrder {
   }
 
   // asigned cab
-  @ManyToOne(optional = true, fetch = FetchType.LAZY)
+  @ManyToOne(fetch = FetchType.LAZY)
   @JoinColumn(name = "cab_id", nullable = true)
   private Cab cab;  // an order can be serviced by ONE cab only, but one cab can service MANY orders throughout the day
 
@@ -74,12 +74,12 @@ public class TaxiOrder {
   private Customer customer;
 
   // also for data integrity checks; the pick-up task; null if cab was already there
-  @ManyToOne(optional = true, fetch = FetchType.LAZY)
+  @ManyToOne(fetch = FetchType.LAZY)
   @JoinColumn(name = "leg_id", nullable = true)
   private Leg leg;  // an order can be pick-up by one task, but one task can pick up MANY orders/customers
   // this foreign key will give the driver information whom to pick up and where to drop-off
 
-  @ManyToOne(optional = true, fetch = FetchType.LAZY)
+  @ManyToOne(fetch = FetchType.LAZY)
   @JoinColumn(name = "route_id", nullable = true)
   private Route route;
 

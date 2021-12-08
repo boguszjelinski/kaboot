@@ -11,11 +11,11 @@ import org.springframework.stereotype.Service;
 public class TaxiOrderService {
   private final Logger logger = LoggerFactory.getLogger(TaxiOrderService.class);
 
-  private final TaxiOrderRepository repository;
+  private final TaxiOrderRepository taxiOrderRepository;
   private final CustomerRepository customerRepository;
 
-  public TaxiOrderService(TaxiOrderRepository repository, CustomerRepository customerRepository) {
-    this.repository = repository;
+  public TaxiOrderService(TaxiOrderRepository taxiOrderRepository, CustomerRepository customerRepository) {
+    this.taxiOrderRepository = taxiOrderRepository;
     this.customerRepository = customerRepository;
   }
 
@@ -26,10 +26,14 @@ public class TaxiOrderService {
       return null;
     }
     order.setCustomer(cust.get());
-    return repository.save(order);
+    return taxiOrderRepository.save(order);
   }
 
   public TaxiOrder updateTaxiOrder(TaxiOrder order) {
-    return repository.save(order);
+    if (order.getStatus() != TaxiOrder.OrderStatus.RECEIVED
+            && (order.getCab() == null || order.getCab().getId() == null)) {
+      logger.warn("Update order, cab is null, order_id={}", order.getId());
+    }
+    return taxiOrderRepository.save(order);
   }
 }

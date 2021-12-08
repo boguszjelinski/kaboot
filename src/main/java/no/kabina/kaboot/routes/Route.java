@@ -56,16 +56,20 @@ public class Route {
     return id;
   }
 
+  public void setStatus(RouteStatus stat) {
+    this.status = stat;
+  }
+
   public RouteStatus getStatus() {
     return status;
   }
 
-  public Cab getCab() {
-    return cab;
+  public void setCab(Cab c) {
+    this.cab = c;
   }
 
-  public void setStatus(RouteStatus stat) {
-    this.status = stat;
+  public Cab getCab() {
+    return cab;
   }
 
   public void setLegs(Set<Leg> legs) {
@@ -76,7 +80,11 @@ public class Route {
     return legs;
   }
 
-  public void setCab(Cab c) {
-    this.cab = c;
+  public Set<TaxiOrder> getOrders() {
+    return orders;
+  }
+
+  public void setOrders(Set<TaxiOrder> orders) {
+    this.orders = orders;
   }
 }

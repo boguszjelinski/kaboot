@@ -315,7 +315,7 @@ public class DispatcherService {
             logger.info("Cab is still null in Route {}", route.getId());
           }
         }
-        assignOrder(legs.get(i), demand[j], cab, route, 0);
+        assignOrder(legs.get(i), demand[j], cab, route, 0, "findMatchingRoutes");
       } else {
         ret.add(demand[j]);
       }
@@ -537,7 +537,7 @@ public class DispatcherService {
     // Pool not found
     leg = new Leg(order.fromStand, order.toStand, legId, Route.RouteStatus.ASSIGNED);
     leg = saveLeg(leg, route);
-    assignOrder(leg, order, cab, route, eta);
+    assignOrder(leg, order, cab, route, eta, "assignCustomerToCab");
     return 1; // one customer
   }
 
@@ -550,7 +550,7 @@ public class DispatcherService {
         leg = new Leg(e.getCust()[c].fromStand, e.getCust()[c + 1].fromStand, legId++, Route.RouteStatus.ASSIGNED);
         saveLeg(leg, route);
       }
-      assignOrder(leg, e.getCust()[c], cab, route, eta);
+      assignOrder(leg, e.getCust()[c], cab, route, eta, "assignOrdersAndSaveLegs1");
       // c + 1 means that this distance will add to 'eta' of the next customer being picked up
       if (e.getCust()[c].fromStand != e.getCust()[c + 1].fromStand) {
         eta += distanceService.distance[e.getCust()[c].fromStand][e.getCust()[c + 1].fromStand];
@@ -563,7 +563,7 @@ public class DispatcherService {
       leg = saveLeg(leg, route);
     }
     //the last customer being picked up
-    assignOrder(leg, e.getCust()[c], cab, route, eta);
+    assignOrder(leg, e.getCust()[c], cab, route, eta, "assignOrdersAndSaveLegs2");
     // 2* as the vector contains both pick-up & drop-off phases
     for (c++; c < 2 * e.getNumbOfCust() - 1; c++) {
       if (e.getCust()[c].toStand != e.getCust()[c + 1].toStand) {
@@ -582,7 +582,7 @@ public class DispatcherService {
     return null;
   }
 
-  private void assignOrder(Leg l, TaxiOrder o, Cab c, Route r, int eta) {
+  private void assignOrder(Leg l, TaxiOrder o, Cab c, Route r, int eta, String calledBy) {
     // check if it is not cancelled
     Optional<TaxiOrder> curr = taxiOrderRepository.findById(o.id);
     if (curr.isEmpty()) {
@@ -608,9 +608,13 @@ public class DispatcherService {
     }*/
     o.setStatus(TaxiOrder.OrderStatus.ASSIGNED);
     o.setCab(c);
+    if (c == null || c.getId() == null) {
+      logger.warn("Assigning order_id={}, cab is null", o.id);
+    }
     o.setRoute(r);
     // TASK: order.eta to be set
-    logger.info("Assigning order {} to cab {}, route {}", o.id, c.getId(), r.getId());
+    logger.info("Assigning order_id={} to cab {}, route {}, routine {}",
+                o.id, c.getId(), r.getId(), calledBy);
     taxiOrderRepository.save(o);
   }
 
@@ -631,8 +635,11 @@ public class DispatcherService {
       }
       if ((o.getAtTime() == null && minutesRcvd > o.getMaxWait())
           || (o.getAtTime() != null && minutesAt > o.getMaxWait())) { // TASK: maybe scheduler should have its own, global MAX WAIT
-        logger.info("Customer={} refused, max wait exceeded", o.id);
+        logger.info("order_id={} refused, max wait exceeded", o.id);
         o.setStatus(TaxiOrder.OrderStatus.REFUSED);
+        if (o.getCab() == null) {
+          logger.info("Refusing order_id={}, cab is null ", o.id);
+        }
         taxiOrderRepository.save(o);
       } else {
         newDemand.add(o);
