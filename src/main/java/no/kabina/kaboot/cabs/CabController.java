@@ -37,23 +37,32 @@ public class CabController {
     if (c == null) {
       return null;
     }
-    c.setItems(null); // omit this in JSON
+    c.setOrders(null); // omit this in JSON
     return c;
   }
 
+  /**
+   *  Setting cab's status and location
+   * @param id ID
+   * @param auth authentication service
+   * @param cabIn CabPojo
+   * @return status
+   */
   @PutMapping(value = "/cabs/{id}", consumes = "application/json")
   public String updateCab(@PathVariable Long id, @RequestBody CabPojo cabIn, Authentication auth) {
     logger.info("PUT cab_id={}, location={}, status={}", id, cabIn.getLocation(), cabIn.getStatus());
-    Cab cab = new Cab(cabIn.getLocation(), cabIn.getName(), cabIn.getStatus());
-    cab.setId(id);
+
     Long usrId = AuthUtils.getUserId(auth, "ROLE_CAB");
-    if (usrId.longValue() != cab.getId().longValue()) { // now it is that simple - cab_id == usr_id
+    if (usrId.longValue() != id) { // now it is that simple - cab_id == usr_id
       return null;
     }
-    Optional<Cab> prev = repository.findById(cab.getId());
+    Optional<Cab> prev = repository.findById(id);
     if (prev.isEmpty()) {
       return null;  // we cannot update a nonexisting object
     }
+    Cab cab = prev.get();
+    cab.setStatus(cabIn.getStatus());
+    cab.setLocation(cabIn.getLocation());
     repository.save(cab);
     return "OK";
   }
@@ -61,13 +70,12 @@ public class CabController {
   // TASK: temporary, should not be allowed for ROLE_CAB
   @PostMapping(value = "/cabs/") // , consumes = "application/json"boot
   public Cab insertCab(@RequestBody CabPojo cab, Authentication auth) {
-    logger.info("POST cab");
     Long usrId = AuthUtils.getUserId(auth, "ROLE_CAB");
     if (usrId == -1) {
       logger.warn("Not authorised");
       return null;
     }
-    Cab c = new Cab(cab.getLocation(), cab.getName(), cab.getStatus());
-    return repository.save(c);
+    logger.info("POST cab_id={},", usrId);
+    return repository.save(new Cab(cab.getLocation(), cab.getName(), cab.getStatus()));
   }
 }

@@ -169,12 +169,12 @@ class CustomerRunnable extends ApiClient implements Runnable {
             log("Something wrong - customer has never reached the destination", custId, order.id, order.cab_id);
         } else {
             if (order.inPool) {
-                if (duration/(60/CHECK_INTERVAL) > (int) (abs(order.from - order.to) * (1+ (order.maxLoss/100)) + MAX_TRIP_LOSS)) {
+                if (duration/(60/CHECK_INTERVAL) > (int) (order.distance * (1+ (order.maxLoss/100)) + MAX_TRIP_LOSS)) {
                     // complain
                     log("Duration in pool was too long", custId, order.id, order.cab_id);
                 }
             } else { // not a carpool
-                if (duration/(60/CHECK_INTERVAL) > (int) (abs(order.from - order.to) + MAX_TRIP_LOSS)) {
+                if (duration/(60/CHECK_INTERVAL) > (int) (order.distance + MAX_TRIP_LOSS)) {
                     // complain
                     log("Duration took too long", custId, order.id, order.cab_id);
                 }

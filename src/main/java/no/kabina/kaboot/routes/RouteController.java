@@ -2,6 +2,8 @@ package no.kabina.kaboot.routes;
 
 import java.util.List;
 import java.util.Optional;
+
+import no.kabina.kaboot.orders.TaxiOrder;
 import no.kabina.kaboot.orders.TaxiOrderRepository;
 import no.kabina.kaboot.utils.AuthUtils;
 import org.slf4j.Logger;
@@ -37,7 +39,22 @@ public class RouteController {
   @GetMapping(path = "/routes", produces = MediaType.APPLICATION_JSON_VALUE)
   public Route getValidRouteByCab(Authentication auth) {
     Long cabId = AuthUtils.getUserId(auth, "ROLE_CAB");
-    return getFirstRoute(retrieveByCabIdAndStatus(cabId, Route.RouteStatus.ASSIGNED));
+    Route r = getFirstRoute(retrieveByCabIdAndStatus(cabId, Route.RouteStatus.ASSIGNED));
+    // a Cab doesn't need these details
+    if (r == null) {
+      return null;
+    }
+    if (r.getCab() != null) {
+      r.getCab().setOrders(null);
+    }
+    if (r.getOrders() != null) {
+      for (TaxiOrder o : r.getOrders()) {
+        o.setCab(null);
+        o.setLeg(null);
+        o.setRoute(null);
+      }
+    }
+    return r;
   }
 
   @CrossOrigin("http://localhost:3000")

@@ -58,14 +58,20 @@ public class TaxiOrderController {
       logger.warn("Customer {} not allowed to see order_id={}", custId, id);
       return null;
     }
-    //Route r = to.getRoute(); // don't be lazy
     // TASK: authorisation - customer can only see its own orders
     if (to.getRoute() != null) {
       to.getRoute().setLegs(null); // too much detail
-      // but we need 'cab' from route
+      to.getRoute().setOrders(null);
+      // but we need 'cab' from route, temporarily
+      if (to.getRoute().getCab() != null) {
+        to.getRoute().getCab().setOrders(null);
+      }
     }
     if (to.getLeg() != null) {
       to.getLeg().setRoute(null); // too much detail
+    }
+    if (to.getCab() != null) {
+      to.getCab().setOrders(null);
     }
     return to;
   }
@@ -87,16 +93,17 @@ public class TaxiOrderController {
   @PostMapping(value = "/orders", consumes = "application/json")
   public TaxiOrder newTaxiOrder(@RequestBody TaxiOrderPojo newTaxiOrder, Authentication auth) {
     // TASK: should fail if another order is RECEIVED
-    logger.info("POST order");
     Long custId = AuthUtils.getUserId(auth, ROLE_CUSTOMER);
     if (custId == null) {
       return null; // not authorised
     }
+    logger.info("POST order cust_id={},", custId);
     if (newTaxiOrder.fromStand == newTaxiOrder.toStand) { // a joker
       return null;
     }
-    if (distanceService.getDistances()[newTaxiOrder.fromStand][newTaxiOrder.toStand] > maxTrip) {
-      logger.info("POST order - requested trip too long");
+    int dist = distanceService.getDistances()[newTaxiOrder.fromStand][newTaxiOrder.toStand];
+    if (dist > maxTrip) {
+      logger.info("POST order - requested trip too long, cust_id={},", custId);
       return null;
     }
     TaxiOrder order = new TaxiOrder(newTaxiOrder.fromStand, newTaxiOrder.toStand, newTaxiOrder.maxWait,
@@ -104,7 +111,12 @@ public class TaxiOrderController {
     order.setEta(-1);
     order.setMaxWait(20);
     order.setInPool(false);
-    return service.saveTaxiOrder(order, custId);
+    order.setDistance(dist);
+    TaxiOrder o = service.saveTaxiOrder(order, custId);
+    if (o == null) {
+      logger.info("POST order - request will return null, cust_id={},", custId);
+    }
+    return o;
   }
 
   /** goal is to update status
@@ -133,24 +145,28 @@ public class TaxiOrderController {
       statSrvc.addAverageElement(DispatcherService.AVG_ORDER_COMPLETE_TIME, duration.getSeconds());
     }
     order.setStatus(newTaxiOrder.getStatus()); // we care only about status for now
+
+    // CANCELLED have cab_id null, why?
     if (order.getStatus() != TaxiOrder.OrderStatus.RECEIVED && order.getCab() == null) {
       if (order.getRoute() != null) {
         Cab cab = null;
         try {
           cab = order.getRoute().getCab();
+          logger.warn("Takig Cab from Route {} order_id={}", order.getRoute().getId(), order.getId());
         } catch (Exception e) {
           cab = null;
         }
         if (cab == null || cab.getId() == null) {
-          logger.info("Updating order_id={}, Cab is still null when Route {} is not",
+          logger.warn("Updating order_id={}, Cab is still null when Route {} is not",
                       order.getId(), order.getRoute().getId());
         }
         order.setCab(cab);
       } else {
-        logger.info("Updating order_id={}, not nice - order is ASSIGNED and Cab and Route are null",
-                    order.getId());
+        logger.warn("Updating order_id={}, not nice - order is {} and Cab and Route are null",
+                    order.getId(), order.getStatus());
       }
     }
+
     logger.debug("Updating order_id={}, status={}", order.getId(), order.getStatus());
     service.updateTaxiOrder(order);
     return "OK";

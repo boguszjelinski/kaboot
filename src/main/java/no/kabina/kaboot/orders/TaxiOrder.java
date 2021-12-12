@@ -41,6 +41,8 @@ public class TaxiOrder {
   @Column(nullable = true)
   protected Boolean inPool; // was actually in pool
 
+  private int distance;
+
   public TaxiOrder() {}
 
   /**
@@ -65,7 +67,7 @@ public class TaxiOrder {
   }
 
   // asigned cab
-  @ManyToOne(fetch = FetchType.LAZY)
+  @ManyToOne(fetch = FetchType.EAGER)
   @JoinColumn(name = "cab_id", nullable = true)
   private Cab cab;  // an order can be serviced by ONE cab only, but one cab can service MANY orders throughout the day
 
@@ -118,6 +120,14 @@ public class TaxiOrder {
 
   public boolean isShared() {
     return shared;
+  }
+
+  public int getDistance() {
+    return distance;
+  }
+
+  public void setDistance(int distance) {
+    this.distance = distance;
   }
 
   public void setStatus(OrderStatus status) {

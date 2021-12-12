@@ -181,7 +181,8 @@ public class ApiClient {
                                 getOrderStatus((String) map.get("status")),
                                 (boolean) map.get("inPool"),
                                 (int) map.get("cab_id"),
-                                (int) map.get("eta")
+                                (int) map.get("eta"), 
+                                (int) map.get("distance") 
                             );
         } catch (NullPointerException npe) {
             logger.info("NPE in getMapFromJson, json:" + str);

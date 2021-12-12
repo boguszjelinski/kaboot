@@ -30,10 +30,6 @@ public class TaxiOrderService {
   }
 
   public TaxiOrder updateTaxiOrder(TaxiOrder order) {
-    if (order.getStatus() != TaxiOrder.OrderStatus.RECEIVED
-            && (order.getCab() == null || order.getCab().getId() == null)) {
-      logger.warn("Update order, cab is null, order_id={}", order.getId());
-    }
     return taxiOrderRepository.save(order);
   }
 }

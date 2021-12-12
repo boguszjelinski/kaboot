@@ -98,6 +98,7 @@ public class CabRunnable extends ApiClient implements Runnable {
   
     private void deliverPassengers(List<Task> legs, Cab cab) {
         for (int i=0; i < legs.size(); i++) {
+            waitMins(1); // wait 1min: pickup + dropout; but it is stupid if the first leg has no passenger!!
             // go from where you are to task.stand
             Task task = legs.get(i);
             log("Moving", task.fromStand, task.toStand, this.cabId, task.id);
@@ -113,7 +114,6 @@ public class CabRunnable extends ApiClient implements Runnable {
             }
             updateCab(cab.id, cab); // such call should 'completed' tasks; at the last task -> 'complete' route and 'free' that cab
             // !! update leg here -> completed
-            waitMins(1); // wait 1min: pickup + dropout
         }
     }
 }

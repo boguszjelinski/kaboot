@@ -163,6 +163,7 @@ public class DispatcherService {
       cost = lcmUtil.calculateCost(solverInput, solverOutput, demand, supply);
 
       statSrvc.updateMaxAndAvgStats("model_size", cost.length);
+      logger.info("Before LCM: demand={}, supply={}", demand.length, supply.length);
       if (demand.length > maxSolverSize && supply.length > maxSolverSize) { // too big to send to solver, it has to be cut by LCM
         // both sides has to be bigger, if one is smaller than we will just reverse-LCM (GCM) on the bigger side
         TempModel tempModel = runLcm(supply, demand, cost, pl);
@@ -270,57 +271,77 @@ public class DispatcherService {
     return x;
   }
 
+  /**
+   *  assignes orders to existing routes
+   * @param demand to be checked
+   * @return demand that was not matched, which have to allocated to new routes
+   */
   private TaxiOrder[] findMatchingRoutes(TaxiOrder[] demand) {
-    List<TaxiOrder> ret = new ArrayList<>();
     List<Leg> legs = legRepository.findByStatusOrderByRouteAscPlaceAsc(RouteStatus.ASSIGNED);
     if (legs == null || legs.isEmpty() || demand == null || demand.length == 0) {
       return demand;
     }
-    for (int j = 0; j < demand.length; j++) {
-      boolean foundTo = false; // success indicator
-      boolean wontFind = false; // to signal that the next leg belongs to another route
-      int i, k;
-      for (i = 1; i < legs.size() && !wontFind; i++) { // not from 0 as each leg we are looking for must have a predecessor
-        if (demand[j].fromStand == legs.get(i).getFromStand() 
-            && legs.get(i-1).getRoute().getId().equals(legs.get(i).getRoute().getId()) // previous leg is from the same route
-            && legs.get(i-1).getStatus() != RouteStatus.COMPLETED // the previous leg cannot be completed TASK !! in the future consider other statuses here
-            // we want the previous leg to be active to give some time for both parties to get the assignment
-           ) { 
-          for (k = i; k < legs.size() && !foundTo; k++) {
-            if (!legs.get(i-1).getRoute().getId().equals(legs.get(i).getRoute().getId())) {
-              wontFind = true;
-              break;
-            }
-            if (demand[j].toStand == legs.get(k).getToStand()) {
-              foundTo = true;
-            }
-          }
-          if (foundTo) {
-            break;
-          }
-        }
-      }
-      if (foundTo) {
+    List<TaxiOrder> ret = new ArrayList<>();
+    for (TaxiOrder taxiOrder : demand) {
+      int i = findLeg(taxiOrder, legs);
+
+      if (i > -1) {
         // TASK: eta should be calculated
         Route route = legs.get(i).getRoute();
-        logger.info("Customer {} assigned to existing route: {}", demand[j].getId(), route.getId());
+        logger.info("Customer {} assigned to existing route: {}", taxiOrder.getId(), route.getId());
         Cab cab = null;
         try {
           cab = route.getCab();
         } catch (Exception e) {
           logger.info("Rereading Cab from Route {}", route.getId());
-          Route r = routeRepository.findById(route.getId()).get();
-          cab = r.getCab();
-          if (cab == null) {
-            logger.info("Cab is still null in Route {}", route.getId());
-          }
+          cab = getCab(route.getId());
         }
-        assignOrder(legs.get(i), demand[j], cab, route, 0, "findMatchingRoutes");
+        assignOrder(legs.get(i), taxiOrder, cab, route, 0, "findMatchingRoutes");
       } else {
-        ret.add(demand[j]);
+        ret.add(taxiOrder);
       }
     }
     return ret.toArray(new TaxiOrder[0]);
+  }
+
+  private Cab getCab(Long id) {
+    Optional<Route> r = routeRepository.findById(id);
+    if (r.isPresent()) {
+      Cab cab = r.get().getCab();
+      if (cab == null) {
+        logger.info("Cab is still null in Route {}", id);
+      }
+      return cab;
+    }
+    return null;
+  }
+
+  private int findLeg(TaxiOrder demand, List<Leg> legs) {
+    boolean foundTo = false; // success indicator
+    boolean wontFind = false; // to signal that the next leg belongs to another route
+    for (int i = 1; i < legs.size() && !wontFind; i++) { // not from 0 as each leg we are looking for must have a predecessor
+      // routes from the same stand which have NOT started will surely be seen by passengers, they can get aboard
+      if (demand.fromStand == legs.get(i).getFromStand()
+              && legs.get(i - 1).getRoute().getId().equals(legs.get(i).getRoute().getId()) // previous leg is from the same route
+              && legs.get(i - 1).getStatus() != RouteStatus.COMPLETED // the previous leg cannot be completed TASK !! in the future consider other statuses here
+      // we want the previous leg to be active to give some time for both parties to get the assignment
+      ) {
+        // we have found "from", now let's find "to"
+        for (int k = i; k < legs.size() && !foundTo; k++) {
+          if (!legs.get(k).getRoute().getId().equals(legs.get(i).getRoute().getId())) {
+            wontFind = true;
+            break;
+          }
+          if (demand.toStand == legs.get(k).getToStand()) {
+            foundTo = true;
+          }
+        }
+        if (foundTo) {
+          return i;
+        }
+      }
+    }
+    return -1;
   }
 
   private TempModel prepareData() {
@@ -583,6 +604,9 @@ public class DispatcherService {
   }
 
   private void assignOrder(Leg l, TaxiOrder o, Cab c, Route r, int eta, String calledBy) {
+    if (c == null || c.getId() == null) {
+      logger.warn("Assigning order_id={}, cab is null", o.id);
+    }
     // check if it is not cancelled
     Optional<TaxiOrder> curr = taxiOrderRepository.findById(o.id);
     if (curr.isEmpty()) {
@@ -608,13 +632,10 @@ public class DispatcherService {
     }*/
     o.setStatus(TaxiOrder.OrderStatus.ASSIGNED);
     o.setCab(c);
-    if (c == null || c.getId() == null) {
-      logger.warn("Assigning order_id={}, cab is null", o.id);
-    }
     o.setRoute(r);
     // TASK: order.eta to be set
     logger.info("Assigning order_id={} to cab {}, route {}, routine {}",
-                o.id, c.getId(), r.getId(), calledBy);
+                o.id, o.getCab().getId(), o.getRoute().getId(), calledBy);
     taxiOrderRepository.save(o);
   }
 
@@ -637,7 +658,7 @@ public class DispatcherService {
           || (o.getAtTime() != null && minutesAt > o.getMaxWait())) { // TASK: maybe scheduler should have its own, global MAX WAIT
         logger.info("order_id={} refused, max wait exceeded", o.id);
         o.setStatus(TaxiOrder.OrderStatus.REFUSED);
-        if (o.getCab() == null) {
+        if (o.getCab() == null || o.getCab().getId() == null) {
           logger.info("Refusing order_id={}, cab is null ", o.id);
         }
         taxiOrderRepository.save(o);

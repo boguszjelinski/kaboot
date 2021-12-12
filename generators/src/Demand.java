@@ -9,9 +9,10 @@ public class Demand {
     public int maxWait; // max wait for assignment
     public int maxLoss; // [%] loss in Pool
     public LocalDateTime atTime;
+    public int distance;
 
     public Demand(int id, int from, int to, int wait, int loss, ApiClient.OrderStatus status, 
-                 boolean inPool, int cab_id, int eta) {
+                 boolean inPool, int cab_id, int eta, int distance) {
         this.id = id;
         this.from = from;
         this.to = to;
@@ -21,6 +22,7 @@ public class Demand {
         this.inPool = inPool;
         this.cab_id = cab_id;
         this.eta = eta;
+        this.distance = distance;
     }
 
     public Demand(int id, int from, int to, int wait, int loss, LocalDateTime atTime) {

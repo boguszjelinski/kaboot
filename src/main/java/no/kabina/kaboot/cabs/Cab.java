@@ -40,7 +40,7 @@ public class Cab {
 
   @OneToMany(fetch = FetchType.LAZY)
   @JoinColumn(name = "cab_id")
-  private Set<TaxiOrder> items = new HashSet<>();
+  private Set<TaxiOrder> orders = new HashSet<>();
 
   public Long getId() {
     return id;
@@ -54,6 +54,10 @@ public class Cab {
     return location;
   }
 
+  public void setLocation(int location) {
+    this.location = location;
+  }
+
   public String getName() {
     return name;
   }
@@ -62,12 +66,12 @@ public class Cab {
     this.name = name;
   }
 
-  public void setItems(Set<TaxiOrder> i) {
-    this.items = i;
+  public void setOrders(Set<TaxiOrder> i) {
+    this.orders = i;
   }
 
-  public Set<TaxiOrder> getItems() {
-    return items;
+  public Set<TaxiOrder> getOrders() {
+    return orders;
   }
 
   public CabStatus getStatus() {
