@@ -147,7 +147,7 @@ public class TaxiOrderController {
     order.setStatus(newTaxiOrder.getStatus()); // we care only about status for now
 
     // CANCELLED have cab_id null, why?
-    if (order.getStatus() != TaxiOrder.OrderStatus.RECEIVED && order.getCab() == null) {
+    /*if (order.getStatus() != TaxiOrder.OrderStatus.RECEIVED && order.getCab() == null) {
       if (order.getRoute() != null) {
         Cab cab = null;
         try {
@@ -166,6 +166,7 @@ public class TaxiOrderController {
                     order.getId(), order.getStatus());
       }
     }
+    */
 
     logger.debug("Updating order_id={}, status={}", order.getId(), order.getStatus());
     service.updateTaxiOrder(order);

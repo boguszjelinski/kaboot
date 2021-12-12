@@ -558,6 +558,7 @@ public class DispatcherService {
     // Pool not found
     leg = new Leg(order.fromStand, order.toStand, legId, Route.RouteStatus.ASSIGNED);
     leg = saveLeg(leg, route);
+    order.setInPool(false);
     assignOrder(leg, order, cab, route, eta, "assignCustomerToCab");
     return 1; // one customer
   }
@@ -571,6 +572,7 @@ public class DispatcherService {
         leg = new Leg(e.getCust()[c].fromStand, e.getCust()[c + 1].fromStand, legId++, Route.RouteStatus.ASSIGNED);
         saveLeg(leg, route);
       }
+      e.getCust()[c].setInPool(true);
       assignOrder(leg, e.getCust()[c], cab, route, eta, "assignOrdersAndSaveLegs1");
       // c + 1 means that this distance will add to 'eta' of the next customer being picked up
       if (e.getCust()[c].fromStand != e.getCust()[c + 1].fromStand) {
@@ -584,6 +586,7 @@ public class DispatcherService {
       leg = saveLeg(leg, route);
     }
     //the last customer being picked up
+    e.getCust()[c].setInPool(true);
     assignOrder(leg, e.getCust()[c], cab, route, eta, "assignOrdersAndSaveLegs2");
     // 2* as the vector contains both pick-up & drop-off phases
     for (c++; c < 2 * e.getNumbOfCust() - 1; c++) {
@@ -658,9 +661,10 @@ public class DispatcherService {
           || (o.getAtTime() != null && minutesAt > o.getMaxWait())) { // TASK: maybe scheduler should have its own, global MAX WAIT
         logger.info("order_id={} refused, max wait exceeded", o.id);
         o.setStatus(TaxiOrder.OrderStatus.REFUSED);
-        if (o.getCab() == null || o.getCab().getId() == null) {
+        /*if (o.getCab() == null || o.getCab().getId() == null) {
           logger.info("Refusing order_id={}, cab is null ", o.id);
         }
+        */
         taxiOrderRepository.save(o);
       } else {
         newDemand.add(o);
