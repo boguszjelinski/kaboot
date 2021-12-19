@@ -41,6 +41,9 @@ public class ApiClient {
     protected ScriptEngine engine;
     protected static Logger logger;
 
+    private static final String HOST = "http://192.168.10.176:8080/";
+    private static final String ROUTES = "routes";
+
     public ApiClient() {
         ScriptEngineManager sem = new ScriptEngineManager();
         this.engine = sem.getEngineByName("javascript");
@@ -63,7 +66,7 @@ public class ApiClient {
     }
 
     private String date2String (LocalDateTime tm) {
-        //  DateTimeFormatter.ISO_DATE_TIME;
+        //  DateTimeFormatter.ISO_DATE_TIME
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
         return tm.format(formatter);
     }
@@ -78,8 +81,8 @@ public class ApiClient {
         return getCabFromJson(json);
     }
 
-    protected Cab getCabAsCab(String entityUrl, int user_id, int id) {
-        String json = getEntityAsJson("cab"+user_id, entityUrl + id);
+    protected Cab getCabAsCab(String entityUrl, int userId, int id) {
+        String json = getEntityAsJson("cab"+userId, entityUrl + id);
         return getCabFromJson(json);
     }
 
@@ -88,27 +91,27 @@ public class ApiClient {
         return getStopsFromJson(json);
     }
 
-    protected void updateCab(int cab_id, Cab cab) {
+    protected void updateCab(int cabId, Cab cab) {
         String json = "{\"location\":\"" + cab.location + "\", \"status\": \""+ cab.status +"\"," +
-                        "\"name\": \"A"+ cab_id +"\"}";
-        log("cab", cab_id, json);
-        saveJSON("PUT", "cabs", "cab" + cab_id, cab_id, json);
+                        "\"name\": \"A"+ cabId +"\"}";
+        log("cab", cabId, json);
+        saveJSON("PUT", "cabs", "cab" + cabId, cabId, json);
     }
 
-    protected void updateRoute(int cab_id, Route r) {
+    protected void updateRoute(int cabId, Route r) {
         String json = "{\"status\":\"" + r.status +"\"}";
         log("route", r.id, json);
-        saveJSON("PUT", "routes", "cab" + cab_id, r.id, json);
+        saveJSON("PUT", ROUTES, "cab" + cabId, r.id, json);
     }
 
-    protected void updateLeg(int cab_id, Task t) {
+    protected void updateLeg(int cabId, Task t) {
         String json = "{\"status\":\"" + t.status +"\"}";
         log("leg", t.id, json);
-        saveJSON("PUT", "legs", "cab" + cab_id, t.id, json);
+        saveJSON("PUT", "legs", "cab" + cabId, t.id, json);
     }
 
-    protected Route getRoute(int cab_id) {
-        String json = getEntityAsJson("cab"+cab_id, "routes");
+    protected Route getRoute(int cabId) {
+        String json = getEntityAsJson("cab"+cabId, ROUTES);
         return getRouteFromJson(json);
     }
 
@@ -198,53 +201,72 @@ public class ApiClient {
     }
 
     protected static String saveJSON(String method, String entity, String user, int rec_id, String json) {
-        String password = user;
-        HttpURLConnection con = null;
-        StringBuilder response = new StringBuilder();
-        String urlStr = "http://192.168.10.176:8080/" + entity + "/";
+        StringBuilder response = null;
+        String urlStr = HOST + entity + "/";
         if ("PUT".equals(method)) {
             urlStr += rec_id;
         }
         try {
-            URL url = new URL(urlStr);
-            con = (HttpURLConnection) url.openConnection();
-            con.setRequestMethod(method);
-            con.setRequestProperty("Content-Type", "application/json");
-            con.setRequestProperty("Accept", "application/json");
-            con.setDoOutput(true);
-            // Basic auth
-            setAuthentication(con, user, password);
-
-            try (OutputStream os = con.getOutputStream()) {
-                byte[] input = json.getBytes("utf-8");
-                os.write(input, 0, input.length);
-            }
-            response = getResponse(con);
+            response = callServer(urlStr, method, user, json);
         } catch (Exception e) {
-            System.out.println("Exception: " + e.getMessage() + "; "+ e.getCause() + "; " + e.getStackTrace().toString());
+            String msg = method + ", entity=" + entity + ", rec_id=" + rec_id + ", json=" + json;
+            log(user, "Exception. method" + msg + ", cause=" + e.getMessage() + "; " + e.getCause() + "; " + e.getStackTrace().toString());
+            try { // once more 
+                response = callServer(urlStr, method, user, json);
+            } catch (Exception e2) {
+                log(user, "Exception2. method" + msg + ", cause=" + e2.getMessage() + "; " + e2.getCause() + "; " + e2.getStackTrace().toString());
+            }
         }
-        finally {
-            con.disconnect();
+        /*finally {
+            con.disconnect(); // TASK: if NPE then copy-paste callServer code in these two try-catch blocks
+        }*/
+        // we don't need any feedback // getCabFromJson(response.toString())
+        return response == null ? null : response.toString();
+    }
+
+    private static StringBuilder callServer(String urlStr, String method, String user, String json) throws IOException  {
+        String password = user;
+        URL url = new URL(urlStr);
+        HttpURLConnection con = (HttpURLConnection) url.openConnection();
+        con.setRequestMethod(method);
+        con.setRequestProperty("Content-Type", "application/json");
+        con.setRequestProperty("Accept", "application/json");
+        con.setDoOutput(true);
+        // Basic auth
+        setAuthentication(con, user, password);
+
+        try (OutputStream os = con.getOutputStream()) {
+            byte[] input = json.getBytes(StandardCharsets.UTF_8);
+            os.write(input, 0, input.length);
         }
-        // we don't need any feedback // getCabFromJson(response.toString());
-        return response.toString();
+        return getResponse(con);
     }
 
     private static String getEntityAsJson(String user, String urlStr) {
-        StringBuilder result = new StringBuilder();
+        StringBuilder result = null;
         HttpURLConnection con = null;
+        URL url = null; 
         try {
+            url = new URL(HOST + urlStr); // assumption that one customer has one order
             // taxi_order will be updated with eta, cab_id and task_id when assigned
-            URL url = new URL("http://192.168.10.176:8080/" + urlStr); // assumption that one customer has one order
             con = (HttpURLConnection) url.openConnection();
             setAuthentication(con, user, user);
             result = getResponse(con);
-            if (!"routes".equals(urlStr) && (result == null || result.toString().length() == 0)) {
-               logger.info("http conn to " + urlStr+ " returned null or empty string");
-            }
-        } catch(Exception e) { e.printStackTrace(); }
-        finally { con.disconnect(); }
-        return result.toString();
+        } catch(Exception e) { 
+            log(user, "Exception. Url:" + urlStr + ", cause=" + e.getMessage() + "; " + e.getCause() + "; " + e.getStackTrace().toString());
+            try {
+                con = (HttpURLConnection) url.openConnection();
+                setAuthentication(con, user, user);
+                result = getResponse(con);
+            } catch(Exception e2) { 
+                log(user, "Exception2. Url:" + urlStr + ", cause=" + e2.getMessage() + "; " + e2.getCause() + "; " + e2.getStackTrace().toString());
+            }            
+        }
+        //finally { con.disconnect(); }
+        if (!ROUTES.equals(urlStr) && (result == null || result.toString().length() == 0)) {
+            logger.info("http conn to " + urlStr+ " returned null or empty string");
+        }
+        return result == null ? null : result.toString();
     }
 
     private static StringBuilder getResponse(HttpURLConnection con) throws IOException {
@@ -312,7 +334,8 @@ public class ApiClient {
     }
 
     public static void waitMins(int mins) {
-        try { Thread.sleep(mins*60*1000); } catch (InterruptedException e) {} // one minute
+        try { Thread.sleep((long)mins * 60 * 1000); 
+        } catch (InterruptedException e) { } // one minute
     }
 
     protected void log(String msg, int cabId, int routeId) {
@@ -325,6 +348,10 @@ public class ApiClient {
 
     protected void log(String entity, int id, String json) {
         logger.info("Saving " + entity +"=" + id + ", JSON=" + json);
+    }
+
+    protected static void log(String user, String msg) {
+        logger.info("User: " + user + ", msg=" + msg);
     }
 
     protected static void logCust(String msg, int custId, int orderId){
