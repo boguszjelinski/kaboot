@@ -86,7 +86,20 @@ public class TaxiOrderController {
     logger.info("GET orders for customer {}", custId);
     Customer customer = new Customer();
     customer.setId(custId);
-    return repository.findByCustomerAndStatusNot(customer, TaxiOrder.OrderStatus.COMPLETED); // TASK: ABANDONED?
+    List<TaxiOrder> ret =
+            repository.findByCustomerAndStatusNot(customer, TaxiOrder.OrderStatus.COMPLETED); // TASK: ABANDONED?
+    // som unnecessary data here
+    if (ret != null) {
+      for (TaxiOrder o: ret) {
+        if (o.getCab() != null) {
+          o.getCab().setOrders(null);
+        }
+        if (o.getRoute() != null) {
+          o.getRoute().setOrders(null);
+        }
+      }
+    }
+    return ret;
   }
 
   //  curl -v --user cust0:cust0 -d '{"fromStand":0, "toStand": 1, "maxWait":1, "maxLoss": 30, "shared": true}' -H 'Content-Type: application/json' http://localhost:8080/orders

@@ -62,6 +62,14 @@ public class RouteController {
   public RouteWithOrders getValidRouteWithOrdersByCab(Authentication auth) {
     Long cabId = AuthUtils.getUserId(auth, "ROLE_CAB");
     Route r = getFirstRoute(retrieveByCabIdAndStatus(cabId, Route.RouteStatus.ASSIGNED));
+    // getting rid of redundant info
+    if (r != null && r.getOrders() != null) {
+      for (TaxiOrder o: r.getOrders()) {
+        if (o.getCab() != null) {
+          o.getCab().setOrders(null);
+        }
+      }
+    }
     return new RouteWithOrders(r, taxiOrderRepository.findByRoute(r));
   }
 

@@ -41,7 +41,7 @@ public class ApiClient {
     protected ScriptEngine engine;
     protected static Logger logger;
 
-    private static final String HOST = "http://192.168.10.176:8080/";
+    private static final String HOST = "http://192.168.10.176/";
     private static final String ROUTES = "routes";
 
     public ApiClient() {
