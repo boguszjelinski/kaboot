@@ -1,5 +1,6 @@
 package no.kabina.kaboot.routes;
 
+import no.kabina.kaboot.orders.TaxiOrderRepository;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -33,6 +34,9 @@ public class LegControllerTests {
 
     @MockBean
     private LegRepository legRepo;
+
+    @MockBean
+    private TaxiOrderRepository orderRepo;
 
     private String token;
 
@@ -81,7 +85,7 @@ public class LegControllerTests {
 
     @Test
     public void whenEntityMeansBusiness() throws Exception {
-        Leg leg = new Leg(0,1,2, Route.RouteStatus.COMPLETED);
+        Leg leg = new Leg(0,1,2, Route.RouteStatus.COMPLETED,0);
         leg.setRoute(null);
         leg.setId(0L);
         leg.setStatus(Route.RouteStatus.ASSIGNED);

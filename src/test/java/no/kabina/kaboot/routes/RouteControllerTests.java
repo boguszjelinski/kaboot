@@ -10,6 +10,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 
 import no.kabina.kaboot.cabs.Cab;
+import no.kabina.kaboot.orders.TaxiOrderRepository;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -34,6 +35,9 @@ public class RouteControllerTests {
 
     @MockBean
     private LegRepository legRepo;
+
+    @MockBean
+    private TaxiOrderRepository orderRepo;
 
     private String token;
 

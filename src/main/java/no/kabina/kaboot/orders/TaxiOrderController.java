@@ -4,7 +4,7 @@ import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
-import no.kabina.kaboot.cabs.Cab;
+
 import no.kabina.kaboot.customers.Customer;
 import no.kabina.kaboot.dispatcher.DispatcherService;
 import no.kabina.kaboot.dispatcher.DistanceService;
@@ -22,7 +22,7 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 
-@CrossOrigin("http://localhost:3000")
+@CrossOrigin("*")
 @RestController
 public class TaxiOrderController {
 
@@ -151,7 +151,7 @@ public class TaxiOrderController {
       return "Not found";
     }
     TaxiOrder order = ord.get();
-    Duration duration = Duration.between(order.getRcvdTime(), LocalDateTime.now());
+    Duration duration = Duration.between(order.getReceived(), LocalDateTime.now());
     if (newTaxiOrder.status == TaxiOrder.OrderStatus.PICKEDUP) {
       statSrvc.addAverageElement(DispatcherService.AVG_ORDER_PICKUP_TIME, duration.getSeconds());
     } else if (newTaxiOrder.status == TaxiOrder.OrderStatus.COMPLETED) {

@@ -128,7 +128,7 @@ public class TaxiOrderControllerTests {
         ord.setCab(null);
         ord.setLeg(null);
         ord.setRoute(null);
-        ord.setRcvdTime(null);
+        ord.setReceived(null);
         ord.setEta(1);
         ord.setInPool(true);
         assertThat(ord.getCab()).isNull();

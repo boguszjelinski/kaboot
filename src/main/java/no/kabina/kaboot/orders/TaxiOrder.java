@@ -30,7 +30,9 @@ public class TaxiOrder {
   protected int maxWait; // how long can I wait for a cab [min]
   protected int maxLoss; // [%] how long can I lose while in pool
   protected boolean shared; // can be in a pool ?
-  private LocalDateTime rcvdTime;
+  private LocalDateTime received;
+  private LocalDateTime started;
+  private LocalDateTime completed;
 
   @Column(nullable = true)
   private LocalDateTime atTime; // ASAP if not set
@@ -41,7 +43,7 @@ public class TaxiOrder {
   @Column(nullable = true)
   protected Boolean inPool; // was actually in pool
 
-  private int distance;
+  private int distance; // better "duration" one day
 
   public TaxiOrder() {}
 
@@ -62,7 +64,7 @@ public class TaxiOrder {
     this.maxLoss = maxLoss;
     this.shared = shared;
     this.status = status;
-    this.rcvdTime = LocalDateTime.now();
+    this.received = LocalDateTime.now();
     this.atTime = atTime;
   }
 
@@ -198,12 +200,28 @@ public class TaxiOrder {
     this.route = r;
   }
 
-  public LocalDateTime getRcvdTime() {
-    return rcvdTime;
+  public LocalDateTime getReceived() {
+    return received;
   }
 
-  public void setRcvdTime(LocalDateTime rcvdTime) {
-    this.rcvdTime = rcvdTime;
+  public void setReceived(LocalDateTime received) {
+    this.received = received;
+  }
+
+  public LocalDateTime getStarted() {
+    return started;
+  }
+
+  public void setStarted(LocalDateTime started) {
+    this.started = started;
+  }
+
+  public LocalDateTime getCompleted() {
+    return completed;
+  }
+
+  public void setCompleted(LocalDateTime completed) {
+    this.completed = completed;
   }
 
   public LocalDateTime getAtTime() {

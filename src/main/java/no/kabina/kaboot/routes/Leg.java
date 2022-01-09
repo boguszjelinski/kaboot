@@ -23,17 +23,19 @@ public class Leg { // a leg of a route
   private int fromStand; // go to
   private int toStand;
   private int place; // place in line; ID of the next would be better, but we don't have this id while creating 'entities' in JPA
+  private int distance; // [min] but one day we might need better precision; "duration" might be better
   private Route.RouteStatus status;
   private LocalDateTime started;
   private LocalDateTime completed;
 
   protected Leg() { }
 
-  public Leg(int fromStand, int toStand, int place, Route.RouteStatus status) {
+  public Leg(int fromStand, int toStand, int place, Route.RouteStatus status, int distance) {
     this.fromStand = fromStand;
     this.toStand = toStand;
     this.place = place;
     this.status = status;
+    this.distance = distance;
   }
 
   @OneToMany(fetch = FetchType.LAZY)
@@ -95,5 +97,13 @@ public class Leg { // a leg of a route
 
   public void setStarted(LocalDateTime started) {
     this.started = started;
+  }
+
+  public int getDistance() {
+    return distance;
+  }
+
+  public void setDistance(int distance) {
+    this.distance = distance;
   }
 }

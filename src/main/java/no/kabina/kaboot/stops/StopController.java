@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RestController;
 
+@CrossOrigin("*")
 @RestController
 public class StopController {
   private final Logger logger = LoggerFactory.getLogger(StopController.class);
@@ -21,17 +22,25 @@ public class StopController {
     this.stopService = stopService;
   }
 
-  @CrossOrigin("http://localhost:3000")
   @GetMapping("/stops")
   public List<Stop> all(Authentication auth) {
     logger.info("GET stops");
     return stopRepository.findAll();
   }
 
-  @CrossOrigin("http://localhost:3000")
   @GetMapping("/stops/{id}/traffic")
   public StopTraffic getTraffic(@PathVariable int id, Authentication auth) {
     logger.info("GET traffic for stop={}", id);
-    return stopService.findTraffic(id);
+    StopTraffic ret = stopService.findTraffic(id);
+    if (ret != null) {
+      if (ret.getRoutes() != null) {
+        for (RouteWithEta route: ret.getRoutes()) {
+          route.getRoute().getCab().setOrders(null);
+          route.getRoute().setOrders(null);
+        }
+      }
+    }
+
+    return ret;
   }
 }

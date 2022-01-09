@@ -36,7 +36,7 @@ public class DistanceService {
                     'K');
         int ii = from.getId().intValue();
         int jj = to.getId().intValue();
-        distance[ii][jj] = (int) d;
+        distance[ii][jj] = (int) d; // TASK: we might need a better precision - meters/seconds
         distance[jj][ii] = distance[ii][jj];
       }
     }

@@ -2,7 +2,6 @@ package no.kabina.kaboot.routes;
 
 import java.util.List;
 import java.util.Optional;
-
 import no.kabina.kaboot.orders.TaxiOrder;
 import no.kabina.kaboot.orders.TaxiOrderRepository;
 import no.kabina.kaboot.utils.AuthUtils;
@@ -57,7 +56,7 @@ public class RouteController {
     return r;
   }
 
-  @CrossOrigin("http://localhost:3000")
+  @CrossOrigin("*")
   @GetMapping(path = "/routeswithorders", produces = MediaType.APPLICATION_JSON_VALUE)
   public RouteWithOrders getValidRouteWithOrdersByCab(Authentication auth) {
     Long cabId = AuthUtils.getUserId(auth, "ROLE_CAB");

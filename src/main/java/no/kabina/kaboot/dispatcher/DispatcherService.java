@@ -538,7 +538,7 @@ public class DispatcherService {
     int legId = 0;
     if (cab.getLocation() != order.fromStand) { // cab has to move to pickup the first customer
       eta = distanceService.distance[cab.getLocation()][order.fromStand];
-      leg = new Leg(cab.getLocation(), order.fromStand, legId++, Route.RouteStatus.ASSIGNED);
+      leg = new Leg(cab.getLocation(), order.fromStand, legId++, Route.RouteStatus.ASSIGNED, eta);
       leg.setRoute(route);
       legRepository.save(leg);
       statSrvc.addToIntVal("total_pickup_distance", Math.abs(cab.getLocation() - order.fromStand));
@@ -556,7 +556,8 @@ public class DispatcherService {
       }
     }
     // Pool not found
-    leg = new Leg(order.fromStand, order.toStand, legId, Route.RouteStatus.ASSIGNED);
+    leg = new Leg(order.fromStand, order.toStand, legId, Route.RouteStatus.ASSIGNED,
+                  distanceService.distance[order.fromStand][order.fromStand]);
     leg = saveLeg(leg, route);
     order.setInPool(false);
     assignOrder(leg, order, cab, route, eta, "assignCustomerToCab");
@@ -569,7 +570,8 @@ public class DispatcherService {
     for (; c < e.getNumbOfCust() - 1; c++) {
       leg = null;
       if (e.getCust()[c].fromStand != e.getCust()[c + 1].fromStand) { // there is movement
-        leg = new Leg(e.getCust()[c].fromStand, e.getCust()[c + 1].fromStand, legId++, Route.RouteStatus.ASSIGNED);
+        leg = new Leg(e.getCust()[c].fromStand, e.getCust()[c + 1].fromStand, legId++, Route.RouteStatus.ASSIGNED,
+                      distanceService.distance[e.getCust()[c].fromStand][e.getCust()[c + 1].fromStand]);
         saveLeg(leg, route);
       }
       e.getCust()[c].setInPool(true);
@@ -582,7 +584,8 @@ public class DispatcherService {
     leg = null;
     // save drop-off phase - the first leg
     if (e.getCust()[c].fromStand != e.getCust()[c + 1].toStand) {
-      leg = new Leg(e.getCust()[c].fromStand, e.getCust()[c + 1].toStand, legId++, Route.RouteStatus.ASSIGNED);
+      leg = new Leg(e.getCust()[c].fromStand, e.getCust()[c + 1].toStand, legId++, Route.RouteStatus.ASSIGNED,
+                    distanceService.distance[e.getCust()[c].fromStand][e.getCust()[c + 1].toStand]);
       leg = saveLeg(leg, route);
     }
     //the last customer being picked up
@@ -591,7 +594,8 @@ public class DispatcherService {
     // 2* as the vector contains both pick-up & drop-off phases
     for (c++; c < 2 * e.getNumbOfCust() - 1; c++) {
       if (e.getCust()[c].toStand != e.getCust()[c + 1].toStand) {
-        leg = new Leg(e.getCust()[c].toStand, e.getCust()[c + 1].toStand, legId++, Route.RouteStatus.ASSIGNED);
+        leg = new Leg(e.getCust()[c].toStand, e.getCust()[c + 1].toStand, legId++, Route.RouteStatus.ASSIGNED,
+                      distanceService.distance[e.getCust()[c].toStand][e.getCust()[c + 1].toStand]);
         saveLeg(leg, route);
       }
       // here we don't update TaxiOrder
@@ -624,7 +628,7 @@ public class DispatcherService {
       o.setLeg(l);
     }
     o.setEta(eta);
-    Duration duration = Duration.between(o.getRcvdTime(), LocalDateTime.now());
+    Duration duration = Duration.between(o.getReceived(), LocalDateTime.now());
     statSrvc.addAverageElement(AVG_ORDER_ASSIGN_TIME, duration.getSeconds());
 
     /*if (c == null) {
@@ -652,7 +656,7 @@ public class DispatcherService {
 
     LocalDateTime now = LocalDateTime.now();
     for (TaxiOrder o : demand) {
-      long minutesRcvd = Duration.between(o.getRcvdTime(), now).getSeconds()/60;
+      long minutesRcvd = Duration.between(o.getReceived(), now).getSeconds()/60;
       long minutesAt = 0;
       if (o.getAtTime() != null) {
         minutesAt = Duration.between(o.getAtTime(), now).getSeconds() / 60;
