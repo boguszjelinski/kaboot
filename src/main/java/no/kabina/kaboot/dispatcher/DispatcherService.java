@@ -59,15 +59,6 @@ public class DispatcherService {
   public static final String AVG_SOLVER_TIME = "avg_solver_time";
   public static final String AVG_SHEDULER_TIME = "avg_sheduler_time";
 
-  @Value("${kaboot.solver.cmd}")
-  private String solverCmd;
-
-  @Value("${kaboot.solver.output}")
-  private String solverOutput;
-
-  @Value("${kaboot.solver.input}")
-  private String solverInput;
-
   @Value("${kaboot.consts.max-pool4}")
   private int max4Pool; // TASK: it is not that simple, we need a model here: size, max wait, ...
 
@@ -77,14 +68,29 @@ public class DispatcherService {
   @Value("${kaboot.consts.max-non-lcm}")
   private int maxSolverSize; // how big can a solver model be; 0 = no solver at all
 
+  @Value("${kaboot.consts.max-stand}")
+  private int maxNumbStands;
+
+  @Value("${kaboot.solver.cmd}")
+  private String solverCmd;
+
+  @Value("${kaboot.solver.output}")
+  private String solverOutput;
+
+  @Value("${kaboot.solver.input}")
+  private String solverInput;
+
   @Value("${kaboot.scheduler.online}")
   private boolean isOnline;
 
   @Value("${kaboot.scheduler.at-time-lag}")
   private int atTimeLag;
 
-  @Value("${kaboot.consts.max-stand}")
-  private int maxNumbStands;
+  @Value("${kaboot.scheduler.extend-margin}")
+  private float extendMargin;
+
+  @Value("${kaboot.scheduler.max-legs}")
+  private long maxLegs;
 
   @Value("${kaboot.extern-pool.threads}")
   private int numbOfThreads;
@@ -278,16 +284,17 @@ public class DispatcherService {
    * @return demand that was not matched, which have to allocated to new routes
    */
   private TaxiOrder[] findMatchingRoutes(TaxiOrder[] demand, List<Leg> legs) {
-
     if (legs == null || legs.isEmpty() || demand == null || demand.length == 0) {
       return demand;
     }
+    logger.debug("findMatchingRoutes START, orders count={} legs count={}", demand.length, legs.size());
     List<TaxiOrder> ret = new ArrayList<>();
     for (TaxiOrder taxiOrder : demand) {
       if (tryToExtendRoute(taxiOrder, legs) == -1) { // if not matched or extended
         ret.add(taxiOrder);
       }
     }
+    logger.debug("findMatchingRoutes STOP, rest orders count={}", ret.size());
     return ret.toArray(new TaxiOrder[0]);
   }
 
@@ -362,13 +369,17 @@ public class DispatcherService {
       // routes from the same stand which have NOT started will surely be seen by passengers, they can get aboard
       // TASK: MAX WAIT check
       Leg leg = legs.get(i);
+      long legCount = legs.stream().filter(l -> leg.getRoute().getId().equals(l.getRoute().getId())).count();
+      boolean notTooLong = legCount <= maxLegs;
       if (leg.getStatus() == RouteStatus.ASSIGNED || leg.getStatus() == RouteStatus.ACCEPTED) {
         initialDistance += leg.getDistance();
       }
       if ((demand.fromStand == leg.getFromStand() // direct hit
-              || distanceService.distance[leg.getFromStand()][demand.fromStand]
+              || (notTooLong
+                  && distanceService.distance[leg.getFromStand()][demand.fromStand]
                   + distanceService.distance[demand.fromStand][leg.getToStand()]
-                  < leg.getDistance() * 1.05 // 5% TASK - global config, wait at stop?
+                  < leg.getDistance() * extendMargin
+                  ) // 5% TASK - global config, wait at stop?
           )
             && legs.get(i - 1).getRoute().getId().equals(leg.getRoute().getId()) // previous leg is from the same route
             && legs.get(i - 1).getStatus() != RouteStatus.COMPLETED // the previous leg cannot be completed TASK !! in the future consider other statuses here
@@ -391,9 +402,10 @@ public class DispatcherService {
             toFound = true;
             break;
           }
-          if (distanceService.distance[legs.get(k).getFromStand()][demand.toStand]
+          if (notTooLong
+                  && distanceService.distance[legs.get(k).getFromStand()][demand.toStand]
                   + distanceService.distance[demand.toStand][legs.get(k).getToStand()]
-                  < legs.get(k).getDistance() * 1.05) {
+                  < legs.get(k).getDistance() * extendMargin) {
             distanceInPool -= distanceService.distance[demand.toStand][legs.get(k).getToStand()]; // passenger is dropped before "getToStand", but the whole distance is counted above
             toFound = true;
             break;
@@ -444,14 +456,14 @@ public class DispatcherService {
       legs.add(idxs.idxFrom + 1, newLeg); // legs will be used for another order, the list must be updated
       idxs.idxTo++;
       assignOrder(newLeg, demand, cab, route, 0, "extendRoute IN");
-      // now "place" in route for next legs has to be incremented
-      int i = idxs.idxFrom + 2; // +1+1 as we added one leg and we have to update the rest
       // modify existing IN leg so that it goes to a new waypoint in-between
       fromLeg.setToStand(demand.fromStand);
       fromLeg.setDistance(distanceService.getDistances()[fromLeg.getFromStand()][demand.fromStand]);
       // 'place' will stay unchanged
       legRepository.save(fromLeg);
 
+      // now "place" in route for next legs has to be incremented
+      int i = idxs.idxFrom + 2; // +1+1 as we added one leg and we have to update the rest
       while (i < legs.size() && legs.get(i).getRoute().getId().equals(route.getId())) {
         logger.debug("IN: increment place of leg {} route {}, from {} to {}",
                     legs.get(i).getId(), route.getId(), legs.get(i).getPlace(), place);
@@ -472,7 +484,7 @@ public class DispatcherService {
               distanceService.distance[demand.toStand][toLeg.getToStand()]);
       newLeg.setRoute(route);
       legRepository.save(newLeg);
-      legs.add(idxs.idxTo, newLeg);
+      legs.add(idxs.idxTo + 1, newLeg);
       // modify existing leg so that it goes to a new waypoint in-between
       toLeg.setToStand(demand.toStand);
       toLeg.setDistance(distanceService.getDistances()[toLeg.getFromStand()][demand.toStand]);
