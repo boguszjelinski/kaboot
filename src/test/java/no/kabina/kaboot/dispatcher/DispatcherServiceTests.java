@@ -6,7 +6,9 @@ import no.kabina.kaboot.cabs.Cab;
 import no.kabina.kaboot.cabs.CabRepository;
 import no.kabina.kaboot.orders.TaxiOrder;
 import no.kabina.kaboot.orders.TaxiOrderRepository;
+import no.kabina.kaboot.routes.Leg;
 import no.kabina.kaboot.routes.LegRepository;
+import no.kabina.kaboot.routes.Route;
 import no.kabina.kaboot.routes.RouteRepository;
 import no.kabina.kaboot.stats.Stat;
 import no.kabina.kaboot.stats.StatRepository;
@@ -14,7 +16,9 @@ import no.kabina.kaboot.stats.StatService;
 import no.kabina.kaboot.stops.Stop;
 import no.kabina.kaboot.stops.StopRepository;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.runner.RunWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -22,6 +26,7 @@ import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.junit4.SpringRunner;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -56,7 +61,7 @@ public class DispatcherServiceTests {
     /*@MockBean
     StopRepository stopRepo;
 */
-    @MockBean
+    @Autowired
     DistanceService distanceService;
 
     @Autowired
@@ -65,13 +70,13 @@ public class DispatcherServiceTests {
     @Autowired
     LcmUtil lcmUtil;
 
-    @Before
+    @BeforeAll
     public void before() {
         given(statRepo.findByName("key")).willReturn(new Stat("key",1,0));
         given(statRepo.save(any())).willReturn(new Stat("key",2,0));
         //given(stopRepo.findAll()).willReturn(getAllStops());
         int numbOfStands = 50;
-        given(distanceService.getDistances()).willReturn(PoolUtil.setCosts(numbOfStands));
+        //given(distanceService.getDistances()).willReturn(PoolUtil.setCosts(numbOfStands));
     }
 
     @Test
@@ -127,6 +132,28 @@ public class DispatcherServiceTests {
         given(cabRepo.findByStatus(any())).willReturn(Arrays.asList(cabs));
         service.findPlan(false);
         assertThat(service.hashCode()>0).isTrue();
+    }
+
+    @Test
+    public void testExpandRoute() {
+        given(legRepo.save(any())).willReturn(null);
+        given(orderRepo.save(any())).willReturn(null);
+        TaxiOrder o = new TaxiOrder(
+            370, 390, 10, 30, true, TaxiOrder.OrderStatus.RECEIVED,null);
+        Route r = new Route(Route.RouteStatus.ASSIGNED);
+        r.setId(Long.valueOf(1));
+        List<Leg> legs = new ArrayList<>();
+        Leg leg = new Leg(10, 2926,0, Route.RouteStatus.ASSIGNED, 1);
+        leg.setRoute(r);
+        legs.add(leg);
+        leg = new Leg(2926, 390, 1, Route.RouteStatus.ASSIGNED, 1);
+        leg.setRoute(r);
+        legs.add(leg);
+        leg = new Leg(390, 2250, 2, Route.RouteStatus.ASSIGNED, 1);
+        leg.setRoute(r);
+        legs.add(leg);
+        int ret = service.tryToExtendRoute(o, legs);
+        assertThat(ret).isEqualTo(1);
     }
 
     private TempModel genModel(int size) {

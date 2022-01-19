@@ -23,7 +23,7 @@ import java.util.Random;
 
 public class CustomerGenerator extends ApiClient {
     static int DURATION =  30; // min
-    static int REQ_PER_MIN = 100;
+    static int REQ_PER_MIN = 60;
     static int MAX_WAIT = 15;
     static int MAX_POOL_LOSS = 10; // 1%
     static int MAX_TRIP = 4; // this does not have any impact, distance not based on ID any more
@@ -32,7 +32,7 @@ public class CustomerGenerator extends ApiClient {
     static Random rand;
     public static void main(String[] args) throws InterruptedException {
         logger = Logger.getLogger("kaboot.simulator.customergenerator");
-        logger = ApiClient.configureLogger(logger, "customer.log");
+        logger = ApiClient.configureLogger(logger, "../../logs/customer.log");
         rand = new Random(10L);
         maxStand = getFromYaml("../../src/main/resources/application.yml", "max-stand");
         if (maxStand == -1) {

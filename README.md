@@ -4,13 +4,12 @@ that help test the dispatcher. Kaboot dispatcher is composed of two parts - the 
 the optimal assignment plan for requests and available buses, and **Rest API**, which is responsible
 for receiving requests, share statuses and store them in a database. 
 
-Kaboot dispatcher consists of three vital components:
+Kaboot dispatcher consists of four vital components:
 * GLPK linear solver, scenarios with 1000 customers & 1000 buses have been tested
-* fast Pool finder to assign several customers to one bus and create routes with several stops, 5+ passengers with 10+ stops are 
-  allowed with finder based on [dynamic programming](https://en.wikipedia.org/wiki/Dynamic_programming) principles.  
+* fast pool finder to assign several customers to one bus and create routes with several stops, 5+ passengers with 10+ stops are 
+  allowed with finder based on [dynamic programming](https://en.wikipedia.org/wiki/Dynamic_programming) principles.
+* route extender to assign customers to matching routes (including non-perfect matching)  
 * low-cost method (aka greedy) pre-solver to decrease the size of models sent to solver 
-
-You can find theoretical foundations with code examples on GitHub: https://github.com/boguszjelinski/taxidispatcher
 
 ## Kabina subprojects:
 The idea behind Kabina is to provide an enabler (a software skeleton, testing framework and RestAPI standard proposal)
@@ -21,9 +20,10 @@ it might be cost-competitive with the public transport while providing better se
 It is not meant to be a market-ready solution due to limited resources. 
 
 * Kabina: mobile application for minibus customers 
-* Kab: mobile application for minibus drivers 
+* Kab: mobile application for minibus drivers
+* Kavla: mobile application for presenting current routes on stops 
 * Kaboot: dispatcher with RestAPI
-* Kadm: administration and surveillance
+* Kadm: administration and surveillance (to be implemented)
 
 ## Prerequisites:
 * GLPK solver: https://www.gnu.org/software/glpk/
@@ -35,12 +35,13 @@ It is not meant to be a market-ready solution due to limited resources.
 Scheduler can be started with *mvn spring-boot:run*
 The first run will set up database schema. 
 You have to insert rows to 'cab' and 'customer' tables, which tells Kaboot to authenticate 
-these clients. You will find SQL scripts in the db directory, you can import them with:
+these clients. Stops must also be inserted. You will find SQL scripts in the db directory, you can import them with:
 ```
 psql -U kabina kabina < create_cabs.sql
+psql -U kabina kabina < create_customers.sql
 psql -U kabina kabina < Bus_Stops_Las_Vegas.sql
 ```
-The same with customers. Be sure your database configuration (host, database, user and password) is reflected in *application.yml*. 
+Be sure your database configuration (host, database, user and password) is reflected in *application.yml*. 
 
 Dispatcher is scheduled to run every minute. 
 
@@ -82,7 +83,15 @@ java -Dnashorn.args="--no-deprecation-warning" CabGenerator
 javac CustomerGenerator.java
 java -Dnashorn.args="--no-deprecation-warning" CustomerGenerator
 ```
-
+### How to rerun
+One has to clean up some tables to run a simulation from scratch:
+```
+update cab set status=2;
+update stat set int_val=0;
+delete from taxi_order;
+delete from leg;
+delete from route;
+```
 ## How it works
 ### Core
 * available buses (cabs) and incoming requests from customers are read from database
@@ -132,7 +141,7 @@ There is a lot of work in progress in Kaboot:
 * minibus order at a specific time - DONE, 2021-01-03
 * adding passengers during a running route - DONE, 2021-01-10
 * ad-hoc passengers on stops ("hail and ride")
-* anticipatory allocation based on currently executed routes
+* allocation to currently executed routes - DONE, 2022-01-17
 * multithreaded pool discovery (massive SMP) - DONE, 2020-12-30
 * call GLPK directly, without Python - DONE, 2020-12-31
 
@@ -143,6 +152,7 @@ There is a lot of work in progress in Kaboot:
 * use of commercial solvers - performance gain?
 * extended tuning  
 * get on with other Kabina modules
+* faster pool allocator written in C
 
 ## Important parameters / limits
 
@@ -220,7 +230,6 @@ tuning of the core:
 - total_lcm_used		
 - total_pickup_distance
 
-
 ## Copyright notice
 
 Copyright 2020 Bogusz Jelinski
@@ -239,5 +248,5 @@ limitations under the License.
 
 #
 Bogusz Jelinski    
-December 2020  
+January 2022  
 Mo i Rana

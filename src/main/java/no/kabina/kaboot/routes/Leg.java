@@ -63,8 +63,16 @@ public class Leg { // a leg of a route
     return toStand;
   }
 
+  public void setToStand(int toStand) {
+    this.toStand = toStand;
+  }
+
   public int getPlace() {
     return place;
+  }
+
+  public void setPlace(int place) {
+    this.place = place;
   }
 
   public Route.RouteStatus getStatus() {

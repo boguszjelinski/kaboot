@@ -115,6 +115,7 @@ public class DynaPool {
         if (c != d
                 && distSrvc.getDistances()[demand[c].toStand][demand[d].toStand]
                         < distSrvc.getDistances()[demand[d].fromStand][demand[d].toStand] * (100.0 + demand[d].getMaxLoss()) / 100.0) {
+          // TASK - this calculation above should be replaced by a redundant value in taxi_order - distance * loss
           int[] drops = new int[2];
           drops[0] = c;
           drops[1] = d;

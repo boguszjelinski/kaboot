@@ -56,6 +56,10 @@ public class Route {
     return id;
   }
 
+  public void setId(Long id) { // for testing only
+    this.id = id;
+  }
+
   public void setStatus(RouteStatus stat) {
     this.status = stat;
   }

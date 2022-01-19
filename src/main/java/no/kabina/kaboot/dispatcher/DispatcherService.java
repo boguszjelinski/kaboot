@@ -149,7 +149,8 @@ public class DispatcherService {
     if (supply.length > 0 && demand.length > 0) {
       // try to assign to existing routes
       int lenBefore = demand.length;
-      demand = findMatchingRoutes(demand);
+      List<Leg> legs = legRepository.findByStatusOrderByRouteAscPlaceAsc(RouteStatus.ASSIGNED);
+      demand = findMatchingRoutes(demand, legs);
       int lenAfter = demand.length;
       if (lenBefore != lenAfter) {
         logger.info("Route matcher found allocated {} requests", lenBefore - lenAfter);
@@ -276,28 +277,14 @@ public class DispatcherService {
    * @param demand to be checked
    * @return demand that was not matched, which have to allocated to new routes
    */
-  private TaxiOrder[] findMatchingRoutes(TaxiOrder[] demand) {
-    List<Leg> legs = legRepository.findByStatusOrderByRouteAscPlaceAsc(RouteStatus.ASSIGNED);
+  private TaxiOrder[] findMatchingRoutes(TaxiOrder[] demand, List<Leg> legs) {
+
     if (legs == null || legs.isEmpty() || demand == null || demand.length == 0) {
       return demand;
     }
     List<TaxiOrder> ret = new ArrayList<>();
     for (TaxiOrder taxiOrder : demand) {
-      int i = findLeg(taxiOrder, legs);
-
-      if (i > -1) {
-        // TASK: eta should be calculated
-        Route route = legs.get(i).getRoute();
-        logger.info("Customer {} assigned to existing route: {}", taxiOrder.getId(), route.getId());
-        Cab cab = null;
-        try {
-          cab = route.getCab();
-        } catch (Exception e) {
-          logger.info("Rereading Cab from Route {}", route.getId());
-          cab = getCab(route.getId());
-        }
-        assignOrder(legs.get(i), taxiOrder, cab, route, 0, "findMatchingRoutes");
-      } else {
+      if (tryToExtendRoute(taxiOrder, legs) == -1) { // if not matched or extended
         ret.add(taxiOrder);
       }
     }
@@ -316,32 +303,191 @@ public class DispatcherService {
     return null;
   }
 
+  // TASK !
+  // we can minimize the total trip time, but we would have to know the cab's current location
   private int findLeg(TaxiOrder demand, List<Leg> legs) {
-    boolean foundTo = false; // success indicator
-    boolean wontFind = false; // to signal that the next leg belongs to another route
-    for (int i = 1; i < legs.size() && !wontFind; i++) { // not from 0 as each leg we are looking for must have a predecessor
+    List<LegIndicesWithDistance> feasible = new ArrayList<>();
+    int i = 1;
+    while (i < legs.size()) { // not from 0 as each leg we are looking for must have a predecessor
       // routes from the same stand which have NOT started will surely be seen by passengers, they can get aboard
       if (demand.fromStand == legs.get(i).getFromStand()
               && legs.get(i - 1).getRoute().getId().equals(legs.get(i).getRoute().getId()) // previous leg is from the same route
               && legs.get(i - 1).getStatus() != RouteStatus.COMPLETED // the previous leg cannot be completed TASK !! in the future consider other statuses here
       // we want the previous leg to be active to give some time for both parties to get the assignment
       ) {
+        boolean toFound = false;
+        int distance = 0;
         // we have found "from", now let's find "to"
-        for (int k = i; k < legs.size() && !foundTo; k++) {
+        int k = i;
+        for (; k < legs.size(); k++) {
+          distance += legs.get(k).getDistance();
           if (!legs.get(k).getRoute().getId().equals(legs.get(i).getRoute().getId())) {
-            wontFind = true;
-            break;
+            break; // won't find
           }
           if (demand.toStand == legs.get(k).getToStand()) {
-            foundTo = true;
+            toFound = true;
+            break;
           }
         }
-        if (foundTo) {
-          return i;
+        if (toFound) {
+          feasible.add(new LegIndicesWithDistance(i, k, distance));
         }
+        i = k - 1;
+      }
+      i++;
+    }
+    if (feasible.isEmpty()) {
+      return -1;
+    }
+    feasible.sort((LegIndicesWithDistance t1, LegIndicesWithDistance t2) -> t1.distance - t2.distance);
+    return feasible.get(0).idxFrom; // first has shortest distance
+  }
+
+  private class LegIndicesWithDistance {
+    LegIndicesWithDistance(int idxFrom, int idxTo, int distance) {
+      this.idxFrom = idxFrom;
+      this.idxTo = idxTo;
+      this.distance = distance;
+    }
+    public int idxFrom;
+    public int idxTo;
+    public int distance;
+  }
+
+  public int tryToExtendRoute(TaxiOrder demand, List<Leg> legs) {
+    List<LegIndicesWithDistance> feasible = new ArrayList<>();
+    int i = 1;
+    int initialDistance = 0;
+    while (i < legs.size()) { // not from 0 as each leg we are looking for must have a predecessor
+      // routes from the same stand which have NOT started will surely be seen by passengers, they can get aboard
+      // TASK: MAX WAIT check
+      Leg leg = legs.get(i);
+      if (leg.getStatus() == RouteStatus.ASSIGNED || leg.getStatus() == RouteStatus.ACCEPTED) {
+        initialDistance += leg.getDistance();
+      }
+      if ((demand.fromStand == leg.getFromStand() // direct hit
+              || distanceService.distance[leg.getFromStand()][demand.fromStand]
+                  + distanceService.distance[demand.fromStand][leg.getToStand()]
+                  < leg.getDistance() * 1.05 // 5% TASK - global config, wait at stop?
+          )
+            && legs.get(i - 1).getRoute().getId().equals(leg.getRoute().getId()) // previous leg is from the same route
+            && legs.get(i - 1).getStatus() != RouteStatus.COMPLETED // the previous leg cannot be completed TASK !! in the future consider other statuses here
+      // we want the previous leg to be active to give some time for both parties to get the assignment
+      ) {
+        // OK, so we found the first 'pickup' leg, either direct hit or can be extended
+        boolean toFound = false;
+        int distanceInPool = 0;
+        // we have found "from", now let's find "to"
+        int k = i; // "to might be in the same leg as "from", we have to start from 'i'
+        for (; k < legs.size(); k++) {
+          if (i != k) { // 'i' countet already
+            distanceInPool += legs.get(k).getDistance();
+          }
+          if (!legs.get(k).getRoute().getId().equals(leg.getRoute().getId())) {
+            initialDistance = 0; // new route
+            break; // won't find; this leg is the first leg in the next route and won't be checked as i++
+          }
+          if (demand.toStand == legs.get(k).getToStand()) { // direct hit
+            toFound = true;
+            break;
+          }
+          if (distanceService.distance[legs.get(k).getFromStand()][demand.toStand]
+                  + distanceService.distance[demand.toStand][legs.get(k).getToStand()]
+                  < legs.get(k).getDistance() * 1.05) {
+            distanceInPool -= distanceService.distance[demand.toStand][legs.get(k).getToStand()]; // passenger is dropped before "getToStand", but the whole distance is counted above
+            toFound = true;
+            break;
+          }
+        }
+        if (toFound && demand.getMaxWait() >= initialDistance
+                && (1.0 + demand.getMaxLoss()/100.0) * demand.getDistance() >= distanceInPool) { // TASK: maybe distance*maxloss is a performance bug, distanceWithLoss should be stored and used
+          feasible.add(new LegIndicesWithDistance(i, k, initialDistance + distanceInPool));
+        }
+        i = k;
+      }
+      i++;
+    }
+    if (feasible.isEmpty()) {
+      return -1;
+    }
+    feasible.sort((LegIndicesWithDistance t1, LegIndicesWithDistance t2) -> t1.distance - t2.distance);
+    // TASK: MAX LOSS check
+    modifyLeg(demand, legs, feasible.get(0));
+    return feasible.get(0).idxFrom; // first has shortest distance
+  }
+
+  private void modifyLeg(TaxiOrder demand, List<Leg> legs, LegIndicesWithDistance idxs) {
+    // pickup phase
+    Leg fromLeg = legs.get(idxs.idxFrom);
+    Route route = fromLeg.getRoute();
+    logger.info("Order {} assigned to existing route: {}", demand.getId(), route.getId());
+    Cab cab = null;
+    try {
+      cab = route.getCab();
+    } catch (Exception e) {
+      logger.info("Rereading Cab from Route {}", route.getId());
+      cab = getCab(route.getId());
+    }
+    if (demand.fromStand == fromLeg.getFromStand()) { // direct hit, we don't modify that leg
+      // TASK: eta should be calculated
+      assignOrder(fromLeg, demand, cab, route, 0, "matchRoute IN");
+    } else { // one leg more
+      int place = fromLeg.getPlace() + 1;
+      logger.info("new, extended IN leg, route {}, place {}", route.getId(), place);
+      Leg newLeg = new Leg(demand.fromStand,
+                           fromLeg.getToStand(),
+                           place++,
+                           Route.RouteStatus.ASSIGNED,
+                           distanceService.distance[demand.fromStand][fromLeg.getToStand()]);
+      newLeg.setRoute(route);
+      legRepository.save(newLeg);
+      legs.add(idxs.idxFrom + 1, newLeg); // legs will be used for another order, the list must be updated
+      idxs.idxTo++;
+      assignOrder(newLeg, demand, cab, route, 0, "extendRoute IN");
+      // now "place" in route for next legs has to be incremented
+      int i = idxs.idxFrom + 2; // +1+1 as we added one leg and we have to update the rest
+      // modify existing IN leg so that it goes to a new waypoint in-between
+      fromLeg.setToStand(demand.fromStand);
+      fromLeg.setDistance(distanceService.getDistances()[fromLeg.getFromStand()][demand.fromStand]);
+      // 'place' will stay unchanged
+      legRepository.save(fromLeg);
+
+      while (i < legs.size() && legs.get(i).getRoute().getId().equals(route.getId())) {
+        logger.debug("IN: increment place of leg {} route {}, from {} to {}",
+                    legs.get(i).getId(), route.getId(), legs.get(i).getPlace(), place);
+        legs.get(i).setPlace(place++);
+        legRepository.save(legs.get(i));
+        i++;
       }
     }
-    return -1;
+    // drop-off phase
+    Leg toLeg = legs.get(idxs.idxTo);
+    if (demand.toStand != toLeg.getToStand()) { // one leg more, ignore situation with ==
+      int place = toLeg.getPlace() + 1;
+      logger.info("new, extended OUT leg, route {}, place {}", route.getId(), place);
+      Leg newLeg = new Leg(demand.toStand,
+              toLeg.getToStand(), // stop where the original leg ended
+              place++,
+              Route.RouteStatus.ASSIGNED,
+              distanceService.distance[demand.toStand][toLeg.getToStand()]);
+      newLeg.setRoute(route);
+      legRepository.save(newLeg);
+      legs.add(idxs.idxTo, newLeg);
+      // modify existing leg so that it goes to a new waypoint in-between
+      toLeg.setToStand(demand.toStand);
+      toLeg.setDistance(distanceService.getDistances()[toLeg.getFromStand()][demand.toStand]);
+      // place will stay unchanged
+      legRepository.save(toLeg);
+      // now "place" in route for next legs has to be incremented
+      int i = idxs.idxTo + 2;
+      while (i < legs.size() && legs.get(i).getRoute().getId().equals(route.getId())) {
+        logger.debug("OUT: increment place of leg {} route {}, from {} to {}",
+                legs.get(i).getId(), route.getId(), legs.get(i).getPlace(), place);
+        legs.get(i).setPlace(place++);
+        legRepository.save(legs.get(i));
+        i++;
+      }
+    }
   }
 
   private TempModel prepareData() {
@@ -564,7 +710,22 @@ public class DispatcherService {
     return 1; // one customer
   }
 
+  private void logPool(Cab cab, Route route, PoolElement e) {
+    StringBuilder stops = new StringBuilder();
+    int i = 0;
+    // pickup
+    for (; i < e.getNumbOfCust(); i++) {
+      stops.append(e.getCust()[i].getId()).append("(").append(e.getCust()[i].getFromStand()).append("), ");
+    }
+    // drop-off
+    for (; i < 2 * e.getNumbOfCust(); i++) {
+      stops.append(e.getCust()[i].getId()).append("(").append(e.getCust()[i].getToStand()).append("), ");
+    }
+    logger.info("Pool legs: cab_id={}, route_id={}, order_id(stop_id)={}", cab.getId(), route.getId(), stops);
+  }
+
   private void assignOrdersAndSaveLegs(Cab cab, Route route, int legId, PoolElement e, int eta) {
+    logPool(cab, route, e);
     Leg leg;
     int c = 0;
     for (; c < e.getNumbOfCust() - 1; c++) {

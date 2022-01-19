@@ -110,7 +110,7 @@ public class TaxiOrderController {
     if (custId == null) {
       return null; // not authorised
     }
-    logger.info("POST order cust_id={},", custId);
+    logger.info("POST order cust_id={}, from={}, to={}", custId, newTaxiOrder.fromStand, newTaxiOrder.toStand);
     if (newTaxiOrder.fromStand == newTaxiOrder.toStand) { // a joker
       return null;
     }
