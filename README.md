@@ -24,7 +24,8 @@ It is not meant to be a market-ready solution due to limited resources.
 * Kavla: mobile application for presenting current routes on stops 
 * Kaboot: dispatcher with RestAPI
 * Kadm: administration and surveillance (to be implemented)
-
+  
+See here to find more: https://gitlab.com/kabina/kabina/-/blob/master/minibuses.pdf
 ## Prerequisites:
 * GLPK solver: https://www.gnu.org/software/glpk/
 * PostgreSQL (tested with MariaDB too)
@@ -33,23 +34,24 @@ It is not meant to be a market-ready solution due to limited resources.
 ### Core
 
 Scheduler can be started with *mvn spring-boot:run*
-The first run will set up database schema. 
+The first run will set up database schema. Before you do it be sure your 
+database configuration (host, database, user and password) is reflected 
+in *application.yml*.  
 You have to insert rows to 'cab' and 'customer' tables, which tells Kaboot to authenticate 
 these clients. Stops must also be inserted. You will find SQL scripts in the db directory, you can import them with:
 ```
 psql -U kabina kabina < create_cabs.sql
 psql -U kabina kabina < create_customers.sql
-psql -U kabina kabina < Bus_Stops_Las_Vegas.sql
+psql -U kabina kabina < bus_stops_las_vegas.sql
 ```
-Be sure your database configuration (host, database, user and password) is reflected in *application.yml*. 
-
-Dispatcher is scheduled to run every minute. 
+Dispatcher is scheduled to run every minute.
+A short video about how to run the dispatcher is available here: https://youtu.be/RtHvyBTlJFw
 
 ### Clients
 In 'generators' directory you will find Rest API client applications that simulate
 behaviour of thousands of buses and customers. Multiple Java threads are awakened to life, separate ones
 for each customer and bus. They submit requests to the server side (backend), checks statuses and write two logs. 
-Threads simulating buses "move" virtually just by waiting specific amount of time (1min = 1km).
+Threads simulating buses "move" virtually just by waiting specific amount of time (1min = 1km, for example).
 You can start with just one bus and one customer in two separate command line windows:
 ```
 javac OneCab.java
@@ -78,10 +80,10 @@ with 10min acceptable wait time and 30% of acceptable time waste in pool.
 In order to run thousands of cabs and customers type this in two separate command line windows: 
 ```
 javac CabGenerator.java
-java -Dnashorn.args="--no-deprecation-warning" CabGenerator
+java -Dnashorn.args="--no-deprecation-warning" -Xms5g -Xmx5g CabGenerator
 
 javac CustomerGenerator.java
-java -Dnashorn.args="--no-deprecation-warning" CustomerGenerator
+java -Dnashorn.args="--no-deprecation-warning" -Xms5g -Xmx5g CustomerGenerator
 ```
 ### How to rerun
 One has to clean up some tables to run a simulation from scratch:
@@ -126,7 +128,7 @@ delete from route;
 * wait 1min after having reached a waypoint (stand) - time for customers to get the notification via RestAPI
 * mark cab as FREE at the last stand
 
-### Customer 
+### Customer ~~~~
 * request a cab
 * wait for an assignment - a proposal 
 * do you like it ?
@@ -151,8 +153,7 @@ There is a lot of work in progress in Kaboot:
 * resistance to bizarre situations (customers interrupting trips, for example)
 * use of commercial solvers - performance gain?
 * extended tuning  
-* get on with other Kabina modules
-* faster pool allocator written in C
+* faster pool finder written in C or Rust
 
 ## Important parameters / limits
 
@@ -164,6 +165,8 @@ There is a lot of work in progress in Kaboot:
 | max-pool3 | 1200 | application.yml | max size of demand that can be sent to pool discoverer with 3 passengers; to speed up performance
 | max-stand | 3300 | application.yml | cost matrix generation in PoolUtil; for future use in CabGenerator.java - random start location
 | at-time-lag | 3 | application.yml | take into consideration requests for cabs that will be due in a few minutes time - number of minutes. This concerns requests sent for a specific timestamp, not ASAP
+| extend-margin | 1.05 |application.yml| 5% acceptable loss - extension of duration of a rute
+| max-legs | 8 | application.yml | max number of legs in a route
 | solver.cmd | glpsol -m glpk.mod | application.yml | GLPK command (solver)
 | solver.input | glpk.mod | application.yml | temporary GLPK programme with cost matrix sent to solver
 | solver.output | out.txt | application.yml | output vector from solver 

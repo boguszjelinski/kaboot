@@ -1,3 +1,5 @@
+package no.kabina.kaboot.dispatcher;
+
 import static java.lang.StrictMath.abs;
 import java.util.Arrays;
 import java.util.Random;

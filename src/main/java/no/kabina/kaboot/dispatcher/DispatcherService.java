@@ -374,15 +374,16 @@ public class DispatcherService {
       if (leg.getStatus() == RouteStatus.ASSIGNED || leg.getStatus() == RouteStatus.ACCEPTED) {
         initialDistance += leg.getDistance();
       }
-      if ((demand.fromStand == leg.getFromStand() // direct hit
+      if (demand.fromStand != leg.getToStand() // direct hit in the next leg
+          && (demand.fromStand == leg.getFromStand() // direct hit
               || (notTooLong
                   && distanceService.distance[leg.getFromStand()][demand.fromStand]
                   + distanceService.distance[demand.fromStand][leg.getToStand()]
                   < leg.getDistance() * extendMargin
                   ) // 5% TASK - global config, wait at stop?
           )
-            && legs.get(i - 1).getRoute().getId().equals(leg.getRoute().getId()) // previous leg is from the same route
-            && legs.get(i - 1).getStatus() != RouteStatus.COMPLETED // the previous leg cannot be completed TASK !! in the future consider other statuses here
+          && legs.get(i - 1).getRoute().getId().equals(leg.getRoute().getId()) // previous leg is from the same route
+          && legs.get(i - 1).getStatus() != RouteStatus.COMPLETED // the previous leg cannot be completed TASK !! in the future consider other statuses here
       // we want the previous leg to be active to give some time for both parties to get the assignment
       ) {
         // OK, so we found the first 'pickup' leg, either direct hit or can be extended
@@ -419,6 +420,7 @@ public class DispatcherService {
       }
       i++;
     }
+    // TASK: sjekk if demand.from == last leg.toStand - this might be feasible
     if (feasible.isEmpty()) {
       return -1;
     }
