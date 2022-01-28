@@ -48,6 +48,15 @@ public class PoolUtilTests {
     }
 
     @Test
+    public void testDynaPoolTwo3() {
+        DynaPool2 util = new DynaPool2(distances);
+        PoolElement[] pool = util.findPool(orders, 3);
+        assertThat(pool.length).isSameAs(19); // TASK: one missing
+        assertThat(poolIsValid(pool)).isSameAs(0);
+    }
+
+
+    @Test
     public void testDynaPool3() {
         DynaPool util = new DynaPool(distances);
         PoolElement[] pool = util.findPool(orders, 3);

@@ -86,7 +86,7 @@ public class DynaPool {
 
     for (int c = 0; c < demand.length; c++) {
       for (Branch b : node[lev + 1]) { // we iterate over product of the stage further in the tree: +1
-        if (!isFoundInBranchOrTooLong(c, b)) { // one of two in 'b' is dropped off earlier
+        if (!isFoundInBranchOrTooLong(c, b)) { // one of two passengers in 'b' is dropped off earlier
           storeBranch(lev, c, b, inPool);
         }
       }
