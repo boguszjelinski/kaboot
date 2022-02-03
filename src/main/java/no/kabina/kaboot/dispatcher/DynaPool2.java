@@ -25,18 +25,19 @@ import org.apache.commons.lang3.builder.HashCodeBuilder;
 public class DynaPool2 {
 
   private DistanceService distSrvc;
+  private TaxiOrder[] demand;
+  private static final int MAX_IN_POOL = 8; // just for memory allocation, might be 10 as well
+  private List<Branch>[] node;
+  private int maxAngle;
 
-  TaxiOrder[] demand;
-  private static final int MAX_IN_POOL = 6; // just for memory allocation, might be 10 as well
-
-  List<Branch>[] node;
-
-  public DynaPool2(DistanceService srvc) {
+  public DynaPool2(DistanceService srvc, int maxAngle) {
     this.distSrvc = srvc;
+    this.maxAngle = maxAngle;
   }
 
   // for tests
-  public DynaPool2(int [][] dists) {
+  public DynaPool2(int [][] dists, int maxAngle) {
+    this.maxAngle = maxAngle;
     if (distSrvc == null) {
       distSrvc = new DistanceService(dists);
     }
@@ -64,7 +65,7 @@ public class DynaPool2 {
 
   private void initMem(int inPool) {
     node = new ArrayList[MAX_IN_POOL + MAX_IN_POOL - 1];
-    for (int i = 0; i < inPool - 1; i++) {
+    for (int i = 0; i < inPool * inPool - 1; i++) {
       node[i] = new ArrayList<>();
     }
   }
@@ -111,16 +112,20 @@ public class DynaPool2 {
     }
     // now checking if anyone in the branch does not lose too much with the pool
     // c IN
-    if (!inFound && outFound 
-        && !isTooLong(distSrvc.getDistances()[demand[c].fromStand][b.custActions[0] == 'i' ? demand[b.custIDs[0]].fromStand : demand[b.custIDs[0]].toStand],
-                      b)) {
+    int nextStop = b.custActions[0] == 'i' ? demand[b.custIDs[0]].fromStand : demand[b.custIDs[0]].toStand;
+    if (!inFound
+        && outFound
+        && !isTooLong(distSrvc.getDistances()[demand[c].fromStand][nextStop], b)
+        // TASK? if the next stop is OUT of passenger 'c' - we might allow bigger angle
+        && bearingDiff(distSrvc.bearing[demand[c].fromStand], distSrvc.bearing[nextStop]) < maxAngle) {
       storeBranch('i', lev, c, b, inPool);
     }
     // c OUT
     if (lev > 0 // the first stop cannot be OUT
-        && !outFound 
-        && !isTooLong(distSrvc.getDistances()[demand[c].toStand][b.custActions[0] == 'i' ? demand[b.custIDs[0]].fromStand : demand[b.custIDs[0]].toStand],
-                      b)) {
+        && b.outs < inPool // numb OUT must be numb IN
+        && !outFound // there is no such OUT later on
+        && !isTooLong(distSrvc.getDistances()[demand[c].toStand][nextStop], b)
+        && bearingDiff(distSrvc.bearing[demand[c].toStand], distSrvc.bearing[nextStop]) < maxAngle) {
       storeBranch('o', lev, c, b, inPool);
     }
   }
@@ -139,7 +144,7 @@ public class DynaPool2 {
     Branch b2 = new Branch(c + action + "-" + b.key, // no sorting as we have to remove lev+1 duplicates eg. 1-4-5 and 1-5-4
                       distSrvc.getDistances()[action == 'i' ? demand[c].fromStand : demand[c].toStand]
                       [b.custActions[0] == 'i' ? demand[b.custIDs[0]].fromStand : demand[b.custIDs[0]].toStand] + b.cost,
-                          drops, actions);
+                      action == 'o' ? b.outs + 1: b.outs, drops, actions);
     node[lev].add(b2);
   }
 
@@ -162,17 +167,30 @@ public class DynaPool2 {
       for (int d = 0; d < demand.length; d++) {
         // to situations: <1in, 1out>, <1out, 2out>
         if (c == d)  {
-          addBranch(c, d, 'i', 'o', lev);
+          // IN and OUT of the same passenger, we don't check bearing as they are probably distant stops
+          addBranch(c, d, 'i', 'o', 1, lev);
         } else if (distSrvc.getDistances()[demand[c].toStand][demand[d].toStand]
-                        < distSrvc.getDistances()[demand[d].fromStand][demand[d].toStand] * (100.0 + demand[d].getMaxLoss()) / 100.0) {
+                    < distSrvc.getDistances()[demand[d].fromStand][demand[d].toStand] * (100.0 + demand[d].getMaxLoss()) / 100.0
+                && bearingDiff(distSrvc.bearing[demand[c].toStand], distSrvc.bearing[demand[d].toStand]) < maxAngle
+        ) {
           // TASK - this calculation above should be replaced by a redundant value in taxi_order - distance * loss
-          addBranch(c, d, 'o', 'o', lev);
+          addBranch(c, d, 'o', 'o', 2, lev);
         }
       }
     }
   }
 
-  private void addBranch(int id1, int id2, char dir1, char dir2, int lev) {
+  public static int bearingDiff(int a, int b) {
+    int r = (a - b) % 360;
+    if (r < -180.0) {
+      r += 360.0;
+    } else if (r >= 180.0) {
+      r -= 360.0;
+    }
+    return Math.abs(r);
+  }
+
+  private void addBranch(int id1, int id2, char dir1, char dir2, int outs, int lev) {
     int[] ids = new int[2];
     ids[0] = id1;
     ids[1] = id2;
@@ -180,7 +198,8 @@ public class DynaPool2 {
     dirs[0] = dir1;
     dirs[1] = dir2;
     Branch b = new Branch(id1 < id2 ? id1 + dir1 + "-" + id2 + dir2 : id2 + dir2 + "-" + id1 + dir1, // if id1 == id2 then both are OK :)
-                          distSrvc.getDistances()[demand[id1].toStand][demand[id2].toStand], ids, dirs);
+                          distSrvc.getDistances()[demand[id1].toStand][demand[id2].toStand], 
+                          outs, ids, dirs);
     node[lev].add(b);
   }
 
@@ -249,12 +268,9 @@ public class DynaPool2 {
     List<PoolElement> ret = new ArrayList<>();
 
     for (Branch p : node[0]) {
-      TaxiOrder[] orders = new TaxiOrder[p.custIDs.length / 2]; 
-      int i = 0;
-      for (; i < p.custIDs.length; i++) {
-        if (p.custActions[i] == 'i') { // or 'o', doesn't matter, just not all 
+      TaxiOrder[] orders = new TaxiOrder[p.custIDs.length];
+      for (int i = 0; i < p.custIDs.length; i++) {
           orders[i] = demand[p.custIDs[i]];
-        }
       }
       ret.add(new PoolElement(orders, inPool, p.cost));
     }
@@ -264,6 +280,7 @@ public class DynaPool2 {
   class Branch implements Comparable<Branch> {
     public String key; // used to remove duplicates and search in hashmap
     public int cost;
+    public int outs; // number of OUT nodes, so that we can guarantee enough IN nodes
     public int[] custIDs; // we could get rid of it to gain on memory (key stores this too); but we would lose time on parsing
     public char[] custActions;
 
@@ -273,9 +290,10 @@ public class DynaPool2 {
       this.custIDs = drops;
     }
 
-    Branch (String key, int cost, int[] ids, char[] actions) {
+    Branch (String key, int cost, int outs, int[] ids, char[] actions) {
       this.key = key;
       this.cost = cost;
+      this.outs = outs;
       this.custIDs = ids;
       this.custActions = actions;
     }

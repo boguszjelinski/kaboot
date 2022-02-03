@@ -42,7 +42,7 @@ these clients. Stops must also be inserted. You will find SQL scripts in the db 
 ```
 psql -U kabina kabina < create_cabs.sql
 psql -U kabina kabina < create_customers.sql
-psql -U kabina kabina < bus_stops_las_vegas.sql
+psql -c "\COPY stop(id, no, name, latitude, longitude, bearing) FROM 'stops-Budapest-import.csv' DELIMITER ',' CSV HEADER ENCODING 'UTF8'" -U kabina
 ```
 Dispatcher is scheduled to run every minute.
 A short video about how to run the dispatcher is available here: https://youtu.be/RtHvyBTlJFw

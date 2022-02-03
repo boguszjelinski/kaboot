@@ -178,7 +178,7 @@ public class DispatcherServiceTests {
                     irvine[i][1], // no
                     irvine[i][2], // name
                     irvine[i][3], // type
-                    irvine[i][4], // bearing
+                    (short) 0, // bearing
                     Double.parseDouble(irvine[i][6]),
                     Double.parseDouble(irvine[i][5])));
         }

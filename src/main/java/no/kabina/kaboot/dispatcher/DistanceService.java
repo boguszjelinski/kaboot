@@ -13,6 +13,7 @@ import org.springframework.stereotype.Component;
 public class DistanceService {
   private final Logger logger = LoggerFactory.getLogger(DistanceService.class);
   public int [][] distance; // DB IDs will be used to address this table, so beware with IDs in the DB
+  public int [] bearing;
 
   public DistanceService() { }
 
@@ -28,6 +29,7 @@ public class DistanceService {
 
     for (int i = 0; i < stops.size(); i++) {
       distance[i][i] = 0;
+      bearing[i] = stops.get(i).getBearing();
       for (int j = i + 1; j < stops.size(); j++) {
         Stop from  = stops.get(i);
         Stop to  = stops.get(j);

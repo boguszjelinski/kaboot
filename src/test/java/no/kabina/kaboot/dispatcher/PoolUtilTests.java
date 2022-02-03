@@ -49,10 +49,20 @@ public class PoolUtilTests {
 
     @Test
     public void testDynaPoolTwo3() {
-        DynaPool2 util = new DynaPool2(distances);
+        DynaPool2 util = new DynaPool2(distances, 100); // 100 max angle
         PoolElement[] pool = util.findPool(orders, 3);
         assertThat(pool.length).isSameAs(19); // TASK: one missing
         assertThat(poolIsValid(pool)).isSameAs(0);
+    }
+
+    @Test
+    public void testBearingDiff() {
+        assertThat(DynaPool2.bearingDiff(10, 21)).isEqualTo(11);
+        assertThat(DynaPool2.bearingDiff(32, 20)).isEqualTo(12);
+        assertThat(DynaPool2.bearingDiff(-5, -18)).isEqualTo(13);
+        assertThat(DynaPool2.bearingDiff(-5, 9)).isEqualTo(14);
+        assertThat(DynaPool2.bearingDiff(-175, 170)).isEqualTo(15);
+        assertThat(DynaPool2.bearingDiff(-175, 5)).isEqualTo(180);
     }
 
 

@@ -1,5 +1,6 @@
 package no.kabina.kaboot.stops;
 
+import javax.persistence.Column;
 import javax.persistence.Entity;
 import javax.persistence.GeneratedValue;
 import javax.persistence.GenerationType;
@@ -11,10 +12,17 @@ public class Stop {
   @GeneratedValue(strategy = GenerationType.AUTO)
   private Long id;
 
+  @Column(nullable = true)
   private String no;
+
   private String name;
+
+  @Column(nullable = true)
   private String type;
-  private String bearing;
+  
+  @Column(nullable = true)
+  private int bearing;
+  
   private double latitude;
   private double longitude;
 
@@ -30,7 +38,7 @@ public class Stop {
    * @param latitude
    * @param longitude
    */
-  public Stop(Long id, String no, String name, String type, String bearing, double latitude, double longitude) {
+  public Stop(Long id, String no, String name, String type, int bearing, double latitude, double longitude) {
     this.id = id;
     this.no = no;
     this.name = name;
@@ -72,11 +80,11 @@ public class Stop {
     this.type = type;
   }
 
-  public String getBearing() {
+  public int getBearing() {
     return bearing;
   }
 
-  public void setBearing(String bearing) {
+  public void setBearing(int bearing) {
     this.bearing = bearing;
   }
 
