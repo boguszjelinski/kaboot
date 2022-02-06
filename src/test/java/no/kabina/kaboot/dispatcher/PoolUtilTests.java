@@ -19,6 +19,7 @@ public class PoolUtilTests {
 
     private TaxiOrder[] orders = genDemand(75);
     private int [][] distances;
+    private int [] bearing;
     private final int numbOfStands = 50;
     Random rand = new Random(10L);
     final int MAX_TRIP = 4;
@@ -26,6 +27,7 @@ public class PoolUtilTests {
 
     public PoolUtilTests() {
         distances = PoolUtil.setCosts(numbOfStands);
+        bearing = new int[numbOfStands];
     }
     /*@Before
     public void before() {
@@ -49,7 +51,7 @@ public class PoolUtilTests {
 
     @Test
     public void testDynaPoolTwo3() {
-        DynaPool2 util = new DynaPool2(distances, 100); // 100 max angle
+        DynaPool2 util = new DynaPool2(distances, bearing, 100); // 100 max angle
         PoolElement[] pool = util.findPool(orders, 3);
         assertThat(pool.length).isSameAs(19); // TASK: one missing
         assertThat(poolIsValid(pool)).isSameAs(0);

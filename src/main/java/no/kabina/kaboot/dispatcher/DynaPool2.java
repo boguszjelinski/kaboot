@@ -36,10 +36,10 @@ public class DynaPool2 {
   }
 
   // for tests
-  public DynaPool2(int [][] dists, int maxAngle) {
+  public DynaPool2(int [][] dists, int[] bearing, int maxAngle) {
     this.maxAngle = maxAngle;
     if (distSrvc == null) {
-      distSrvc = new DistanceService(dists);
+      distSrvc = new DistanceService(dists, bearing);
     }
   }
 
@@ -117,7 +117,8 @@ public class DynaPool2 {
         && outFound
         && !isTooLong(distSrvc.getDistances()[demand[c].fromStand][nextStop], b)
         // TASK? if the next stop is OUT of passenger 'c' - we might allow bigger angle
-        && bearingDiff(distSrvc.bearing[demand[c].fromStand], distSrvc.bearing[nextStop]) < maxAngle) {
+  //     && bearingDiff(distSrvc.bearing[demand[c].fromStand], distSrvc.bearing[nextStop]) < maxAngle
+        ) {
       storeBranch('i', lev, c, b, inPool);
     }
     // c OUT
@@ -125,7 +126,8 @@ public class DynaPool2 {
         && b.outs < inPool // numb OUT must be numb IN
         && !outFound // there is no such OUT later on
         && !isTooLong(distSrvc.getDistances()[demand[c].toStand][nextStop], b)
-        && bearingDiff(distSrvc.bearing[demand[c].toStand], distSrvc.bearing[nextStop]) < maxAngle) {
+   //     && bearingDiff(distSrvc.bearing[demand[c].toStand], distSrvc.bearing[nextStop]) < maxAngle
+        ) {
       storeBranch('o', lev, c, b, inPool);
     }
   }
@@ -171,7 +173,7 @@ public class DynaPool2 {
           addBranch(c, d, 'i', 'o', 1, lev);
         } else if (distSrvc.getDistances()[demand[c].toStand][demand[d].toStand]
                     < distSrvc.getDistances()[demand[d].fromStand][demand[d].toStand] * (100.0 + demand[d].getMaxLoss()) / 100.0
-                && bearingDiff(distSrvc.bearing[demand[c].toStand], distSrvc.bearing[demand[d].toStand]) < maxAngle
+//                && bearingDiff(distSrvc.bearing[demand[c].toStand], distSrvc.bearing[demand[d].toStand]) < maxAngle
         ) {
           // TASK - this calculation above should be replaced by a redundant value in taxi_order - distance * loss
           addBranch(c, d, 'o', 'o', 2, lev);

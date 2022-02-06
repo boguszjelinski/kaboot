@@ -18,8 +18,9 @@ public class DistanceService {
   public DistanceService() { }
 
   // for non-integration tests
-  public DistanceService(int[][] dists) {
-    distance = dists;
+  public DistanceService(int[][] dists, int[] bearing) {
+    this.distance = dists;
+    this.bearing = bearing;
   }
 
   public void initDistance(StopRepository stopRepository) {

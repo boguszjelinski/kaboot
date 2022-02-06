@@ -41,7 +41,7 @@ public class DynaPool {
   // for tests
   public DynaPool(int [][] dists) {
     if (distSrvc == null) {
-      distSrvc = new DistanceService(dists);
+      distSrvc = new DistanceService(dists, null);
     }
   }
 
