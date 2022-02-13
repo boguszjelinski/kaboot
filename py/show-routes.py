@@ -45,8 +45,6 @@ def draw_circle(x, y, r, cnvs):
     return cnvs.create_oval(x0, y0, x1, y1)
 
 def onKeyPress(event):
-    #text.insert('end', 'You pressed %s\n' % (event.char, ))
-    #root.title("{}: {}".format(str(event.type), event.keysym))
     global routeIdx
     global numbRoutes
 
@@ -69,16 +67,32 @@ def showRoute(idx):
     place = 0
     found = 0
     for i in range(numbLegs-1):
+        if id[i] != idx and found == 1:
+            show_circle(toStand[i - 1], place, canvas)
+            break
         if id[i] == idx:
             if found == 0:
                 found = 1
                 canvas.create_text(50, 10, font="Console 10 bold",text=str(routeId[i]))
-
-            x = getX(longitude[fromStand[i]])
-            y = getY(latitude[fromStand[i]])
-            draw_circle(x, y, 3, canvas)
-            canvas.create_text(x, y-9, font="Console 10 bold",text=str(place))
+            show_circle(fromStand[i], place, canvas)
             place += 1
+
+def show_circle(stop, place, canvas):
+    print('stop:{0} long:{1} lat:{2}'.format(stop, get_long(stop), get_lat(stop)))
+    x = getX(get_long(stop))
+    y = getY(get_lat(stop))
+    draw_circle(x, y, 3, canvas)
+    canvas.create_text(x, y-9, font="Console 10 bold",text=str(place))
+
+def get_long(stop_id):
+    for i in range(numbStops-1):
+        if stopId[i] == stop_id:
+            return longitude[i]
+
+def get_lat(stop_id):
+    for i in range(numbStops-1):
+        if stopId[i] == stop_id:
+            return latitude[i]
 
 try:
     conn = psycopg2.connect("dbname=kabina user=kabina password=kaboot")
