@@ -27,7 +27,7 @@ public class DistanceService {
     logger.info("initDistance START");
     List<Stop> stops = stopRepository.findAll();
     distance = new int[stops.size()][stops.size()];
-
+    bearing = new int[stops.size()];
     for (int i = 0; i < stops.size(); i++) {
       distance[i][i] = 0;
       bearing[i] = stops.get(i).getBearing();

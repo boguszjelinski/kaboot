@@ -260,14 +260,41 @@ public class PoolUtil {
       boolean found = false;
       for (PoolElement a : arr) {
         for (int j = 0; j < a.getCust().length / 2; j++) { // 0: the first leg; /2 -> pickups + dropp-offs
-          if (a.getCust()[j] == null) {
+          /*if (a.getCust()[j] == null) {
             logger.warn("Pool element's ID is NULL");
             break;
           }
+          */
           if (a.getCust()[j].id.equals(td.id)) { // this customer will be picked up by another customer should not be sent tol solver
             found = true;
             break;
           }
+        }
+      }
+      if (!found) { // 'd' is not picked up by others, he is the first one to be picked up, therefore will be sent to solver
+        ret.add(td);
+      }
+    }
+    return ret.toArray(new TaxiOrder[0]); // ret.size()
+  }
+
+  public static TaxiOrder[] findCustomersWithoutPoolV2(PoolElement[] arr, TaxiOrder[] tempDemand) {
+    if (arr == null || arr.length == 0) {
+      return tempDemand;
+    }
+    List<TaxiOrder> ret = new ArrayList<>();
+
+    for (TaxiOrder td : tempDemand) {
+      boolean found = false;
+      for (PoolElement a : arr) {
+        for (int j = 0; j < a.getCust().length; j++) {
+          if (a.custActions[j] == 'i' && a.getCust()[j].id.equals(td.id)) { // this customer will be picked up by another customer should not be sent tol solver
+            found = true;
+            break;
+          }
+        }
+        if (found) {
+          break;
         }
       }
       if (!found) { // 'd' is not picked up by others, he is the first one to be picked up, therefore will be sent to solver

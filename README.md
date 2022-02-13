@@ -235,7 +235,7 @@ tuning of the core:
 
 ## Copyright notice
 
-Copyright 2020 Bogusz Jelinski
+Copyright 2022 Bogusz Jelinski
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.

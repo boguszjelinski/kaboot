@@ -122,7 +122,7 @@ public class TaxiOrderController {
     TaxiOrder order = new TaxiOrder(newTaxiOrder.fromStand, newTaxiOrder.toStand, newTaxiOrder.maxWait,
                       newTaxiOrder.maxLoss, newTaxiOrder.shared, TaxiOrder.OrderStatus.RECEIVED, newTaxiOrder.atTime);
     order.setEta(-1);
-    order.setMaxWait(20);
+    //order.setMaxWait(20);
     order.setInPool(false);
     order.setDistance(dist);
     TaxiOrder o = service.saveTaxiOrder(order, custId);

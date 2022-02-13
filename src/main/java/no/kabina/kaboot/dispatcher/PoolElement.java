@@ -5,6 +5,7 @@ import org.apache.commons.lang3.builder.HashCodeBuilder;
 
 public class PoolElement implements Comparable<PoolElement> {
   private TaxiOrder[] cust;
+  public char[] custActions; // DynaPool2: is it IN or OUT
   private int numbOfCust; // pools with 2,3 or 4 passengers
   private int cost;
 
@@ -18,6 +19,14 @@ public class PoolElement implements Comparable<PoolElement> {
   */
   public PoolElement(TaxiOrder[] cust, int numbOfCust, int cost) {
     this.cust = cust;
+    this.numbOfCust = numbOfCust;
+    this.cost = cost;
+  }
+
+  //DynaPool2
+  public PoolElement(TaxiOrder[] cust, char[] custActions, int numbOfCust, int cost) {
+    this.cust = cust;
+    this.custActions = custActions;
     this.numbOfCust = numbOfCust;
     this.cost = cost;
   }

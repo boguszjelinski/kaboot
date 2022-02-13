@@ -46,8 +46,8 @@ springdoc:
 kaboot:
     consts:
         max-non-lcm: 200
-        max-pool4: 300
-        max-pool3: 400
+        max-pool4: 50
+        max-pool3: 75
         max-stand: 3300
         max-trip: 15
     scheduler:
@@ -55,6 +55,7 @@ kaboot:
         at-time-lag: 3
         extend-margin: 1.05
         max-legs: 8
+        max-angle: 120
     solver:
         cmd: "glpsol -m glpk.mod"
         input: "glpk.mod"

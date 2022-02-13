@@ -95,6 +95,9 @@ public class DispatcherService {
   @Value("${kaboot.extern-pool.threads}")
   private int numbOfThreads;
 
+  @Value("${kaboot.scheduler.max-angle}")
+  private int maxAngle;
+
   private final TaxiOrderRepository taxiOrderRepository;
   private final CabRepository cabRepository;
   private final RouteRepository routeRepository;
@@ -102,8 +105,7 @@ public class DispatcherService {
   private final StatService statSrvc;
   private final DistanceService distanceService;
   private final LcmUtil lcmUtil;
-
-  private DynaPool dynaPool;
+  private DynaPool2 dynaPool;
 
   public DispatcherService(TaxiOrderRepository taxiOrderRepository, CabRepository cabRepository,
                            RouteRepository routeRepository, LegRepository legRepository,
@@ -120,7 +122,6 @@ public class DispatcherService {
     if (distanceService.getDistances() == null) {
       distanceService.initDistance(stopRepository);
     }
-    dynaPool = new DynaPool(distanceService);
   }
 
   public void runPlan() {
@@ -136,6 +137,9 @@ public class DispatcherService {
     //UUID uuid = UUID.randomUUID();  // TASK: to mark cabs and customers as assigned to this instance of sheduler
     // first update some statistics
 
+    if (dynaPool == null) {
+      this.dynaPool = new DynaPool2(distanceService, maxAngle);
+    }
     if (!forceRun && !isOnline) { // userfull to run RestAPI on separate host
       logger.info("Scheduler will not be run");
       return;
@@ -312,6 +316,7 @@ public class DispatcherService {
 
   // TASK !
   // we can minimize the total trip time, but we would have to know the cab's current location
+  /*
   private int findLeg(TaxiOrder demand, List<Leg> legs) {
     List<LegIndicesWithDistance> feasible = new ArrayList<>();
     int i = 1;
@@ -349,6 +354,7 @@ public class DispatcherService {
     feasible.sort((LegIndicesWithDistance t1, LegIndicesWithDistance t2) -> t1.distance - t2.distance);
     return feasible.get(0).idxFrom; // first has shortest distance
   }
+  */
 
   private class LegIndicesWithDistance {
     LegIndicesWithDistance(int idxFrom, int idxTo, int distance) {
@@ -375,15 +381,17 @@ public class DispatcherService {
         initialDistance += leg.getDistance();
       }
       if (demand.fromStand != leg.getToStand() // direct hit in the next leg
-          && (demand.fromStand == leg.getFromStand() // direct hit
-              || (notTooLong
+        && legs.get(i - 1).getRoute().getId().equals(leg.getRoute().getId()) // previous leg is from the same route
+        && legs.get(i - 1).getStatus() != RouteStatus.COMPLETED // the previous leg cannot be completed TASK !! in the future consider other statuses here
+        && (demand.fromStand == leg.getFromStand() // direct hit
+            || (notTooLong
                   && distanceService.distance[leg.getFromStand()][demand.fromStand]
-                  + distanceService.distance[demand.fromStand][leg.getToStand()]
-                  < leg.getDistance() * extendMargin
+                                            + distanceService.distance[demand.fromStand][leg.getToStand()]
+                     < leg.getDistance() * extendMargin
+                  && DynaPool2.bearingDiff(distanceService.bearing[leg.getFromStand()], distanceService.bearing[demand.fromStand]) < maxAngle
+                  && DynaPool2.bearingDiff(distanceService.bearing[demand.fromStand], distanceService.bearing[leg.getToStand()]) < maxAngle
                   ) // 5% TASK - global config, wait at stop?
           )
-          && legs.get(i - 1).getRoute().getId().equals(leg.getRoute().getId()) // previous leg is from the same route
-          && legs.get(i - 1).getStatus() != RouteStatus.COMPLETED // the previous leg cannot be completed TASK !! in the future consider other statuses here
       // we want the previous leg to be active to give some time for both parties to get the assignment
       ) {
         // OK, so we found the first 'pickup' leg, either direct hit or can be extended
@@ -404,9 +412,12 @@ public class DispatcherService {
             break;
           }
           if (notTooLong
-                  && distanceService.distance[legs.get(k).getFromStand()][demand.toStand]
-                  + distanceService.distance[demand.toStand][legs.get(k).getToStand()]
-                  < legs.get(k).getDistance() * extendMargin) {
+              && distanceService.distance[legs.get(k).getFromStand()][demand.toStand]
+                                + distanceService.distance[demand.toStand][legs.get(k).getToStand()]
+                    < legs.get(k).getDistance() * extendMargin
+              && DynaPool2.bearingDiff(distanceService.bearing[legs.get(k).getFromStand()], distanceService.bearing[demand.toStand]) < maxAngle
+              && DynaPool2.bearingDiff(distanceService.bearing[demand.toStand], distanceService.bearing[legs.get(k).getToStand()]) < maxAngle
+              ) {
             distanceInPool -= distanceService.distance[demand.toStand][legs.get(k).getToStand()]; // passenger is dropped before "getToStand", but the whole distance is counted above
             toFound = true;
             break;
@@ -569,16 +580,18 @@ public class DispatcherService {
 
   private PoolElement[] getPoolWith3and2(TaxiOrder[] demand, PoolElement[] pl4) {
     PoolElement[] ret;
-    TaxiOrder[] demand3 = PoolUtil.findCustomersWithoutPool(pl4, demand);
+    TaxiOrder[] demand3 = PoolUtil.findCustomersWithoutPoolV2(pl4, demand);
     if (demand3 != null && demand3.length > 0) { // there is still an opportunity
       PoolElement[] pl3;
       if (demand3.length < max3Pool) { // not too big for three customers, let's find out!
         final long startPool3 = System.currentTimeMillis();
         pl3 = dynaPool.findPool(demand3, 3);
+        logger.debug("Pool3: used demand={} pool size={}", demand3.length, pl3 == null ? 0 : pl3.length);
         statSrvc.updateMaxAndAvgTime("pool3_time", startPool3);
         if (pl3.length == 0) {
           pl3 = pl4;
         } else {
+          demand3 = PoolUtil.findCustomersWithoutPoolV2(pl3, demand3); // for getPoolWith2
           pl3 = ArrayUtils.addAll(pl3, pl4); // merge both
         }
       } else {
@@ -586,6 +599,7 @@ public class DispatcherService {
       }
       // with 2 passengers (this runs fast and no max is needed
       ret = getPoolWith2(demand3, pl3);
+      logger.debug("Pool2: used demand={} pool size={}", demand3.length, ret == null ? 0 : ret.length);
     } else {
       ret = pl4;
     }
@@ -594,7 +608,7 @@ public class DispatcherService {
 
   private PoolElement[] getPoolWith2(TaxiOrder[] demand3, PoolElement[] pl3) {
     PoolElement[] ret;
-    TaxiOrder[] demand2 = PoolUtil.findCustomersWithoutPool(pl3, demand3);
+    TaxiOrder[] demand2 = PoolUtil.findCustomersWithoutPoolV2(pl3, demand3);
     if (demand2 != null && demand2.length > 0) {
       PoolElement[] pl2 = dynaPool.findPool(demand2, 2);
       if (pl2.length == 0) {
@@ -710,7 +724,7 @@ public class DispatcherService {
         if (e.getCust()[0].id.equals(order.id)) { // yeap, this id is in a pool
           // checking number
           // save pick-up phase
-          assignOrdersAndSaveLegs(cab, route, legId, e, eta);
+          assignOrdersAndSaveLegsV2(cab, route, legId, e, eta);
           return e.getNumbOfCust();
         }
       }
@@ -738,6 +752,19 @@ public class DispatcherService {
     logger.info("Pool legs: cab_id={}, route_id={}, order_id(stop_id)={}", cab.getId(), route.getId(), stops);
   }
 
+  private void logPool2(Cab cab, Route route, PoolElement e) {
+    StringBuilder stops = new StringBuilder();
+    for (int i = 0; i < e.getNumbOfCust() * 2; i++) {
+      if (e.custActions[i] == 'i') {
+        stops.append(e.getCust()[i].getId()).append("(from=").append(e.getCust()[i].getFromStand()).append("), ");
+      } else {
+        stops.append(e.getCust()[i].getId()).append("(to=").append(e.getCust()[i].getFromStand()).append("), ");
+      }
+    }
+    logger.info("Pool legs: cab_id={}, route_id={}, order_id(from/to)={}", cab.getId(), route.getId(), stops);
+  }
+
+  /*
   private void assignOrdersAndSaveLegs(Cab cab, Route route, int legId, PoolElement e, int eta) {
     logPool(cab, route, e);
     Leg leg;
@@ -774,6 +801,28 @@ public class DispatcherService {
         saveLeg(leg, route);
       }
       // here we don't update TaxiOrder
+    }
+  }
+  */
+  private void assignOrdersAndSaveLegsV2(Cab cab, Route route, int legId, PoolElement e, int eta) {
+    logPool2(cab, route, e);
+    Leg leg;
+    int c = 0;
+    for (; c < e.getNumbOfCust() + e.getNumbOfCust() - 1; c++) {
+      leg = null;
+      int stand1 = e.custActions[c] == 'i' ? e.getCust()[c].fromStand : e.getCust()[c].toStand;
+      int stand2 = e.custActions[c + 1] == 'i' ? e.getCust()[c + 1].fromStand : e.getCust()[c + 1].toStand;
+      if (stand1 != stand2) { // there is movement
+        leg = new Leg(stand1, stand2, legId++, Route.RouteStatus.ASSIGNED, distanceService.distance[stand1][stand2]);
+        saveLeg(leg, route);
+      }
+      if (e.custActions[c] == 'i') {
+        e.getCust()[c].setInPool(true);
+        assignOrder(leg, e.getCust()[c], cab, route, eta, "assignOrdersAndSaveLegs1");
+      }
+      if (stand1 != stand2) {
+        eta += distanceService.distance[stand1][stand2];
+      }
     }
   }
 
