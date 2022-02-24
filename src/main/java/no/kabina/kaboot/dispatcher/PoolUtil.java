@@ -19,9 +19,12 @@ package no.kabina.kaboot.dispatcher;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+
+import no.kabina.kaboot.cabs.Cab;
 import no.kabina.kaboot.orders.TaxiOrder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.data.geo.Distance;
 
 import static java.lang.Math.abs;
 
@@ -174,6 +177,7 @@ public class PoolUtil {
     return removeDuplicates(poolList.toArray(new PoolElement[0]), inPool);
   }
 
+  // returning allocated pools DynaPool v1
   public static PoolElement[] removeDuplicates(PoolElement[] arr, int inPool) {
     if (arr == null) {
       return null;
@@ -200,6 +204,43 @@ public class PoolUtil {
       }
     }
     return ret.toArray(new PoolElement[0]);
+  }
+
+  public static int findNearestCab(DistanceService srvc, Cab[] supply, TaxiOrder o) {
+    int dist = 1000; // big
+    int nearest = -1;
+    for (int i = 0; i < supply.length; i++) {
+      if (supply[i] == null) { // allocated earlier to a pool
+        continue;
+      }
+      Cab c = supply[i];
+      if (srvc.distance[c.getLocation()][o.getFromStand()] < dist) {
+        dist = srvc.distance[c.getLocation()][o.getFromStand()];
+        nearest = i;
+      }
+    }
+    return nearest;
+  }
+
+  public static boolean constraintsMet(DistanceService srvc, PoolElement el, Cab cab) {
+    // TASK: distances in pool should be stored to speed-up this check
+    int distCab = srvc.distance[cab.getLocation()][el.getCust()[0].getFromStand()];
+    int dist = 0;
+    int stand = el.getCust()[0].getFromStand();
+    for (int i = 0; i < el.getCust().length; i++) {
+      TaxiOrder o = el.getCust()[i];
+      if (el.custActions[i] == 'i' && o.getMaxWait() > dist + distCab) {
+        return false;
+      }
+      if (el.custActions[i] == 'o' && dist > (1 + o.getMaxLoss()/100.0) * o.getDistance()) { // TASK: remove this calcul
+        return false;
+      }
+      if (i < el.getCust().length -1) {
+        dist += srvc.distance[el.custActions[i] == 'i' ? o.getFromStand() : o.getToStand()]
+                [el.custActions[i + 1] == 'i' ? el.getCust()[i + 1].getFromStand() : el.getCust()[i + 1].getToStand()];
+      }
+    }
+    return true;
   }
 
   public static int[][] setCosts(int size) {
@@ -242,6 +283,42 @@ public class PoolUtil {
       }
     }
     return ret.toArray(new TaxiOrder[0]); // ret.size()
+  }
+
+  public static TaxiOrder[] removePoolFromDemand(PoolElement[] arr, TaxiOrder[] tempDemand) {
+    if (arr == null || arr.length == 0) {
+      return tempDemand;
+    }
+    List<TaxiOrder> ret = new ArrayList<>();
+
+    for (TaxiOrder td : tempDemand) {
+      boolean found = false;
+      for (PoolElement a : arr) {
+        for (int j = 0; j < a.getCust().length -1 ; j++) { //-1 the last one is OUT, so IN has been checked
+          if (a.getCust()[j].id.equals(td.id)) {
+            found = true;
+            break;
+          }
+        }
+        if (found) {
+          break;
+        }
+      }
+      if (!found) {
+        ret.add(td);
+      }
+    }
+    return ret.toArray(new TaxiOrder[0]);
+  }
+
+  public static Cab[] trimSupply(Cab[] supply) {
+    List<Cab> ret = new ArrayList<>();
+    for (Cab c: supply) {
+      if (c != null) {
+        ret.add(c);
+      }
+    }
+    return ret.toArray(new Cab[0]);
   }
 
   /**

@@ -22,6 +22,7 @@ import java.io.IOException;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import no.kabina.kaboot.cabs.Cab;
@@ -165,11 +166,13 @@ public class DispatcherService {
       if (lenBefore != lenAfter) {
         logger.info("Route matcher found allocated {} requests", lenBefore - lenAfter);
       }
-      PoolElement[] pl = generatePool(demand);
+      PoolElement[] pl = generatePool(demand, supply);
       if (pl != null && pl.length > 0) {
-        demand = PoolUtil.findFirstLegInPoolOrLone(pl, demand); // only the first leg will be sent to LCM or solver
+        demand = PoolUtil.removePoolFromDemand(pl, demand); // findFirstLegInPoolOrLone
         logger.info("Demand after pooling: {}", demand.length);
+        supply = PoolUtil.trimSupply(supply); // supply vector may have nulls (= cabs allocated by pool finder)
       }
+      logger.info("Demand after pooling: {}", demand.length);
       // now build a balanced cost matrix for solver
       cost = lcmUtil.calculateCost(solverInput, solverOutput, demand, supply);
 
@@ -177,14 +180,14 @@ public class DispatcherService {
       logger.info("Before LCM: demand={}, supply={}", demand.length, supply.length);
       if (demand.length > maxSolverSize && supply.length > maxSolverSize) { // too big to send to solver, it has to be cut by LCM
         // both sides has to be bigger, if one is smaller than we will just reverse-LCM (GCM) on the bigger side
-        TempModel tempModel = runLcm(supply, demand, cost, pl);
+        TempModel tempModel = runLcm(supply, demand, cost);
         demand = tempModel.getDemand();
         supply = tempModel.getSupply();
         // to be sent to solver
         logger.info("After LCM: demand={}, supply={}", demand.length, supply.length);
         cost = lcmUtil.calculateCost(solverInput, solverOutput, demand, supply);
       }
-      runSolver(supply, demand, cost, pl);
+      runSolver(supply, demand, cost);
       statSrvc.updateMaxAndAvgTime("sheduler_time", startSheduler);
     }
   }
@@ -212,9 +215,8 @@ public class DispatcherService {
    * @param tempSupply cabs
    * @param tempDemand orders
    * @param cost matrix
-   * @param pl pool - some more customer orders here
    */
-  public void runSolver(Cab[] tempSupply, TaxiOrder[] tempDemand, int[][] cost, PoolElement[] pl) {
+  public void runSolver(Cab[] tempSupply, TaxiOrder[] tempDemand, int[][] cost) {
     if (cost.length > maxSolverSize) {
       // still too big to send to solver, it has to be cut hard
       if (tempSupply.length > maxSolverSize) {
@@ -237,7 +239,7 @@ public class DispatcherService {
       logger.warn("Solver returned wrong data set");
       // TASK: LCM should be called here !!!
     } else {
-      int assgnd = assignCustomers(x, cost, tempDemand, tempSupply, pl);
+      int assgnd = assignCustomers(x, cost, tempDemand, tempSupply, null);
       logger.info("Customers assigned by solver: {}", assgnd);
     }
     // now we could check if a customer in pool has got a cab,
@@ -553,9 +555,10 @@ public class DispatcherService {
    * check if pools are possible - with 4, 3 and 2 passengers.
    * Some customers have very strict expectations, do not want to lose time and share their trip with any
    * @param demand
+   * @param supply
    * @return
    */
-  public PoolElement[] generatePool(TaxiOrder[] demand) {
+  public PoolElement[] generatePool(TaxiOrder[] demand, Cab[] supply) {
     final long startPool = System.currentTimeMillis();
     if (demand == null || demand.length < 2) {
       // you can't have a pool with 1 order
@@ -563,29 +566,117 @@ public class DispatcherService {
     }
     // try to put 4 passengers into one cab
     PoolElement[] pl4 = null;
-    //PoolUtil util = new PoolUtil(maxNumbStands);
 
     if (demand.length < max4Pool) { // pool4 takes a lot of time, it cannot analyze big data sets
       final long startPool4 = System.currentTimeMillis();
-      pl4 = dynaPool.findPool(demand, 4); // four passengers: size^4 combinations (full search)
+      pl4 = findPool(demand, supply, 4); // four passengers: size^4 combinations (full search)
       statSrvc.updateMaxAndAvgTime("pool4_time", startPool4);
     }
     // with 3 & 2 passengers, add plans with 4 passengers
-    PoolElement[] ret = getPoolWith3and2(demand, pl4);
+    PoolElement[] ret = getPoolWith3and2(demand, supply, pl4);
     statSrvc.updateMaxAndAvgTime("pool_time", startPool);
     // reduce tempDemand - 2nd+ passengers will not be sent to LCM or solver
     logger.info("Pool size: {}", ret == null ? 0 : ret.length);
     return ret;
   }
 
-  private PoolElement[] getPoolWith3and2(TaxiOrder[] demand, PoolElement[] pl4) {
+  public PoolElement[] findPool(TaxiOrder[] dem, Cab[] supply, int inPool) {
+    if (inPool > dynaPool.MAX_IN_POOL) {
+      // TASK log
+      return new PoolElement[0];
+    }
+    dynaPool.setDemand(dem);
+    dynaPool.initMem(inPool);
+    dynaPool.dive(0, inPool);
+    /*String logStr = "";
+    for (int i = 0; i < inPool * inPool - 1; i++) {
+      logStr += "node["+i+"].size: " + node[i].size() + ", ";
+    }
+    logger.debug("Pool size: " + logStr);
+    */
+    List<PoolElement> poolList = dynaPool.getList(inPool);
+    return removeDuplicates(poolList.toArray(new PoolElement[0]), supply, inPool);
+  }
+
+  public PoolElement[] removeDuplicates(PoolElement[] arr, Cab[] supply, int inPool) {
+    if (arr == null || supply == null || supply.length == 0) {
+      return null;
+    }
+    Arrays.sort(arr);
+    // removing duplicates
+    int i = 0;
+    for (i = 0; i < arr.length; i++) {
+      if (arr[i].getCost() == -1) { // this -1 marker is set below
+        continue;
+      }
+      // find nearest cab to first pickup and check if WAIT and LOSS constraints met - allocate
+      int cabIdx = PoolUtil.findNearestCab(distanceService, supply, arr[i].getCust()[0]); // LCM
+      if (cabIdx == -1) { // no more cabs
+        // mark all pools as dead
+        for (int j = i + 1; j < arr.length; j++) {
+          arr[j].setCost(-1);
+        }
+        break;
+      }
+      Cab cab = supply[i];
+      if (PoolUtil.constraintsMet(distanceService, arr[i], cab)) {
+        // allocate
+        assignPoolToCab(cab, arr[i]);
+        // remove the cab from list so that it cannot be allocated twice
+        supply[i] = null;
+        // remove any further duplicates
+        for (int j = i + 1; j < arr.length; j++) {
+          if (arr[j].getCost() != -1 // not invalidated; this check is for performance reasons
+                  && PoolUtil.isFound(arr, i, j, inPool)) {
+            arr[j].setCost(-1); // duplicated; we remove an element with greater costs (list is pre-sorted)
+          }
+        }
+      } else { // constraints not met, mark as unusable
+        arr[i].setCost(-1);
+      }
+    }
+    // just collect non-duplicated pool plans
+    List<PoolElement> ret = new ArrayList<>();
+    for (i = 0; i < arr.length; i++) {
+      if (arr[i].getCost() != -1) {
+        ret.add(arr[i]);
+      }
+    }
+    return ret.toArray(new PoolElement[0]);
+  }
+
+  private void assignPoolToCab(Cab cab, PoolElement pool) {
+    // update CAB
+    TaxiOrder order = pool.getCust()[0];
+    int eta = 0; // expected time of arrival
+    cab.setStatus(Cab.CabStatus.ASSIGNED);
+    cabRepository.save(cab);
+    Route route = new Route(Route.RouteStatus.ASSIGNED);
+    route.setCab(cab);
+    routeRepository.save(route);
+    Leg leg = null;
+    int legId = 0;
+    if (cab.getLocation() != order.fromStand) { // cab has to move to pickup the first customer
+      eta = distanceService.distance[cab.getLocation()][order.fromStand];
+      leg = new Leg(cab.getLocation(), order.fromStand, legId++, Route.RouteStatus.ASSIGNED, eta);
+      leg.setRoute(route);
+      legRepository.save(leg);
+      statSrvc.addToIntVal("total_pickup_distance", Math.abs(cab.getLocation() - order.fromStand));
+    }
+    // legs & routes are assigned to customers in Pool
+    // if not assigned to a Pool we have to create a single-task route here
+    assignOrdersAndSaveLegsV2(cab, route, legId, pool, eta);
+  }
+
+
+  private PoolElement[] getPoolWith3and2(TaxiOrder[] demand, Cab[] supply, PoolElement[] pl4) {
     PoolElement[] ret;
     TaxiOrder[] demand3 = PoolUtil.findCustomersWithoutPoolV2(pl4, demand);
     if (demand3 != null && demand3.length > 0) { // there is still an opportunity
       PoolElement[] pl3;
       if (demand3.length < max3Pool) { // not too big for three customers, let's find out!
         final long startPool3 = System.currentTimeMillis();
-        pl3 = dynaPool.findPool(demand3, 3);
+        pl3 = findPool(demand3, supply,3);
         logger.debug("Pool3: used demand={} pool size={}", demand3.length, pl3 == null ? 0 : pl3.length);
         statSrvc.updateMaxAndAvgTime("pool3_time", startPool3);
         if (pl3.length == 0) {
@@ -598,7 +689,7 @@ public class DispatcherService {
         pl3 = pl4;
       }
       // with 2 passengers (this runs fast and no max is needed
-      ret = getPoolWith2(demand3, pl3);
+      ret = getPoolWith2(demand3, supply, pl3);
       logger.debug("Pool2: used demand={} pool size={}", demand3.length, ret == null ? 0 : ret.length);
     } else {
       ret = pl4;
@@ -606,11 +697,11 @@ public class DispatcherService {
     return ret;
   }
 
-  private PoolElement[] getPoolWith2(TaxiOrder[] demand3, PoolElement[] pl3) {
+  private PoolElement[] getPoolWith2(TaxiOrder[] demand3, Cab[] supply, PoolElement[] pl3) {
     PoolElement[] ret;
     TaxiOrder[] demand2 = PoolUtil.findCustomersWithoutPoolV2(pl3, demand3);
     if (demand2 != null && demand2.length > 0) {
-      PoolElement[] pl2 = dynaPool.findPool(demand2, 2);
+      PoolElement[] pl2 = findPool(demand2, supply,2);
       if (pl2.length == 0) {
         ret = pl3;
       } else {
@@ -627,10 +718,9 @@ public class DispatcherService {
    * @param supply
    * @param demand
    * @param cost
-   * @param pl
    * @return  returns demand and supply for the solver, not assigned by LCM
    */
-  public TempModel runLcm(Cab[] supply, TaxiOrder[] demand, int[][] cost, PoolElement[] pl) {
+  public TempModel runLcm(Cab[] supply, TaxiOrder[] demand, int[][] cost) {
 
     final long startLcm = System.currentTimeMillis();
 
@@ -657,7 +747,7 @@ public class DispatcherService {
     // go thru LCM response (which are indexes in tempDemand and tempSupply)
     int sum = 0;
     for (LcmPair pair : pairs) {
-      sum += assignCustomerToCab(demand[pair.getClnt()], supply[pair.getCab()], pl);
+      sum += assignCustomerToCab(demand[pair.getClnt()], supply[pair.getCab()], null); // null: no pool here
     }
     logger.info("Number of customers assigned by LCM: {}", sum);
     if (out.getMinVal() == LcmUtil.BIG_COST) { // no input for the solver; probably only when MAX_SOLVER_SIZE=0

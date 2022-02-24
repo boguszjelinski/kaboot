@@ -19,20 +19,30 @@ package no.kabina.kaboot.dispatcher;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+
+import no.kabina.kaboot.cabs.Cab;
 import no.kabina.kaboot.orders.TaxiOrder;
 import org.apache.commons.lang3.builder.HashCodeBuilder;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class DynaPool2 {
 
+  private final Logger logger = LoggerFactory.getLogger(DynaPool2.class);
+
   private DistanceService distSrvc;
   private TaxiOrder[] demand;
-  private static final int MAX_IN_POOL = 8; // just for memory allocation, might be 10 as well
+  public static final int MAX_IN_POOL = 8; // just for memory allocation, might be 10 as well
   private List<Branch>[] node;
   private int maxAngle;
 
   public DynaPool2(DistanceService srvc, int maxAngle) {
     this.distSrvc = srvc;
     this.maxAngle = maxAngle;
+  }
+
+  public void setDemand(TaxiOrder[] demand) {
+    this.demand = demand;
   }
 
   // for tests
@@ -43,27 +53,20 @@ public class DynaPool2 {
     }
   }
 
-  /**
-   *
-   * @param dem requests from potential passengers
-   * @param inPool how many passengers can a cab take
-   * @return array of pools
-   */
+  // for testing only
   public PoolElement[] findPool(TaxiOrder[] dem, int inPool) {
     if (inPool > MAX_IN_POOL) {
       // TASK log
       return new PoolElement[0];
     }
-    this.demand = dem;
+    setDemand(dem);
     initMem(inPool);
-    // TASK: two threads for these two trees
-    // the code is mirrored in these trees due to different source of data - from & to
     dive(0, inPool);
     List<PoolElement> poolList = getList(inPool);
     return PoolUtil.removeDuplicates(poolList.toArray(new PoolElement[0]), inPool);
   }
 
-  private void initMem(int inPool) {
+  public void initMem(int inPool) {
     node = new ArrayList[MAX_IN_POOL + MAX_IN_POOL - 1];
     for (int i = 0; i < inPool * inPool - 1; i++) {
       node[i] = new ArrayList<>();
@@ -76,7 +79,7 @@ public class DynaPool2 {
    * @param lev starting with 0
    * @param inPool how many passengers can a cab take
    */
-  private void dive(int lev, int inPool) {
+  public void dive(int lev, int inPool) {
     if (lev > inPool + inPool - 3) { // lev >= 2*inPool-2, where -2 are last two levels
       storeLeaves(lev);
       return; // last two levels are "leaves"
@@ -266,7 +269,7 @@ public class DynaPool2 {
     return idx;
   }
 
-  private List<PoolElement> getList(int inPool) {
+  public List<PoolElement> getList(int inPool) {
     List<PoolElement> ret = new ArrayList<>();
 
     for (Branch p : node[0]) {
