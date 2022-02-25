@@ -92,29 +92,17 @@ public class DispatcherServiceTests {
         assertThat(demand.length).isSameAs(17);
         int [][] cost = lcmUtil.calculateCost("glpk.mod", "out.txt", demand, cabs);
         assertThat(cost.length).isSameAs(49);
-        TempModel tempModel = service.runLcm(cabs, demand, cost, pool);
+        TempModel tempModel = service.runLcm(cabs, demand, cost);
         assertThat(tempModel.getDemand().length).isSameAs(17);
         assertThat(tempModel.getSupply().length).isSameAs(49);
         // test solver by this occasion
         try {
-            service.runSolver(cabs, demand, cost, pool);
+            service.runSolver(cabs, demand, cost);
         } catch (Exception e) {
             e.printStackTrace();
         }
         int[] x = service.readSolversResult(cost.length);
         assertThat(x.length - 2401).isSameAs(0);
-    }
-
-    @Test
-    public void testGeneratePool() {
-        final int numbOfStands = 20;
-        TaxiOrder[] orders = new TaxiOrder[numbOfStands-1];
-        for (int i = 0; i < numbOfStands-1; i++) {
-            orders[i] = new TaxiOrder(i %2, (i+1)%2,20,20, true, TaxiOrder.OrderStatus.RECEIVED, null);
-            orders[i].setId((long) i);
-        }
-        PoolElement[] pool = service.generatePool(orders);
-        assertThat(pool.length).isSameAs(5);
     }
 
     @Test

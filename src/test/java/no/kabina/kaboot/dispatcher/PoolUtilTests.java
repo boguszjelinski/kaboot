@@ -52,15 +52,15 @@ public class PoolUtilTests {
     @Test
     public void testDynaPoolTwo3() {
         DynaPool2 util = new DynaPool2(distances, bearing, 100); // 100 max angle
-        PoolElement[] pool = util.findPool(orders, 3);
-        assertThat(pool.length).isSameAs(19); // TASK: one missing
+        PoolElement[] pool = util.findPool(genDemand(250), 3);
+        assertThat(pool.length).isSameAs(10); // TASK: one missing
         assertThat(poolIsValid(pool)).isSameAs(0);
     }
 
     @Test
     public void testDynaPoolTwo4() {
         DynaPool2 util = new DynaPool2(distances, bearing, 100); // 100 max angle
-        PoolElement[] pool = util.findPool(genDemand(75), 4);
+        PoolElement[] pool = util.findPool(genDemand(150), 4);
         assertThat(pool.length).isSameAs(19); // TASK: one missing
         assertThat(poolIsValid(pool)).isSameAs(0);
     }

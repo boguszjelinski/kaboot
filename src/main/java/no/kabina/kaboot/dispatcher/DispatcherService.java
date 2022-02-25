@@ -145,7 +145,7 @@ public class DispatcherService {
       logger.info("Scheduler will not be run");
       return;
     }
-
+    logger.debug("Scheduler executed");
     updateAvgStats();
     long startSheduler = System.currentTimeMillis();
 
@@ -158,10 +158,10 @@ public class DispatcherService {
     Cab[] supply = tmpModel.getSupply();
 
     if (supply.length > 0 && demand.length > 0) {
+      logger.info("Start dispatching demand:{} supply:{}", demand.length, supply.length);
       // try to assign to existing routes
       int lenBefore = demand.length;
-      List<Leg> legs = legRepository.findByStatusOrderByRouteAscPlaceAsc(RouteStatus.ASSIGNED);
-      demand = findMatchingRoutes(demand, legs);
+      demand = findMatchingRoutes(demand);
       int lenAfter = demand.length;
       if (lenBefore != lenAfter) {
         logger.info("Route matcher found allocated {} requests", lenBefore - lenAfter);
@@ -289,7 +289,8 @@ public class DispatcherService {
    * @param demand to be checked
    * @return demand that was not matched, which have to allocated to new routes
    */
-  private TaxiOrder[] findMatchingRoutes(TaxiOrder[] demand, List<Leg> legs) {
+  private TaxiOrder[] findMatchingRoutes(TaxiOrder[] demand) {
+    List<Leg> legs = legRepository.findByStatusOrderByRouteAscPlaceAsc(RouteStatus.ASSIGNED);
     if (legs == null || legs.isEmpty() || demand == null || demand.length == 0) {
       return demand;
     }
@@ -560,6 +561,7 @@ public class DispatcherService {
    */
   public PoolElement[] generatePool(TaxiOrder[] demand, Cab[] supply) {
     final long startPool = System.currentTimeMillis();
+    logger.debug("generatePool demand:{} supply:{}", demand.length, supply.length);
     if (demand == null || demand.length < 2) {
       // you can't have a pool with 1 order
       return new PoolElement[0];
@@ -571,11 +573,10 @@ public class DispatcherService {
       final long startPool4 = System.currentTimeMillis();
       pl4 = findPool(demand, supply, 4); // four passengers: size^4 combinations (full search)
       statSrvc.updateMaxAndAvgTime("pool4_time", startPool4);
+      logger.debug("findPool4 returned pool.length:{}", pl4.length);
     }
-    // with 3 & 2 passengers, add plans with 4 passengers
     PoolElement[] ret = getPoolWith3and2(demand, supply, pl4);
     statSrvc.updateMaxAndAvgTime("pool_time", startPool);
-    // reduce tempDemand - 2nd+ passengers will not be sent to LCM or solver
     logger.info("Pool size: {}", ret == null ? 0 : ret.length);
     return ret;
   }
@@ -588,24 +589,21 @@ public class DispatcherService {
     dynaPool.setDemand(dem);
     dynaPool.initMem(inPool);
     dynaPool.dive(0, inPool);
-    /*String logStr = "";
-    for (int i = 0; i < inPool * inPool - 1; i++) {
-      logStr += "node["+i+"].size: " + node[i].size() + ", ";
-    }
-    logger.debug("Pool size: " + logStr);
-    */
     List<PoolElement> poolList = dynaPool.getList(inPool);
-    return removeDuplicates(poolList.toArray(new PoolElement[0]), supply, inPool);
+    logger.debug("Pool{} internal list size: {}", inPool, poolList.size());
+    return removeDuplicatesV2(poolList.toArray(new PoolElement[0]), supply, inPool);
   }
 
-  public PoolElement[] removeDuplicates(PoolElement[] arr, Cab[] supply, int inPool) {
+  public PoolElement[] removeDuplicatesV2(PoolElement[] arr, Cab[] supply, int inPool) {
     if (arr == null || supply == null || supply.length == 0) {
-      return null;
+      return new PoolElement[0];
     }
     Arrays.sort(arr);
     // removing duplicates
-    int i = 0;
-    for (i = 0; i < arr.length; i++) {
+    List<PoolElement> ret = new ArrayList<>();
+    int tempCount = 0;
+    int tempCount2 = 0;
+    for (int i = 0; i < arr.length; i++) {
       if (arr[i].getCost() == -1) { // this -1 marker is set below
         continue;
       }
@@ -618,16 +616,23 @@ public class DispatcherService {
         }
         break;
       }
-      Cab cab = supply[i];
-      if (PoolUtil.constraintsMet(distanceService, arr[i], cab)) {
+      tempCount++;
+      Cab cab = supply[cabIdx];
+      int distCab = distanceService.distance[cab.getLocation()][arr[i].getCust()[0].getFromStand()];
+      if (distCab == 0 // constraints inside pool are checked while "diving"
+              || PoolUtil.constraintsMet(distanceService, arr[i], distCab)) {
+        if (distCab != 0) {
+          tempCount2++; // if constraintMet gave true?
+        }
+        ret.add(arr[i]);
         // allocate
         assignPoolToCab(cab, arr[i]);
         // remove the cab from list so that it cannot be allocated twice
-        supply[i] = null;
+        supply[cabIdx] = null;
         // remove any further duplicates
         for (int j = i + 1; j < arr.length; j++) {
           if (arr[j].getCost() != -1 // not invalidated; this check is for performance reasons
-                  && PoolUtil.isFound(arr, i, j, inPool)) {
+                  && PoolUtil.isFoundV2(arr, i, j, inPool)) {
             arr[j].setCost(-1); // duplicated; we remove an element with greater costs (list is pre-sorted)
           }
         }
@@ -636,12 +641,7 @@ public class DispatcherService {
       }
     }
     // just collect non-duplicated pool plans
-    List<PoolElement> ret = new ArrayList<>();
-    for (i = 0; i < arr.length; i++) {
-      if (arr[i].getCost() != -1) {
-        ret.add(arr[i]);
-      }
-    }
+    logger.debug("tempCount: {} tempCount2: {}", tempCount, tempCount2);
     return ret.toArray(new PoolElement[0]);
   }
 
@@ -671,7 +671,7 @@ public class DispatcherService {
 
   private PoolElement[] getPoolWith3and2(TaxiOrder[] demand, Cab[] supply, PoolElement[] pl4) {
     PoolElement[] ret;
-    TaxiOrder[] demand3 = PoolUtil.findCustomersWithoutPoolV2(pl4, demand);
+    TaxiOrder[] demand3 = PoolUtil.findCustomersWithoutPoolV2(pl4, demand); // TASK: [i]=null would be better than such routines
     if (demand3 != null && demand3.length > 0) { // there is still an opportunity
       PoolElement[] pl3;
       if (demand3.length < max3Pool) { // not too big for three customers, let's find out!

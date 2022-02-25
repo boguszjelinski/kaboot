@@ -62,6 +62,11 @@ public class DynaPool2 {
     setDemand(dem);
     initMem(inPool);
     dive(0, inPool);
+    String logStr = "";
+    for (int i = 0; i < inPool * inPool - 1; i++) {
+      logStr += "node["+i+"].size: " + node[i].size() + ", ";
+    }
+    logger.debug("Pool nodes size: " + logStr);
     List<PoolElement> poolList = getList(inPool);
     return PoolUtil.removeDuplicates(poolList.toArray(new PoolElement[0]), inPool);
   }

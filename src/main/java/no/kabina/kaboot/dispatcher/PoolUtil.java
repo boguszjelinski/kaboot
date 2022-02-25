@@ -163,6 +163,19 @@ public class PoolUtil {
     return false;
   }
 
+  public static boolean isFoundV2(PoolElement[] arr, int i, int j, int custInPool) {
+    for (int x = 0; x < custInPool + custInPool - 1; x++) { // -1 the last is OUT
+      if (arr[i].custActions[x] == 'i') {
+        for (int y = 0; y < custInPool + custInPool - 1; y++) {
+          if (arr[j].custActions[y] == 'i' && arr[j].getCust()[x] == arr[i].getCust()[y]) {
+            return true;
+          }
+        }
+      }
+    }
+    return false;
+  }
+
   /**
    *
    * @param dem
@@ -222,20 +235,18 @@ public class PoolUtil {
     return nearest;
   }
 
-  public static boolean constraintsMet(DistanceService srvc, PoolElement el, Cab cab) {
+  public static boolean constraintsMet(DistanceService srvc, PoolElement el, int distCab) {
     // TASK: distances in pool should be stored to speed-up this check
-    int distCab = srvc.distance[cab.getLocation()][el.getCust()[0].getFromStand()];
     int dist = 0;
-    int stand = el.getCust()[0].getFromStand();
     for (int i = 0; i < el.getCust().length; i++) {
       TaxiOrder o = el.getCust()[i];
-      if (el.custActions[i] == 'i' && o.getMaxWait() > dist + distCab) {
+      if (el.custActions[i] == 'i' && dist + distCab > o.getMaxWait()) {
         return false;
       }
       if (el.custActions[i] == 'o' && dist > (1 + o.getMaxLoss()/100.0) * o.getDistance()) { // TASK: remove this calcul
         return false;
       }
-      if (i < el.getCust().length -1) {
+      if (i < el.getCust().length - 1) {
         dist += srvc.distance[el.custActions[i] == 'i' ? o.getFromStand() : o.getToStand()]
                 [el.custActions[i + 1] == 'i' ? el.getCust()[i + 1].getFromStand() : el.getCust()[i + 1].getToStand()];
       }
