@@ -24,4 +24,4 @@ kaboot:
     extern-pool:
       cmd: "findpool.exe"
       input-file: "pool-in.csv"
-      output-file: "pool-out.csv"
+      output-file: "pools.csv"

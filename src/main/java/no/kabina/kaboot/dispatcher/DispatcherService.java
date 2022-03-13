@@ -93,9 +93,6 @@ public class DispatcherService {
   @Value("${kaboot.scheduler.max-legs}")
   private long maxLegs;
 
-  @Value("${kaboot.extern-pool.threads}")
-  private int numbOfThreads;
-
   @Value("${kaboot.scheduler.max-angle}")
   private int maxAngle;
 
@@ -645,7 +642,7 @@ public class DispatcherService {
     return ret.toArray(new PoolElement[0]);
   }
 
-  private void assignPoolToCab(Cab cab, PoolElement pool) {
+  public void assignPoolToCab(Cab cab, PoolElement pool) {
     // update CAB
     TaxiOrder order = pool.getCust()[0];
     int eta = 0; // expected time of arrival

@@ -144,6 +144,30 @@ public class DispatcherServiceTests {
         assertThat(ret).isEqualTo(1);
     }
 
+    @Test
+    public void testDynaPoolV2_4() {
+        DynaPool2 util = new DynaPool2(distanceService, 100); // 100 max angle
+        // it takes 100secs
+        PoolElement[] pool = util.findPool(PoolUtilTests.genDemand(90, 50), 4);
+        // length 20
+        // 50secs
+        /*
+        LEV: 5, size before compressing: 139081
+        LEV: 5, number of -1: 27112
+        LEV: 4, size before compressing: 2291209
+        LEV: 4, number of -1: 199095
+        LEV: 3, size before compressing: 4456733
+        LEV: 3, number of -1: 492434
+        LEV: 2, size before compressing: 3584384
+        LEV: 2, number of -1: 585584
+        LEV: 1, size before compressing: 1673337
+        LEV: 1, number of -1: 352004
+        LEV: 0, size before compressing: 381347
+        LEV: 0, number of -1: 89937*/
+        assertThat(pool.length).isSameAs(20); // TASK: one missing
+        //assertThat(poolIsValid(pool)).isSameAs(0);
+    }
+
     private TempModel genModel(int size) {
         TaxiOrder[] orders;
         Cab[] cabs;

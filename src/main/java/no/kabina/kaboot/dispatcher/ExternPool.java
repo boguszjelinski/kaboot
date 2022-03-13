@@ -5,9 +5,17 @@ import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import no.kabina.kaboot.cabs.Cab;
 import no.kabina.kaboot.orders.TaxiOrder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -18,33 +26,39 @@ import org.springframework.stereotype.Component;
 public class ExternPool {
   private final Logger logger = LoggerFactory.getLogger(ExternPool.class);
 
-  @Value("${kaboot.extern-pool.cmd}")
-  private String cmd;
+  @Value("${kaboot.extern-pool.flag-file}")
+  private String flagFile;
 
-  @Value("${kaboot.extern-pool.input}")
-  private String inputFile;
+  @Value("${kaboot.extern-pool.orders-file}")
+  private String demandFile;
 
-  @Value("${kaboot.extern-pool.output}")
+  @Value("${kaboot.extern-pool.cabs-file}")
+  private String supplyFile;
+
+  @Value("${kaboot.extern-pool.output-file}")
   private String outputFile;
 
-  @Value("${kaboot.extern-pool.threads}")
-  private int numbOfThreads;
+  DispatcherService dispatcherService;
 
-  private HashMap<Long, TaxiOrder> orders;
-
-  public ExternPool() {
-    orders = new HashMap<>();
+  public ExternPool(DispatcherService dispatcherService) {
+    this.dispatcherService = dispatcherService;
   }
 
   /**
    * for testing
    */
-  public ExternPool(String cmd, String inputFile, String outputFile, int numbOfThreads) {
-    orders = new HashMap<>();
-    this.cmd = cmd;
-    this.inputFile = inputFile;
+  public ExternPool(String flagFile, String demandFile, String supplyFile, String outputFile, int numbOfThreads) {
+    this.flagFile = flagFile;
+    this.demandFile = demandFile;
+    this.supplyFile = supplyFile;
     this.outputFile = outputFile;
-    this.numbOfThreads = numbOfThreads;
+  }
+
+  public ExternPool() {
+    this.flagFile = "C:\\Users\\dell\\TAXI\\GITLAB\\kaboot\\flag.txt";
+    this.demandFile = "C:\\Users\\dell\\TAXI\\GITLAB\\kaboot\\orders.csv";
+    this.supplyFile = "C:\\Users\\dell\\TAXI\\GITLAB\\kaboot\\cabs.csv";
+    this.outputFile = "C:\\Users\\dell\\TAXI\\GITLAB\\kaboot\\pools.csv";
   }
 
   /**
@@ -53,58 +67,105 @@ public class ExternPool {
   * @param inPool number of passnegers in pool
   * @return pool proposal
   */
-  public PoolElement[] findPool(TaxiOrder[] dem, int inPool) {
-    for (TaxiOrder o : dem) {
-      orders.put(o.getId(), o);
-    }
-    writeInput(dem);
-    // findpool 4 8 pool-in.csv 100 out.csv
-    // findpool pool-size threads demand-file-name rec-number output-file
-    Process p = null;
-    try {
-      p = Runtime.getRuntime().exec(cmd + " " + inPool + " " + numbOfThreads + " "
-                                                            + inputFile + " " + dem.length + " " +  outputFile);
-    } catch (IOException e) {
-      e.printStackTrace();
-    }
-    try {
-      p.waitFor();
-    } catch (InterruptedException e) {
-      e.printStackTrace();
-    }
-    return readOutput(inPool);
-  }
+  public PoolElement[] findPool(TaxiOrder[] dem, Cab[] cabs, int inPool, boolean update) {
+    writeInput(demandFile, dem);
+    writeCabs(supplyFile, cabs);
 
-  private PoolElement[] readOutput(int inPool) {
-    List<PoolElement> list = new ArrayList<>();
-    try (BufferedReader reader = new BufferedReader(new FileReader(outputFile))) {
-      String line = null;
-      while ((line = reader.readLine()) != null) {
-        String[] data = line.split(",");
-        TaxiOrder[] custs = new TaxiOrder[inPool + inPool]; // pickups + dropoffs
-        for (int i = 0; i < inPool + inPool; i++) {
-          custs[i] = orders.get(Long.parseLong(data[i]));
-          if (custs[i] == null) {
-            logger.warn("Order not found in temporary memory: " + data[i]);
-          }
-        }
-        list.add(new PoolElement(custs, inPool, 0)); // cost is only used for sorting in old routins
+    File newFile = new File(flagFile);
+    try {
+      boolean success = newFile.createNewFile(); // a message for poold daemon
+      if (!success) {
+        logger.warn("Pool flag not created");
       }
     } catch (IOException e) {
-      logger.warn("missing output from solver");
-      return new PoolElement[0];
+      e.printStackTrace();
+    }
+    int count = 0;
+    while (Files.exists(Paths.get(flagFile)) && count++ < 100) {
+      try {
+        //TimeUnit.SECONDS.sleep(1);
+        Thread.sleep(10000);
+      } catch (InterruptedException e) {
+        e.printStackTrace();
+        break;
+      }
+    }
+    if (count >= 100) {
+      logger.warn("Waited too long for pool daemon");
+      deleteFile(flagFile);
+    }
+    String json = readResponse(outputFile);
+    deleteFile(outputFile);
+    ObjectMapper om = new ObjectMapper();
+    ExternPoolElement[] ret = null;
+    try {
+      ret = om.readValue(json, ExternPoolElement[].class);
+    } catch (JsonProcessingException e) {
+      e.printStackTrace();
+    }
+    List<PoolElement> list = new ArrayList<>();
+    if (ret == null) {
+      logger.warn("External pool returned no result");
+      return list.toArray(new PoolElement[0]);
+    }
+    for (ExternPoolElement e : ret) {
+      TaxiOrder[] cust = new TaxiOrder[e.len];
+      for (int i = 0; i < e.ids.length; i++) {
+        cust[i] = dem[e.ids[i]];
+      }
+      PoolElement pe = new PoolElement(cust, e.acts, e.len, 0);
+      list.add(pe);
+      if (update) {
+        dispatcherService.assignPoolToCab(cabs[e.cab], pe);
+        // remove the cab from list so that it cannot be allocated twice
+        cabs[e.cab] = null;
+      }
     }
     return list.toArray(new PoolElement[0]);
   }
 
-  private void writeInput(TaxiOrder[] demand) {
-    try (FileWriter fr = new FileWriter(new File(inputFile))) {
+  private void deleteFile(String fileName) {
+    try {
+      Files.delete(Paths.get(fileName));
+    } catch (IOException e) {
+      e.printStackTrace();
+    }
+  }
+
+  private void writeInput(String file, TaxiOrder[] demand) {
+    try (FileWriter fr = new FileWriter(new File(file))) {
       for (TaxiOrder o : demand) {
         fr.write(o.id + "," + o.fromStand + "," + o.toStand
-                    + "," + o.getMaxWait() + "," + o.getMaxLoss() + ",\n");
+                    + "," + o.getMaxWait() + "," + o.getMaxLoss()+ "," + o.getDistance() + "\n");
       }
     } catch (IOException ioe) {
       logger.warn("IOE: {}", ioe.getMessage());
     }
+  }
+
+  private void writeCabs(String file, Cab[] supply) {
+    try (FileWriter fr = new FileWriter(new File(file))) {
+      for (Cab o : supply) {
+        fr.write(o.getId() + "," + o.getLocation() + "\n");
+      }
+    } catch (IOException ioe) {
+      logger.warn("IOE: {}", ioe.getMessage());
+    }
+  }
+
+  private String readResponse(String fileName) {
+    try {
+      return new String(Files.readAllBytes(Paths.get(fileName)));
+    } catch (IOException e) {
+      e.printStackTrace();
+      return "";
+    }
+  }
+
+  private static class ExternPoolElement {
+    public int cab;
+    public int len;
+    public int ids[];
+    public char acts[];
   }
 }

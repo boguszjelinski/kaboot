@@ -167,7 +167,7 @@ public class PoolUtil {
     for (int x = 0; x < custInPool + custInPool - 1; x++) { // -1 the last is OUT
       if (arr[i].custActions[x] == 'i') {
         for (int y = 0; y < custInPool + custInPool - 1; y++) {
-          if (arr[j].custActions[y] == 'i' && arr[j].getCust()[x] == arr[i].getCust()[y]) {
+          if (arr[j].custActions[y] == 'i' && arr[j].getCust()[y] == arr[i].getCust()[x]) {
             return true;
           }
         }
@@ -338,34 +338,6 @@ public class PoolUtil {
    * @param tempDemand initial demand
    * @return customers without a pool at all
    */
-  public static TaxiOrder[] findCustomersWithoutPool(PoolElement[] arr, TaxiOrder[] tempDemand) {
-    if (arr == null || arr.length == 0) {
-      return tempDemand;
-    }
-    List<TaxiOrder> ret = new ArrayList<>();
-
-    for (TaxiOrder td : tempDemand) {
-      boolean found = false;
-      for (PoolElement a : arr) {
-        for (int j = 0; j < a.getCust().length / 2; j++) { // 0: the first leg; /2 -> pickups + dropp-offs
-          /*if (a.getCust()[j] == null) {
-            logger.warn("Pool element's ID is NULL");
-            break;
-          }
-          */
-          if (a.getCust()[j].id.equals(td.id)) { // this customer will be picked up by another customer should not be sent tol solver
-            found = true;
-            break;
-          }
-        }
-      }
-      if (!found) { // 'd' is not picked up by others, he is the first one to be picked up, therefore will be sent to solver
-        ret.add(td);
-      }
-    }
-    return ret.toArray(new TaxiOrder[0]); // ret.size()
-  }
-
   public static TaxiOrder[] findCustomersWithoutPoolV2(PoolElement[] arr, TaxiOrder[] tempDemand) {
     if (arr == null || arr.length == 0) {
       return tempDemand;

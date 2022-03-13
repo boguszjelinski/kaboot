@@ -61,7 +61,7 @@ kaboot:
         input: "glpk.mod"
         output: "out.txt"
     extern-pool:
-        cmd: "findpool"
-        input: "pool-in.csv"
-        output: "pool-out.csv"
-        threads: 8
+        flag-file: "flag.txt"
+        cabs-file: "cabs.csv"
+        orders-file: "orders.csv"
+        output-file: "pools.csv"

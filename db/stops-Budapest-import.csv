@@ -1,4 +1,5 @@
 id,no,name,latitude,longitude,bearing
+0,F03337,Erdei bekötőút,47.507803,19.235276,180
 1,8262,Hidegkuti Nándor Stadion,47.49069,19.10891,-180
 2,F00023,Déli pályaudvar M,47.500001,19.023809,-180
 3,F01964,Csurgói út,47.455157,19.033232,-180
@@ -5191,4 +5192,3 @@ id,no,name,latitude,longitude,bearing
 5190,F00736,Járműtelep utca,47.582099,19.1169,180
 5191,F01966,Nyírbátor utca,47.450156,19.033194,180
 5192,F02142,Szent Gellért tér - Műegyetem M,47.482896,19.053776,180
-0,F03337,Erdei bekötőút,47.507803,19.235276,180

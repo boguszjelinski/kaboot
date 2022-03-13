@@ -1,3 +1,4 @@
+Glory to Ukraine! Glory to the heroes!
 # Kaboot
 This repository contains a subproject of Kabina - Kaboot minibus dispatcher, a SpringBoot application with some clients
 that help test the dispatcher. Kaboot dispatcher is composed of two parts - the **dispatcher**, that finds
@@ -6,7 +7,7 @@ for receiving requests, share statuses and store them in a database.
 
 Kaboot dispatcher consists of four vital components:
 * GLPK linear solver, scenarios with 1000 customers & 1000 buses have been tested
-* fast pool finder to assign several customers to one bus and create routes with several stops, 5+ passengers with 10+ stops are 
+* fast pool finder (multithreaded, linearly scalable, written in C) to assign several customers to one bus and create routes with several stops, 5+ passengers with 10+ stops are 
   allowed with finder based on [dynamic programming](https://en.wikipedia.org/wiki/Dynamic_programming) principles.
 * route extender to assign customers to matching routes (including non-perfect matching)  
 * low-cost method (aka greedy) pre-solver to decrease the size of models sent to solver 

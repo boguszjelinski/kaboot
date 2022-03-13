@@ -19,8 +19,6 @@ package no.kabina.kaboot.dispatcher;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-
-import no.kabina.kaboot.cabs.Cab;
 import no.kabina.kaboot.orders.TaxiOrder;
 import org.apache.commons.lang3.builder.HashCodeBuilder;
 import org.slf4j.Logger;
@@ -63,10 +61,10 @@ public class DynaPool2 {
     initMem(inPool);
     dive(0, inPool);
     String logStr = "";
-    for (int i = 0; i < inPool * inPool - 1; i++) {
+    for (int i = 0; i < inPool + inPool - 1; i++) {
       logStr += "node["+i+"].size: " + node[i].size() + ", ";
     }
-    logger.debug("Pool nodes size: " + logStr);
+    logger.debug("Pool nodes size: {}", logStr);
     List<PoolElement> poolList = getList(inPool);
     return PoolUtil.removeDuplicates(poolList.toArray(new PoolElement[0]), inPool);
   }
@@ -98,12 +96,12 @@ public class DynaPool2 {
     }
     // removing duplicates which come from lev+1,
     // as for that level it does not matter which order is better in stages towards leaves
-    node[lev] = rmDuplicates(node[lev], lev, true); // true - make hash
+    node[lev] = rmDuplicates(node[lev], lev);
   }
 
   private void storeBranchIfNotFoundDeeperAndNotTooLong(int lev, int c, Branch b, int inPool) {
     // isFoundInBranchOrTooLong(int c, Branch b)
-    // to situations: c IN and c OUT
+    // two situations: c IN and c OUT
     // c IN has to have c OUT in level+1, and c IN cannot exist in level + 1
     // c OUT cannot have c OUT in level +1
     boolean inFound = false;
@@ -142,19 +140,26 @@ public class DynaPool2 {
 
   private void storeBranch(char action, int lev, int c, Branch b, int inPool) {
     int len = inPool + inPool - lev;
-    int[] drops = new int[len];
-    drops[0] = c;
+    int[] custIDs = new int[len];
+    int[] sortedIDs = new int[len];
+    custIDs[0] = c;
+    sortedIDs[0] = c;
     char[] actions = new char[len];
+    char[] sortedActions = new char[len];
     actions[0] = action;
+    sortedActions[0] = action;
     // !! System.arraycopy is slower
     for (int j = 0; j < len - 1; j++) { // further stage has one passenger less: -1
-      drops[j + 1] = b.custIDs[j];
+      custIDs[j + 1] = b.custIDs[j];
       actions[j + 1] = b.custActions[j];
+      // j>0 is sorted by lev+1
+      sortedIDs[j + 1] = b.custIDs[j];
+      sortedActions[j + 1] = b.custActions[j];
     }
-    Branch b2 = new Branch(c + action + "-" + b.key, // no sorting as we have to remove lev+1 duplicates eg. 1-4-5 and 1-5-4
+    Branch b2 = new Branch(new StringBuilder().append(c).append(action).append(b.key).toString(), // no sorting as we have to remove lev+1 duplicates eg. 1-4-5 and 1-5-4
                       distSrvc.getDistances()[action == 'i' ? demand[c].fromStand : demand[c].toStand]
                       [b.custActions[0] == 'i' ? demand[b.custIDs[0]].fromStand : demand[b.custIDs[0]].toStand] + b.cost,
-                      action == 'o' ? b.outs + 1: b.outs, drops, actions);
+                      action == 'o' ? b.outs + 1: b.outs, custIDs, actions, sortedIDs, sortedActions);
     node[lev].add(b2);
   }
 
@@ -175,7 +180,7 @@ public class DynaPool2 {
   private void storeLeaves(int lev) {
     for (int c = 0; c < demand.length; c++) {
       for (int d = 0; d < demand.length; d++) {
-        // to situations: <1in, 1out>, <1out, 2out>
+        // two situations: <1in, 1out>, <1out, 2out>
         if (c == d)  {
           // IN and OUT of the same passenger, we don't check bearing as they are probably distant stops
           addBranch(c, d, 'i', 'o', 1, lev);
@@ -207,13 +212,35 @@ public class DynaPool2 {
     char[] dirs = new char[2];
     dirs[0] = dir1;
     dirs[1] = dir2;
-    Branch b = new Branch(id1 < id2 ? id1 + dir1 + "-" + id2 + dir2 : id2 + dir2 + "-" + id1 + dir1, // if id1 == id2 then both are OK :)
-                          distSrvc.getDistances()[demand[id1].toStand][demand[id2].toStand], 
-                          outs, ids, dirs);
+    int[] sortedIds = new int[2];
+    char[] sortedDirs = new char[2];
+    if (id1 < id2) {
+      sortedIds[0] = id1;
+      sortedIds[1] = id2;
+      sortedDirs[0] = dir1;
+      sortedDirs[1] = dir2;
+    } else if (id1 > id2) {
+      sortedIds[0] = id2;
+      sortedIds[1] = id1;
+      sortedDirs[0] = dir2;
+      sortedDirs[1] = dir1;
+    } else if (dir1 == 'i') { // performance over estetics - keep ifs simple even with redundant code
+      sortedIds[0] = id1;
+      sortedIds[1] = id2;
+      sortedDirs[0] = dir1;
+      sortedDirs[1] = dir2;
+    } else {
+      sortedIds[0] = id2;
+      sortedIds[1] = id1;
+      sortedDirs[0] = dir2;
+      sortedDirs[1] = dir1;
+    }
+    Branch b = new Branch(distSrvc.getDistances()[demand[id1].toStand][demand[id2].toStand],
+                          outs, ids, dirs, sortedIds, sortedDirs);
     node[lev].add(b);
   }
 
-  private List<Branch> rmDuplicates(List<Branch> node, int lev, boolean makeHash) {
+  private List<Branch> rmDuplicates(List<Branch> node, int lev) {
     Branch[] arr = node.toArray(new Branch[0]);
     if (arr.length < 2) { //TASK: why not < 1
       return new ArrayList<>();
@@ -222,6 +249,7 @@ public class DynaPool2 {
     // removing duplicates from the previous stage
     // TASK: there might be more duplicates than one at lev==1 or 0 !!!!!!!!!!!!!
     Arrays.sort(arr);
+    System.out.println("LEV: " + lev + ", size before compressing: " + node.size());
 
     for (int i = 0; i < arr.length - 1; i++) {
       if (arr[i].cost == -1) { // this -1 marker is set below
@@ -236,42 +264,55 @@ public class DynaPool2 {
       }
     }
     // removing but also recreating the key - must be sorted
+    int count =0;
+    for (int i = 0; i < arr.length; i++) if (arr[i].cost == -1) count++;
+    System.out.println("LEV: "+ lev+", number of -1: " + count);
 
     List<Branch> list = new ArrayList<>();
 
-    for (Branch branch : arr) {
-      if (branch.cost != -1) {
-        String key = branch.key;
-        if (lev > 0 || !makeHash) { // do not sort, it also means - for lev 0 there will be MAX_IN_POOL
-          // maps for the same combination, which is great for tree merging
-          // do sort if lev==0 in pick-up tree (!makeHash)
-          int[] copiedIDs = Arrays.copyOf(branch.custIDs, branch.custIDs.length);
-          //Arrays.sort(copiedArray);
-          key = "";
-          for (int j = 0; j < copiedIDs.length; j++) {
-            int idx = idxOfMin(copiedIDs);
-            key += copiedIDs[idx] + branch.custActions[idx]; // TASK: stringbuilder
-            if (j < copiedIDs.length - 1) {
-              key += "-";
+    for (Branch b : arr) {
+      if (b.cost != -1) {
+        // sorting the key - putting the first element in the right place
+        if (lev > 0) {
+          int c = b.custIDsSorted[0];
+          char action = b.custActionsSorted[0];
+          for (int j = 1; j < b.custIDsSorted.length; j++) {
+            if (b.custIDsSorted[j] == c) {
+              int offset = 0;
+              if (b.custActionsSorted[j] == 'o') { // that means that branch.custActionsSorted[0] == 'i'
+                offset = 1; // you should put 'c' (which is IN) in position j - 1
+              }
+              for (int k = 0; k < j - offset; k++) {
+                b.custIDsSorted[k] = b.custIDsSorted[k + 1];
+                b.custActionsSorted[k] = b.custActionsSorted[k + 1];
+              }
+              b.custIDsSorted[j - offset] = c;
+              b.custActionsSorted[j - offset] = action;
+              break;
+            } else if (b.custIDsSorted[j] > c) {
+              for (int k = 0; k < j - 1; k++) {
+                b.custIDsSorted[k] = b.custIDsSorted[k + 1];
+                b.custActionsSorted[k] = b.custActionsSorted[k + 1];
+              }
+              b.custIDsSorted[j - 1] = c;
+              b.custActionsSorted[j - 1] = action;
+              break;
             }
-            copiedIDs[idx] = 100000; // any MAX TASK: magic ID
           }
-          branch.key = key;
+          b.key = genKey(b);
         }
-        list.add(branch);
+        list.add(b);
       }
     }
     return list;
   }
 
-  public static int idxOfMin(int[] arr) {
-    int idx = 0;
-    for (int i = 1; i < arr.length; i++) {
-        if (arr[i] < arr[idx]) {
-            idx = i;
-        }
+  private String genKey(Branch b) {
+    StringBuilder buf = new StringBuilder();
+    for (int i = 0; i < b.custIDsSorted.length; i++) {
+      buf.append(b.custIDsSorted[i]).append(b.custActionsSorted[i]);
     }
-    return idx;
+    return buf.toString();
   }
 
   public List<PoolElement> getList(int inPool) {
@@ -280,7 +321,7 @@ public class DynaPool2 {
     for (Branch p : node[0]) {
       TaxiOrder[] orders = new TaxiOrder[p.custIDs.length];
       for (int i = 0; i < p.custIDs.length; i++) {
-          orders[i] = demand[p.custIDs[i]];
+        orders[i] = demand[p.custIDs[i]];
       }
       ret.add(new PoolElement(orders, p.custActions, inPool, p.cost));
     }
@@ -291,21 +332,45 @@ public class DynaPool2 {
     public String key; // used to remove duplicates and search in hashmap
     public int cost;
     public int outs; // number of OUT nodes, so that we can guarantee enough IN nodes
+    // TASK wrong naming - order id
     public int[] custIDs; // we could get rid of it to gain on memory (key stores this too); but we would lose time on parsing
     public char[] custActions;
 
-    Branch (String key, int cost, int[] drops) {
+    // to create "key" effectively
+    public int[] custIDsSorted;
+    public char[] custActionsSorted;
+
+    /*Branch (String key, int cost, int[] drops) {
       this.key = key;
       this.cost = cost;
       this.custIDs = drops;
     }
+    */
+    // constructor for leavs
+    Branch(int cost, int outs, int[] ids, char[] actions, int[] idsSorted, char[] actionsSorted) {
+      this.cost = cost;
+      this.outs = outs;
+      this.custIDs = ids;
+      this.custActions = actions;
+      this.custIDsSorted = idsSorted;
+      this.custActionsSorted = actionsSorted;
+      StringBuilder buf = new StringBuilder();
+      for (int i = 0; i < idsSorted.length; i++) {
+        buf.append(idsSorted[i]).append(actionsSorted[i]);
+      }
+      this.key = buf.toString();
+    }
 
-    Branch (String key, int cost, int outs, int[] ids, char[] actions) {
+    // constructor for non-leaves
+    Branch(String key, int cost, int outs, int[] ids, char[] actions, int[] idsSorted,
+           char[] actionsSorted) {
       this.key = key;
       this.cost = cost;
       this.outs = outs;
       this.custIDs = ids;
       this.custActions = actions;
+      this.custIDsSorted = idsSorted;
+      this.custActionsSorted = actionsSorted;
     }
 
     @Override

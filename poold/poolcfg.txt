@@ -1,0 +1,7 @@
+numbThreads=4
+stopsFileName=C:\Users\dell\TAXI\GITLAB\kaboot\db\stops-Budapest-import.csv
+ordersFileName=C:\Users\dell\TAXI\GITLAB\kaboot\orders.csv
+cabsFileName=C:\Users\dell\TAXI\GITLAB\kaboot\cabs.csv
+outFileName=C:\Users\dell\TAXI\GITLAB\kaboot\pools.csv
+flagFileName=C:\Users\dell\TAXI\GITLAB\kaboot\flag.txt
+exitFileName=C:\Users\dell\TAXI\GITLAB\kaboot\exit.txt
