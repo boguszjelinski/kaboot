@@ -64,13 +64,22 @@ public class ExternPool {
   /**
   * Threaded Pool discoverer
   * @param dem demand
-  * @param inPool number of passnegers in pool
+  * @param cabs supply
+  * @param update if DB is to be updated or just a unit test
   * @return pool proposal
   */
-  public PoolElement[] findPool(TaxiOrder[] dem, Cab[] cabs, int inPool, boolean update) {
+  public PoolElement[] findPool(TaxiOrder[] dem, Cab[] cabs, boolean update) {
     writeInput(demandFile, dem);
     writeCabs(supplyFile, cabs);
 
+    if (Files.exists(Paths.get(flagFile))) { // previous job has not ended yet?
+      try {
+        Thread.sleep(30000); // 30secs more
+      } catch (InterruptedException e) {
+        // just ignore
+      }
+      deleteFile(flagFile);
+    }
     File newFile = new File(flagFile);
     try {
       boolean success = newFile.createNewFile(); // a message for poold daemon
@@ -81,21 +90,27 @@ public class ExternPool {
       e.printStackTrace();
     }
     int count = 0;
-    while (Files.exists(Paths.get(flagFile)) && count++ < 100) {
+    // now wait for poold completion
+    while (Files.exists(Paths.get(flagFile)) && count++ < 90) { // 45 secs
       try {
-        //TimeUnit.SECONDS.sleep(1);
-        Thread.sleep(10000);
+        Thread.sleep(500); //TimeUnit.SECONDS.sleep(1);
       } catch (InterruptedException e) {
-        e.printStackTrace();
+        logger.warn("Reading pool flag - interrupted");
         break;
       }
     }
-    if (count >= 100) {
+    if (count >= 90) {
       logger.warn("Waited too long for pool daemon");
       deleteFile(flagFile);
     }
     String json = readResponse(outputFile);
     deleteFile(outputFile);
+    List<PoolElement> list = new ArrayList<>();
+
+    if (json == null || json.length() < 3) {
+      logger.warn("Empty pool read from external pool");
+      return list.toArray(new PoolElement[0]);
+    }
     ObjectMapper om = new ObjectMapper();
     ExternPoolElement[] ret = null;
     try {
@@ -103,7 +118,6 @@ public class ExternPool {
     } catch (JsonProcessingException e) {
       e.printStackTrace();
     }
-    List<PoolElement> list = new ArrayList<>();
     if (ret == null) {
       logger.warn("External pool returned no result");
       return list.toArray(new PoolElement[0]);

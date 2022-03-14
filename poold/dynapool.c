@@ -344,8 +344,6 @@ void rmFinalDuplicates(char *json, int inPool) {
             arr[j].cost = -1; // duplicated; we remove an element with greater costs (list is pre-sorted)
       } else ptr->cost = -1; // constraints not met, mark as unusable
     } 
-    *(json + strlen(json) - 1) = 0; // last comma removed
-
     adjustDemand(); // yeah, we don't need to adjust after inPool==2, but demand is not that big anyway
 }
 
@@ -439,5 +437,5 @@ void findPool(int inPool, int numbThreads, char *json) {
     //for (int i = 0; i < inPool + inPool - 1; i++)
     //    printf("node[%d].size: %d\n", i, countNodeSize(i));
     rmFinalDuplicates(json, inPool);
-    printf("\nFINAL: inPool: %d, node[0].size: %d\n", inPool, countNodeSize(0));
+    printf("FINAL: inPool: %d, found pools: %d\n", inPool, countNodeSize(0));
 }

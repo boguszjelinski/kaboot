@@ -78,12 +78,11 @@ public class PoolUtilTests {
 
     @Test
     public void testExternPool4() {
-        ExternPool util = new ExternPool("poold", "orders.csv",
-                    "cabs.csv", "pools.csv", 8);
+        ExternPool util = new ExternPool(); //"poold", "orders.csv","cabs.csv", "pools.csv", 8);
         PoolElement[] pool = null;
 
-        pool = util.findPool(genDemand(200, MAX_LOSS), genCabs(200), 4, false);
-        assertThat(pool.length).isSameAs(41); // 14 when run from maven, not from Idea (which is what, not maven?)
+        pool = util.findPool(genDemand(200, MAX_LOSS), genCabs(200), false);
+        assertThat(pool.length).isSameAs(62); // 14 when run from maven, not from Idea (which is what, not maven?)
         assertThat(poolIsValid(pool)).isSameAs(0);
     }
 

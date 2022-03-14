@@ -61,6 +61,7 @@ kaboot:
         input: "glpk.mod"
         output: "out.txt"
     extern-pool:
+        in-use: true
         flag-file: "flag.txt"
         cabs-file: "cabs.csv"
         orders-file: "orders.csv"

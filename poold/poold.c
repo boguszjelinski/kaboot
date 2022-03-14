@@ -71,7 +71,7 @@ void freeMem() {
 void showtime(char *label) {
     time(&rawtime);
     timeinfo = localtime(&rawtime);
-    printf("%s: %s\n", label, asctime(timeinfo));
+    printf("%s: %s", label, asctime(timeinfo));
 }
 
 double str2double(char str[]) 
@@ -222,21 +222,24 @@ int main(int argc, char **argv)
     while(!done) {
         if (access(flagFileName, F_OK ) == 0 ) {
             // file exists
-            showtime("START");
+            showtime("\nSTART");
             demandSize = readFile(ordersFileName, ORDERS);
+            remove(ordersFileName);
             cabsNumb = readFile(cabsFileName, CABS);
+            remove(cabsFileName);
+            printf("Orders: %d, cabs: %d\n", demandSize, cabsNumb);
             memset(json, 0, MAXJSON);
             strcat(json, "[");
             for (int i=0; i<3; i++)
                 if (demandSize < maxInPool[i])
                     findPool(inPool[i], numbThreads, json); 
+            *(json + strlen(json) - 1) = 0; // last comma removed
             strcat(json, "]");
             FILE *out = fopen(outFileName, "w");
 	        fputs(json, out);
 	        fclose(out);
 
             remove(flagFileName);
-            printf("\n");
             showtime("STOP");
         } 
         if (access(exitFileName, F_OK ) == 0 ) {

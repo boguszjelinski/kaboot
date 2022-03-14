@@ -96,6 +96,9 @@ public class DispatcherService {
   @Value("${kaboot.scheduler.max-angle}")
   private int maxAngle;
 
+  @Value("${kaboot.extern-pool.in-use}")
+  private boolean useExternPool;
+
   private final TaxiOrderRepository taxiOrderRepository;
   private final CabRepository cabRepository;
   private final RouteRepository routeRepository;
@@ -104,11 +107,12 @@ public class DispatcherService {
   private final DistanceService distanceService;
   private final LcmUtil lcmUtil;
   private DynaPool2 dynaPool;
+  private final ExternPool externPool;
 
   public DispatcherService(TaxiOrderRepository taxiOrderRepository, CabRepository cabRepository,
                            RouteRepository routeRepository, LegRepository legRepository,
                            StatService statService, DistanceService distanceService,
-                           LcmUtil lcmUtil, StopRepository stopRepository) {
+                           LcmUtil lcmUtil, StopRepository stopRepository, ExternPool externPool) {
     this.taxiOrderRepository = taxiOrderRepository;
     this.cabRepository = cabRepository;
     this.routeRepository = routeRepository;
@@ -116,6 +120,7 @@ public class DispatcherService {
     this.statSrvc = statService;
     this.distanceService = distanceService;
     this.lcmUtil = lcmUtil;
+    this.externPool = externPool;
 
     if (distanceService.getDistances() == null) {
       distanceService.initDistance(stopRepository);
@@ -163,7 +168,12 @@ public class DispatcherService {
       if (lenBefore != lenAfter) {
         logger.info("Route matcher found allocated {} requests", lenBefore - lenAfter);
       }
-      PoolElement[] pl = generatePool(demand, supply);
+      PoolElement[] pl = null;
+      if (useExternPool) {
+        pl = externPool.findPool(demand, supply, true);
+      } else {
+        pl = generatePool(demand, supply);
+      }
       if (pl != null && pl.length > 0) {
         demand = PoolUtil.removePoolFromDemand(pl, demand); // findFirstLegInPoolOrLone
         logger.info("Demand after pooling: {}", demand.length);
