@@ -17,6 +17,6 @@ int main(int argc, char **argv) {
     int i=0;
     while (access(flagFileName, F_OK) == 0 // file exists
             && i++ < 450) { // 45secs
-        sleep(0.1); // 
+        usleep(100000); // 
     }
 }

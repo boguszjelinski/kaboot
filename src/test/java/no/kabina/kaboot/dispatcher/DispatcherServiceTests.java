@@ -149,23 +149,38 @@ public class DispatcherServiceTests {
         DynaPool2 util = new DynaPool2(distanceService, 100); // 100 max angle
         // it takes 100secs
         PoolElement[] pool = util.findPool(PoolUtilTests.genDemand(90, 50), 4);
-        // length 20
-        // 50secs
-        /*
-        LEV: 5, size before compressing: 139081
-        LEV: 5, number of -1: 27112
-        LEV: 4, size before compressing: 2291209
-        LEV: 4, number of -1: 199095
-        LEV: 3, size before compressing: 4456733
-        LEV: 3, number of -1: 492434
-        LEV: 2, size before compressing: 3584384
-        LEV: 2, number of -1: 585584
-        LEV: 1, size before compressing: 1673337
-        LEV: 1, number of -1: 352004
-        LEV: 0, size before compressing: 381347
-        LEV: 0, number of -1: 89937*/
         assertThat(pool.length).isSameAs(20); // TASK: one missing
         //assertThat(poolIsValid(pool)).isSameAs(0);
+    }
+
+    @Test
+    public void testGenerateDynaPoolV2() {
+        DynaPool2 poolUtil = new DynaPool2(distanceService, 100);
+        service.setDynaPool(poolUtil);
+        PoolElement[] pool = service.generatePool(PoolUtilTests.genDemand(90, 90), genSupply(100),false);
+        assertThat(pool.length).isSameAs(20);
+        //assertThat(poolIsValid(pool)).isSameAs(0);
+    }
+
+    @Test
+    public void testExternPool() {
+        ExternPool util = new ExternPool();
+        util.setDispatcherService(service);
+        TaxiOrder[] orders = PoolUtilTests.genDemand(199, 90);
+        Cab[] cabs = genSupply(100);
+        ExternPool.ExternPoolElement[] pool = util.findExternPool(orders, cabs, false);
+       // assertThat(pool.length).isSameAs(62);
+        assertThat(externPoolIsValid(pool, orders, cabs)).isSameAs(true);
+    }
+
+    private Cab[] genSupply(int size) {
+        Cab[] cabs = new Cab[size];
+        for (int i = 0; i < size; i++) {
+            cabs[i] = new Cab(i, "", Cab.CabStatus.FREE);
+            cabs[i].setId((long)i);
+            cabs[i].setLocation(i % 50);
+        }
+        return cabs;
     }
 
     private TempModel genModel(int size) {
@@ -195,6 +210,25 @@ public class DispatcherServiceTests {
                     Double.parseDouble(irvine[i][5])));
         }
         return stops;
+    }
+
+    boolean externPoolIsValid(ExternPool.ExternPoolElement[] arr, TaxiOrder[] orders, Cab[] cabs) {
+        if (arr == null) return true;
+        for (ExternPool.ExternPoolElement e: arr) {
+            int wait = distanceService.distance[cabs[e.cab].getLocation()][orders[e.ids[0]].getFromStand()]; // pickup first customer
+            int poolDistance = 0;
+            for (int i=0; i < e.ids.length; i++) {
+                if (e.acts[i] == 'i' && orders[e.ids[i]].getMaxWait() < wait + poolDistance) { // IN
+                    return false;
+                }
+                if (i < e.ids.length - 1) {
+                    int from = e.acts[i] == 'i' ? orders[e.ids[i]].getFromStand() : orders[e.ids[i]].getToStand();
+                    int to = e.acts[i+1] == 'i' ? orders[e.ids[i+1]].getFromStand() : orders[e.ids[i+1]].getToStand();
+                    poolDistance += distanceService.distance[from][to];
+                }
+            }
+        }
+        return true;
     }
 
     private static String [][] irvine =

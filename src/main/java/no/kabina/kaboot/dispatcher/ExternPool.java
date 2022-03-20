@@ -1,20 +1,14 @@
 package no.kabina.kaboot.dispatcher;
 
-import java.io.BufferedReader;
 import java.io.File;
-import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.nio.file.Files;
-import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import no.kabina.kaboot.cabs.Cab;
 import no.kabina.kaboot.orders.TaxiOrder;
 import org.slf4j.Logger;
@@ -44,6 +38,10 @@ public class ExternPool {
     this.dispatcherService = dispatcherService;
   }
 
+  public void setDispatcherService(DispatcherService dispatcherService) {
+    this.dispatcherService = dispatcherService;
+  }
+
   /**
    * for testing
    */
@@ -68,48 +66,29 @@ public class ExternPool {
   * @param update if DB is to be updated or just a unit test
   * @return pool proposal
   */
-  public PoolElement[] findPool(TaxiOrder[] dem, Cab[] cabs, boolean update) {
+  public ExternPoolElement[] findExternPool(TaxiOrder[] dem, Cab[] cabs, boolean update) {
+    if (dem == null || dem.length < 2 || cabs == null || cabs.length==0) {
+      logger.info("Demand or supply empty");
+      return new ExternPoolElement[0];
+    }
     writeInput(demandFile, dem);
     writeCabs(supplyFile, cabs);
 
-    if (Files.exists(Paths.get(flagFile))) { // previous job has not ended yet?
-      try {
-        Thread.sleep(30000); // 30secs more
-      } catch (InterruptedException e) {
-        // just ignore
-      }
-      deleteFile(flagFile);
-    }
-    File newFile = new File(flagFile);
     try {
-      boolean success = newFile.createNewFile(); // a message for poold daemon
-      if (!success) {
-        logger.warn("Pool flag not created");
-      }
+      Process p = Runtime.getRuntime().exec("runner " + flagFile); // TASK runner name in YML
+      p.waitFor();
     } catch (IOException e) {
-      e.printStackTrace();
+      logger.warn("IOException while calling poold: {}", e.getMessage());
+    } catch (Exception e) {
+      logger.warn("Exception while calling poold: {}", e.getMessage());
     }
-    int count = 0;
-    // now wait for poold completion
-    while (Files.exists(Paths.get(flagFile)) && count++ < 90) { // 45 secs
-      try {
-        Thread.sleep(500); //TimeUnit.SECONDS.sleep(1);
-      } catch (InterruptedException e) {
-        logger.warn("Reading pool flag - interrupted");
-        break;
-      }
-    }
-    if (count >= 90) {
-      logger.warn("Waited too long for pool daemon");
-      deleteFile(flagFile);
-    }
+
     String json = readResponse(outputFile);
     deleteFile(outputFile);
-    List<PoolElement> list = new ArrayList<>();
 
     if (json == null || json.length() < 3) {
       logger.warn("Empty pool read from external pool");
-      return list.toArray(new PoolElement[0]);
+      return new ExternPoolElement[0];
     }
     ObjectMapper om = new ObjectMapper();
     ExternPoolElement[] ret = null;
@@ -120,10 +99,16 @@ public class ExternPool {
     }
     if (ret == null) {
       logger.warn("External pool returned no result");
-      return list.toArray(new PoolElement[0]);
+      return new ExternPoolElement[0];
     }
+    return ret;
+  }
+
+  public PoolElement[] findPool(TaxiOrder[] dem, Cab[] cabs, boolean update) {
+    List<PoolElement> list = new ArrayList<>();
+    ExternPoolElement[] ret = findExternPool(dem, cabs, update);
     for (ExternPoolElement e : ret) {
-      TaxiOrder[] cust = new TaxiOrder[e.len];
+      TaxiOrder[] cust = new TaxiOrder[e.len + e.len];
       for (int i = 0; i < e.ids.length; i++) {
         cust[i] = dem[e.ids[i]];
       }
@@ -176,7 +161,7 @@ public class ExternPool {
     }
   }
 
-  private static class ExternPoolElement {
+  public static class ExternPoolElement {
     public int cab;
     public int len;
     public int ids[];

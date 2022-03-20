@@ -18,7 +18,7 @@ struct tm * timeinfo;
 char *stopsFileName, *ordersFileName, *cabsFileName, *outFileName, *flagFileName, *exitFileName;
 char json[MAXJSON];
 int numbThreads = 4;
-int maxInPool[3]= {70, 210, 500};
+int maxInPool[3]= {200, 410, 600};
 int inPool[3]= {4, 3, 2};
 
 Stop stops[MAXSTOPSNUMB];

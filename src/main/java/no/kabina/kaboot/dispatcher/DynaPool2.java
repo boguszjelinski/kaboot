@@ -162,11 +162,14 @@ public class DynaPool2 {
                       action == 'o' ? b.outs + 1: b.outs, custIDs, actions, sortedIDs, sortedActions);
     node[lev].add(b2);
   }
-
+  // wait - distance from previous stop
   private boolean isTooLong(int wait, Branch b) {
     for (int i = 0; i < b.custIDs.length; i++) {
-      if (wait > distSrvc.getDistances()[demand[b.custIDs[i]].fromStand][demand[b.custIDs[i]].toStand]
+      if (wait > demand[b.custIDs[i]].getDistance()  //distSrvc.getDistances()[demand[b.custIDs[i]].fromStand][demand[b.custIDs[i]].toStand]
                   * (100.0 + demand[b.custIDs[i]].getMaxLoss()) / 100.0) {
+        return true;
+      }
+      if (b.custActions[i] == 'i' && wait > demand[b.custIDs[i]].getMaxWait()) {
         return true;
       }
       if (i + 1 < b.custIDs.length) {
@@ -249,7 +252,7 @@ public class DynaPool2 {
     // removing duplicates from the previous stage
     // TASK: there might be more duplicates than one at lev==1 or 0 !!!!!!!!!!!!!
     Arrays.sort(arr);
-    System.out.println("LEV: " + lev + ", size before compressing: " + node.size());
+    //System.out.println("LEV: " + lev + ", size before compressing: " + node.size());
 
     for (int i = 0; i < arr.length - 1; i++) {
       if (arr[i].cost == -1) { // this -1 marker is set below
@@ -264,9 +267,10 @@ public class DynaPool2 {
       }
     }
     // removing but also recreating the key - must be sorted
-    int count =0;
-    for (int i = 0; i < arr.length; i++) if (arr[i].cost == -1) count++;
-    System.out.println("LEV: "+ lev+", number of -1: " + count);
+    //int count =0;
+    //for (int i = 0; i < arr.length; i++)
+    //  if (arr[i].cost == -1) count++;
+    //System.out.println("LEV: "+ lev+", number of -1: " + count);
 
     List<Branch> list = new ArrayList<>();
 

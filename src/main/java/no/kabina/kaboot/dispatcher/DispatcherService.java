@@ -127,6 +127,10 @@ public class DispatcherService {
     }
   }
 
+  void setDynaPool(DynaPool2 pool) { // for testing
+    this.dynaPool = pool;
+  }
+
   public void runPlan() {
     findPlan(false);
   }
@@ -170,9 +174,10 @@ public class DispatcherService {
       }
       PoolElement[] pl = null;
       if (useExternPool) {
+        externPool.setDispatcherService(this);
         pl = externPool.findPool(demand, supply, true);
       } else {
-        pl = generatePool(demand, supply);
+        pl = generatePool(demand, supply, true);
       }
       if (pl != null && pl.length > 0) {
         demand = PoolUtil.removePoolFromDemand(pl, demand); // findFirstLegInPoolOrLone
@@ -566,7 +571,7 @@ public class DispatcherService {
    * @param supply
    * @return
    */
-  public PoolElement[] generatePool(TaxiOrder[] demand, Cab[] supply) {
+  public PoolElement[] generatePool(TaxiOrder[] demand, Cab[] supply, boolean updateDb) {
     final long startPool = System.currentTimeMillis();
     logger.debug("generatePool demand:{} supply:{}", demand.length, supply.length);
     if (demand == null || demand.length < 2) {
@@ -578,17 +583,17 @@ public class DispatcherService {
 
     if (demand.length < max4Pool) { // pool4 takes a lot of time, it cannot analyze big data sets
       final long startPool4 = System.currentTimeMillis();
-      pl4 = findPool(demand, supply, 4); // four passengers: size^4 combinations (full search)
+      pl4 = findPool(demand, supply, 4, updateDb); // four passengers: size^4 combinations (full search)
       statSrvc.updateMaxAndAvgTime("pool4_time", startPool4);
       logger.debug("findPool4 returned pool.length:{}", pl4.length);
     }
-    PoolElement[] ret = getPoolWith3and2(demand, supply, pl4);
+    PoolElement[] ret = getPoolWith3and2(demand, supply, pl4, updateDb);
     statSrvc.updateMaxAndAvgTime("pool_time", startPool);
     logger.info("Pool size: {}", ret == null ? 0 : ret.length);
     return ret;
   }
 
-  public PoolElement[] findPool(TaxiOrder[] dem, Cab[] supply, int inPool) {
+  public PoolElement[] findPool(TaxiOrder[] dem, Cab[] supply, int inPool, boolean updateDb) {
     if (inPool > dynaPool.MAX_IN_POOL) {
       // TASK log
       return new PoolElement[0];
@@ -598,10 +603,10 @@ public class DispatcherService {
     dynaPool.dive(0, inPool);
     List<PoolElement> poolList = dynaPool.getList(inPool);
     logger.debug("Pool{} internal list size: {}", inPool, poolList.size());
-    return removeDuplicatesV2(poolList.toArray(new PoolElement[0]), supply, inPool);
+    return removeDuplicatesV2(poolList.toArray(new PoolElement[0]), supply, inPool, updateDb);
   }
 
-  public PoolElement[] removeDuplicatesV2(PoolElement[] arr, Cab[] supply, int inPool) {
+  public PoolElement[] removeDuplicatesV2(PoolElement[] arr, Cab[] supply, int inPool, boolean updateDb) {
     if (arr == null || supply == null || supply.length == 0) {
       return new PoolElement[0];
     }
@@ -633,7 +638,9 @@ public class DispatcherService {
         }
         ret.add(arr[i]);
         // allocate
-        assignPoolToCab(cab, arr[i]);
+        if (updateDb) {
+          assignPoolToCab(cab, arr[i]);
+        }
         // remove the cab from list so that it cannot be allocated twice
         supply[cabIdx] = null;
         // remove any further duplicates
@@ -676,14 +683,14 @@ public class DispatcherService {
   }
 
 
-  private PoolElement[] getPoolWith3and2(TaxiOrder[] demand, Cab[] supply, PoolElement[] pl4) {
+  private PoolElement[] getPoolWith3and2(TaxiOrder[] demand, Cab[] supply, PoolElement[] pl4, boolean updateDb) {
     PoolElement[] ret;
     TaxiOrder[] demand3 = PoolUtil.findCustomersWithoutPoolV2(pl4, demand); // TASK: [i]=null would be better than such routines
     if (demand3 != null && demand3.length > 0) { // there is still an opportunity
       PoolElement[] pl3;
       if (demand3.length < max3Pool) { // not too big for three customers, let's find out!
         final long startPool3 = System.currentTimeMillis();
-        pl3 = findPool(demand3, supply,3);
+        pl3 = findPool(demand3, supply,3, updateDb);
         logger.debug("Pool3: used demand={} pool size={}", demand3.length, pl3 == null ? 0 : pl3.length);
         statSrvc.updateMaxAndAvgTime("pool3_time", startPool3);
         if (pl3.length == 0) {
@@ -696,7 +703,7 @@ public class DispatcherService {
         pl3 = pl4;
       }
       // with 2 passengers (this runs fast and no max is needed
-      ret = getPoolWith2(demand3, supply, pl3);
+      ret = getPoolWith2(demand3, supply, pl3, updateDb);
       logger.debug("Pool2: used demand={} pool size={}", demand3.length, ret == null ? 0 : ret.length);
     } else {
       ret = pl4;
@@ -704,11 +711,11 @@ public class DispatcherService {
     return ret;
   }
 
-  private PoolElement[] getPoolWith2(TaxiOrder[] demand3, Cab[] supply, PoolElement[] pl3) {
+  private PoolElement[] getPoolWith2(TaxiOrder[] demand3, Cab[] supply, PoolElement[] pl3, boolean updateDb) {
     PoolElement[] ret;
     TaxiOrder[] demand2 = PoolUtil.findCustomersWithoutPoolV2(pl3, demand3);
     if (demand2 != null && demand2.length > 0) {
-      PoolElement[] pl2 = findPool(demand2, supply,2);
+      PoolElement[] pl2 = findPool(demand2, supply,2, updateDb);
       if (pl2.length == 0) {
         ret = pl3;
       } else {
