@@ -86,14 +86,12 @@ public class DispatcherServiceTests {
         Cab[] cabs = model.getSupply();
 
         PoolUtil util = new PoolUtil(50);
-        PoolElement[] pool = util.findPool(orders, 3);
-        assertThat(pool.length).isSameAs(16);
+        PoolElement[] pool = new PoolElement[0];
         TaxiOrder[] demand = PoolUtil.findFirstLegInPoolOrLone(pool, orders);
-        assertThat(demand.length).isSameAs(17);
+        assertThat(demand.length).isSameAs(49);
         int [][] cost = lcmUtil.calculateCost("glpk.mod", "out.txt", demand, cabs);
         assertThat(cost.length).isSameAs(49);
         TempModel tempModel = service.runLcm(cabs, demand, cost);
-        assertThat(tempModel.getDemand().length).isSameAs(17);
         assertThat(tempModel.getSupply().length).isSameAs(49);
         // test solver by this occasion
         try {
@@ -149,7 +147,7 @@ public class DispatcherServiceTests {
         DynaPool2 util = new DynaPool2(distanceService, 100); // 100 max angle
         // it takes 100secs
         PoolElement[] pool = util.findPool(PoolUtilTests.genDemand(90, 50), 4);
-        assertThat(pool.length).isSameAs(20); // TASK: one missing
+        assertThat(pool.length).isSameAs(5); // TASK: one missing
         //assertThat(poolIsValid(pool)).isSameAs(0);
     }
 
@@ -158,7 +156,7 @@ public class DispatcherServiceTests {
         DynaPool2 poolUtil = new DynaPool2(distanceService, 100);
         service.setDynaPool(poolUtil);
         PoolElement[] pool = service.generatePool(PoolUtilTests.genDemand(90, 90), genSupply(100),false);
-        assertThat(pool.length).isSameAs(20);
+        assertThat(pool.length).isSameAs(6);
         //assertThat(poolIsValid(pool)).isSameAs(0);
     }
 

@@ -18,7 +18,7 @@ import org.springframework.transaction.annotation.EnableTransactionManagement;
 public class KabootApplication {
 
   /**
-  * for JobRunr
+  * for JobRunr.
   */
   @Bean
   @Profile("!test")  // tests fail - JobMapper not created; what about 'prod' ?

@@ -32,7 +32,7 @@ public class DynaPool2 {
   private TaxiOrder[] demand;
   public static final int MAX_IN_POOL = 8; // just for memory allocation, might be 10 as well
   private List<Branch>[] node;
-  private int maxAngle;
+  private final int maxAngle;
 
   public DynaPool2(DistanceService srvc, int maxAngle) {
     this.distSrvc = srvc;
@@ -43,7 +43,13 @@ public class DynaPool2 {
     this.demand = demand;
   }
 
-  // for tests
+  /**
+   *  Constructor for tests.
+
+   * @param dists distances
+   * @param bearing bearing
+   * @param maxAngle max allowed angle when a bus takesa turn
+   */
   public DynaPool2(int [][] dists, int[] bearing, int maxAngle) {
     this.maxAngle = maxAngle;
     if (distSrvc == null) {
@@ -51,7 +57,13 @@ public class DynaPool2 {
     }
   }
 
-  // for testing only
+  /**
+   *  Constructor for tests.
+
+   * @param dem orders
+   * @param inPool how many passengers
+   * @return list of pools
+   */
   public PoolElement[] findPool(TaxiOrder[] dem, int inPool) {
     if (inPool > MAX_IN_POOL) {
       // TASK log
@@ -62,7 +74,7 @@ public class DynaPool2 {
     dive(0, inPool);
     String logStr = "";
     for (int i = 0; i < inPool + inPool - 1; i++) {
-      logStr += "node["+i+"].size: " + node[i].size() + ", ";
+      logStr += "node[" + i + "].size: " + node[i].size() + ", ";
     }
     logger.debug("Pool nodes size: {}", logStr);
     List<PoolElement> poolList = getList(inPool);
@@ -90,7 +102,8 @@ public class DynaPool2 {
     dive(lev + 1, inPool);
 
     for (int c = 0; c < demand.length; c++) {
-      for (Branch b : node[lev + 1]) { // we iterate over product of the stage further in the tree: +1
+      for (Branch b : node[lev + 1]) {
+        // we iterate over product of the stage further in the tree: +1
         storeBranchIfNotFoundDeeperAndNotTooLong(lev, c, b, inPool);
       }
     }
@@ -118,7 +131,8 @@ public class DynaPool2 {
     }
     // now checking if anyone in the branch does not lose too much with the pool
     // c IN
-    int nextStop = b.custActions[0] == 'i' ? demand[b.custIDs[0]].fromStand : demand[b.custIDs[0]].toStand;
+    int nextStop = b.custActions[0] == 'i'
+                            ? demand[b.custIDs[0]].fromStand : demand[b.custIDs[0]].toStand;
     if (!inFound
         && outFound
         && !isTooLong(distSrvc.getDistances()[demand[c].fromStand][nextStop], b)
@@ -156,25 +170,32 @@ public class DynaPool2 {
       sortedIDs[j + 1] = b.custIDs[j];
       sortedActions[j + 1] = b.custActions[j];
     }
-    Branch b2 = new Branch(new StringBuilder().append(c).append(action).append(b.key).toString(), // no sorting as we have to remove lev+1 duplicates eg. 1-4-5 and 1-5-4
-                      distSrvc.getDistances()[action == 'i' ? demand[c].fromStand : demand[c].toStand]
-                      [b.custActions[0] == 'i' ? demand[b.custIDs[0]].fromStand : demand[b.custIDs[0]].toStand] + b.cost,
-                      action == 'o' ? b.outs + 1: b.outs, custIDs, actions, sortedIDs, sortedActions);
+    Branch b2 = new Branch(new StringBuilder().append(c).append(action).append(b.key).toString(),
+        // no sorting as we have to remove lev+1 duplicates eg. 1-4-5 and 1-5-4
+        distSrvc.getDistances()[action == 'i' ? demand[c].fromStand : demand[c].toStand]
+        [b.custActions[0] == 'i' ? demand[b.custIDs[0]].fromStand
+                : demand[b.custIDs[0]].toStand] + b.cost,
+        action == 'o' ? b.outs + 1: b.outs, custIDs, actions, sortedIDs, sortedActions);
     node[lev].add(b2);
   }
   // wait - distance from previous stop
   private boolean isTooLong(int wait, Branch b) {
     for (int i = 0; i < b.custIDs.length; i++) {
-      if (wait > demand[b.custIDs[i]].getDistance()  //distSrvc.getDistances()[demand[b.custIDs[i]].fromStand][demand[b.custIDs[i]].toStand]
-                  * (100.0 + demand[b.custIDs[i]].getMaxLoss()) / 100.0) {
+      if (wait > demand[b.custIDs[i]].getDistance()
+          //distSrvc.getDistances()[demand[b.custIDs[i]].fromStand][demand[b.custIDs[i]].toStand]
+          * (100.0 + demand[b.custIDs[i]].getMaxLoss()) / 100.0) {
         return true;
       }
       if (b.custActions[i] == 'i' && wait > demand[b.custIDs[i]].getMaxWait()) {
         return true;
       }
       if (i + 1 < b.custIDs.length) {
-        wait += distSrvc.getDistances()[b.custActions[i] == 'i' ? demand[b.custIDs[i]].fromStand : demand[b.custIDs[i]].toStand]
-                                       [b.custActions[i + 1] == 'i' ? demand[b.custIDs[i + 1]].fromStand : demand[b.custIDs[i + 1]].toStand];
+        wait += distSrvc.getDistances()[b.custActions[i] == 'i'
+                                        ? demand[b.custIDs[i]].fromStand
+                                        : demand[b.custIDs[i]].toStand]
+                                       [b.custActions[i + 1] == 'i'
+                                        ? demand[b.custIDs[i + 1]].fromStand
+                                        : demand[b.custIDs[i + 1]].toStand];
       }
     }
     return false;
@@ -185,19 +206,30 @@ public class DynaPool2 {
       for (int d = 0; d < demand.length; d++) {
         // two situations: <1in, 1out>, <1out, 2out>
         if (c == d)  {
-          // IN and OUT of the same passenger, we don't check bearing as they are probably distant stops
+          // IN and OUT of the same passenger, we don't check bearing as they are
+          // probably distant stops
           addBranch(c, d, 'i', 'o', 1, lev);
         } else if (distSrvc.getDistances()[demand[c].toStand][demand[d].toStand]
-                    < distSrvc.getDistances()[demand[d].fromStand][demand[d].toStand] * (100.0 + demand[d].getMaxLoss()) / 100.0
-                && bearingDiff(distSrvc.bearing[demand[c].toStand], distSrvc.bearing[demand[d].toStand]) < maxAngle
+                    < distSrvc.getDistances()[demand[d].fromStand][demand[d].toStand]
+                      * (100.0 + demand[d].getMaxLoss()) / 100.0
+                && bearingDiff(distSrvc.bearing[demand[c].toStand],
+                               distSrvc.bearing[demand[d].toStand]) < maxAngle
         ) {
-          // TASK - this calculation above should be replaced by a redundant value in taxi_order - distance * loss
+          // TASK - this calculation above should be replaced by
+          // a redundant value in taxi_order - distance * loss
           addBranch(c, d, 'o', 'o', 2, lev);
         }
       }
     }
   }
 
+  /**
+   * Difference as angle of two bearings (stops).
+
+   * @param a first bearing
+   * @param b second one
+   * @return angle
+   */
   public static int bearingDiff(int a, int b) {
     int r = (a - b) % 360;
     if (r < -180.0) {
@@ -252,7 +284,6 @@ public class DynaPool2 {
     // removing duplicates from the previous stage
     // TASK: there might be more duplicates than one at lev==1 or 0 !!!!!!!!!!!!!
     Arrays.sort(arr);
-    //System.out.println("LEV: " + lev + ", size before compressing: " + node.size());
 
     for (int i = 0; i < arr.length - 1; i++) {
       if (arr[i].cost == -1) { // this -1 marker is set below
@@ -267,11 +298,6 @@ public class DynaPool2 {
       }
     }
     // removing but also recreating the key - must be sorted
-    //int count =0;
-    //for (int i = 0; i < arr.length; i++)
-    //  if (arr[i].cost == -1) count++;
-    //System.out.println("LEV: "+ lev+", number of -1: " + count);
-
     List<Branch> list = new ArrayList<>();
 
     for (Branch b : arr) {
@@ -283,7 +309,8 @@ public class DynaPool2 {
           for (int j = 1; j < b.custIDsSorted.length; j++) {
             if (b.custIDsSorted[j] == c) {
               int offset = 0;
-              if (b.custActionsSorted[j] == 'o') { // that means that branch.custActionsSorted[0] == 'i'
+              if (b.custActionsSorted[j] == 'o') {
+                // that means that branch.custActionsSorted[0] == 'i'
                 offset = 1; // you should put 'c' (which is IN) in position j - 1
               }
               for (int k = 0; k < j - offset; k++) {
@@ -319,6 +346,9 @@ public class DynaPool2 {
     return buf.toString();
   }
 
+  /**
+      Turn the root node into a list of pools.
+   */
   public List<PoolElement> getList(int inPool) {
     List<PoolElement> ret = new ArrayList<>();
 

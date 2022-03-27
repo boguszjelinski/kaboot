@@ -12,7 +12,8 @@ import org.springframework.stereotype.Component;
 @Scope("singleton")
 public class DistanceService {
   private final Logger logger = LoggerFactory.getLogger(DistanceService.class);
-  public int [][] distance; // DB IDs will be used to address this table, so beware with IDs in the DB
+  public int [][] distance; // DB IDs will be used to address this table,
+  // so beware with IDs in the DB
   public int [] bearing;
 
   public DistanceService() { }
@@ -23,6 +24,11 @@ public class DistanceService {
     this.bearing = bearing;
   }
 
+  /**
+   * count distances.
+
+   * @param stopRepository stops
+   */
   public void initDistance(StopRepository stopRepository) {
     logger.info("initDistance START");
     List<Stop> stops = stopRepository.findAll();

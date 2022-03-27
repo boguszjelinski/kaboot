@@ -16,7 +16,7 @@ import no.kabina.kaboot.orders.TaxiOrder;
 @Entity
 public class Customer {
   @Id
-  @GeneratedValue(strategy= GenerationType.AUTO)
+  @GeneratedValue(strategy = GenerationType.AUTO)
   private Long id;
 
   @OneToMany

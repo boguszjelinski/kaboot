@@ -25,7 +25,7 @@ public class TaxiOrder {
   public Long id;
 
   protected TaxiOrder.OrderStatus status;
-  public int fromStand;
+  public int fromStand; // for faster access
   public int toStand;
   protected int maxWait; // how long can I wait for a cab [min]
   protected int maxLoss; // [%] how long can I lose while in pool
@@ -34,30 +34,30 @@ public class TaxiOrder {
   private LocalDateTime started;
   private LocalDateTime completed;
 
-  @Column(nullable = true)
+  @Column //(nullable = true)
   private LocalDateTime atTime; // ASAP if not set
 
-  @Column(nullable = true)
+  @Column //(nullable = true)
   protected Integer eta; // set when assigned
 
-  @Column(nullable = true)
+  @Column //(nullable = true)
   protected Boolean inPool; // was actually in pool
 
   private int distance; // better "duration" one day
 
   public TaxiOrder() {}
 
-  /**
-   *
-   * @param fromStand
-   * @param toStand
-   * @param maxWait
-   * @param maxLoss
-   * @param shared
-   * @param status
+  /** constructor.
+
+   * @param fromStand from
+   * @param toStand to
+   * @param maxWait how long can a passenger wait
+   * @param maxLoss how much longer trip can a passenger accept
+   * @param shared if pool is acceptable
+   * @param status different statuses
    */
-  public TaxiOrder(int fromStand, int toStand, int maxWait, int maxLoss, boolean shared, OrderStatus status,
-                   LocalDateTime atTime) {
+  public TaxiOrder(int fromStand, int toStand, int maxWait, int maxLoss, boolean shared,
+                   OrderStatus status, LocalDateTime atTime) {
     this.fromStand = fromStand;
     this.toStand = toStand;
     this.maxWait = maxWait;
@@ -70,21 +70,23 @@ public class TaxiOrder {
 
   // asigned cab
   @ManyToOne(fetch = FetchType.EAGER)
-  @JoinColumn(name = "cab_id", nullable = true)
-  private Cab cab;  // an order can be serviced by ONE cab only, but one cab can service MANY orders throughout the day
+  @JoinColumn(name = "cab_id") // , nullable = true
+  private Cab cab;  // an order can be serviced by ONE cab only,
+  // but one cab can service MANY orders throughout the day
 
   @ManyToOne(optional = false, fetch = FetchType.LAZY)
-  @JoinColumn(name = "customer_id", nullable = true)
+  @JoinColumn(name = "customer_id") // , nullable = true
   private Customer customer;
 
   // also for data integrity checks; the pick-up task; null if cab was already there
   @ManyToOne(fetch = FetchType.LAZY)
-  @JoinColumn(name = "leg_id", nullable = true)
-  private Leg leg;  // an order can be pick-up by one task, but one task can pick up MANY orders/customers
+  @JoinColumn(name = "leg_id") // , nullable = true
+  private Leg leg;  // an order can be pick-up by one task,
+  // but one task can pick up MANY orders/customers
   // this foreign key will give the driver information whom to pick up and where to drop-off
 
   @ManyToOne(fetch = FetchType.LAZY)
-  @JoinColumn(name = "route_id", nullable = true)
+  @JoinColumn(name = "route_id") // , nullable = true
   private Route route;
 
   @Override
@@ -231,5 +233,4 @@ public class TaxiOrder {
   public void setAtTime(LocalDateTime atTime) {
     this.atTime = atTime;
   }
-
 }

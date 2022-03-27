@@ -12,15 +12,15 @@ public class Stop {
   @GeneratedValue(strategy = GenerationType.AUTO)
   private Long id;
 
-  @Column(nullable = true)
+  @Column //(nullable = true)
   private String no;
 
   private String name;
 
-  @Column(nullable = true)
+  @Column //(nullable = true)
   private String type;
   
-  @Column(nullable = true)
+  @Column //(nullable = true)
   private int bearing;
   
   private double latitude;
@@ -28,17 +28,18 @@ public class Stop {
 
   public Stop() {}
 
-  /**
-   *
-   * @param id
-   * @param no
-   * @param name
-   * @param type
-   * @param bearing
-   * @param latitude
-   * @param longitude
+  /** constructor.
+
+   * @param id id
+   * @param no some other key
+   * @param name name
+   * @param type type of stop
+   * @param bearing heading
+   * @param latitude lat
+   * @param longitude long
    */
-  public Stop(Long id, String no, String name, String type, int bearing, double latitude, double longitude) {
+  public Stop(Long id, String no, String name, String type, int bearing, double latitude,
+              double longitude) {
     this.id = id;
     this.no = no;
     this.name = name;

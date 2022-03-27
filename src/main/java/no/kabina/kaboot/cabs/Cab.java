@@ -12,7 +12,8 @@ import javax.persistence.OneToMany;
 import no.kabina.kaboot.orders.TaxiOrder;
 
 /**
- * pg_dump --host localhost --port 5432 --username kabina --format plain --verbose --file "cab.sql" --table public.cab kabina
+ * pg_dump --host localhost --port 5432 --username kabina --format plain --verbose --file "cab.sql"
+ *          --table public.cab kabina
  * pg_dump --username kabina -d kabina -t cab > cab2.sql
  * pg_dump -U kabina --table=cab --data-only --column-inserts kabina > cab-insert.sql
  * psql -U kabina kabina < cab.sql
@@ -32,6 +33,13 @@ public class Cab {
 
   public Cab() {}
 
+  /**
+   *  Constructor.
+
+   * @param loc stand
+   * @param name Cab's name
+   * @param status Cab's status
+   */
   public Cab(int loc, String name, CabStatus status) {
     this.location = loc;
     this.status = status;

@@ -23,7 +23,8 @@ public class CabController {
   }
 
   /**
-   *  Getting cab
+   *  Getting cab.
+
    * @param id ID
    * @param auth authentication service
    * @return Cab
@@ -42,7 +43,8 @@ public class CabController {
   }
 
   /**
-   *  Setting cab's status and location
+   *  Setting cab's status and location.
+
    * @param id ID
    * @param auth authentication service
    * @param cabIn CabPojo
@@ -50,8 +52,8 @@ public class CabController {
    */
   @PutMapping(value = "/cabs/{id}", consumes = "application/json")
   public String updateCab(@PathVariable Long id, @RequestBody CabPojo cabIn, Authentication auth) {
-    logger.info("PUT cab_id={}, location={}, status={}", id, cabIn.getLocation(), cabIn.getStatus());
-
+    logger.info("PUT cab_id={}, location={}, status={}",
+                id, cabIn.getLocation(), cabIn.getStatus());
     Long usrId = AuthUtils.getUserId(auth, "ROLE_CAB");
     if (usrId.longValue() != id) { // now it is that simple - cab_id == usr_id
       return null;
@@ -68,6 +70,13 @@ public class CabController {
   }
 
   // TASK: temporary, should not be allowed for ROLE_CAB
+  /**
+   *  Add a Cab (admin).
+
+   * @param cab Cab
+   * @param auth authentication service
+   * @return Cab
+   */
   @PostMapping(value = "/cabs/") // , consumes = "application/json"boot
   public Cab insertCab(@RequestBody CabPojo cab, Authentication auth) {
     Long usrId = AuthUtils.getUserId(auth, "ROLE_CAB");

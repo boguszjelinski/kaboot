@@ -26,20 +26,29 @@ public class StopService {
   private final CabRepository cabRepository;
   private final DistanceService distanceService;
 
-  public StopService(StopRepository stopRepository, LegRepository legRepository, CabRepository cabRepository,
-                     DistanceService distanceService) {
+  /** constructor.
+   */
+  public StopService(StopRepository stopRepository, LegRepository legRepository,
+                     CabRepository cabRepository, DistanceService distanceService) {
     this.stopRepository = stopRepository;
     this.legRepository = legRepository;
     this.cabRepository = cabRepository;
     this.distanceService = distanceService;
   }
 
+  /** a service that finds routes and cabs for a stop.
+
+   * @param standId stop id
+   * @return two lists
+   */
   public StopTraffic findTraffic(int standId) {
     // we need one status more - STARTED. As now ASSIGNED and not COMPLETED means STARTED
-    List<Leg> fromLegs = legRepository.findByFromStandAndStatus(standId, Route.RouteStatus.ASSIGNED);
+    List<Leg> fromLegs = legRepository.findByFromStandAndStatus(
+                                            standId, Route.RouteStatus.ASSIGNED);
     // toLegs as well as this can be the last leg in a route - !! mark as END STOP in frontend
     List<Leg> toLegs = legRepository.findByToStandAndStatus(standId, Route.RouteStatus.ASSIGNED);
-    return findTrafficForLegs(standId, Stream.concat(fromLegs.stream(), toLegs.stream()).collect(Collectors.toList()));
+    return findTrafficForLegs(standId, Stream.concat(fromLegs.stream(),
+                              toLegs.stream()).collect(Collectors.toList()));
   }
 
   private StopTraffic findTrafficForLegs(int standId, List<Leg> legs) {
@@ -83,7 +92,8 @@ public class StopService {
     int eta = 0;
     for (; idx < legs.length; idx++) {
       if (legs[idx].getFromStand() == standId) {
-        break; // if standId happens to be toStand in the last leg and this break never occurs - that is just OK
+        break; // if standId happens to be toStand in the last leg and
+        // this break never occurs - that is just OK
       }
       // there are two situations - active (currently executed) leg and legs waiting for pick-up
       int distance = distanceService.distance[legs[idx].getFromStand()][legs[idx].getToStand()];
@@ -91,9 +101,11 @@ public class StopService {
         if (legs[idx].getStarted() == null) { // some error
           eta += distance;
         } else {
-          int minutes = (int) ChronoUnit.MINUTES.between(legs[idx].getStarted(), LocalDateTime.now());
-          eta += Math.max(distance - minutes, 0);// it has taken longer than planned
-                  // TASK: assumption 1km = 1min, see also CabRunnable: waitMins(getDistance
+          int minutes = (int) ChronoUnit.MINUTES.between(legs[idx].getStarted(),
+                        LocalDateTime.now());
+          eta += Math.max(distance - minutes, 0);
+          // it has taken longer than planned
+          // TASK: assumption 1km = 1min, see also CabRunnable: waitMins(getDistance
         }
       } else if (legs[idx].getStatus().equals(Route.RouteStatus.ASSIGNED)) {
         eta += distance;

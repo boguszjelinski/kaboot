@@ -8,6 +8,12 @@ public class StopTraffic {
   private final List<RouteWithEta> routes;
   private final List<Cab> cabs;
 
+  /** constructor.
+
+   * @param stop stop
+   * @param routes routes
+   * @param cabs supply
+   */
   public StopTraffic(Stop stop, List<RouteWithEta> routes, List<Cab> cabs) {
     this.stop = stop;
     this.routes = routes;
