@@ -178,6 +178,7 @@ public class DynaPool2 {
         action == 'o' ? b.outs + 1: b.outs, custIDs, actions, sortedIDs, sortedActions);
     node[lev].add(b2);
   }
+
   // wait - distance from previous stop
   private boolean isTooLong(int wait, Branch b) {
     for (int i = 0; i < b.custIDs.length; i++) {

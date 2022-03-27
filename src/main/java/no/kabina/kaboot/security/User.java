@@ -5,12 +5,12 @@ public class User {
   private String password;
   private String[] roles;
 
-    /**
-     *
-     * @param username usr
-     * @param password pass
-     * @param roles roles
-     */
+  /** constructor.
+
+   * @param username usr
+   * @param password pass
+   * @param roles roles
+   */
   public User(String username, String password, String... roles) {
     this.username = username;
     this.password = password;

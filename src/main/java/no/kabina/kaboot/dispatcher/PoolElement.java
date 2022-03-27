@@ -9,8 +9,6 @@ public class PoolElement implements Comparable<PoolElement> {
   private int numbOfCust; // pools with 2,3 or 4 passengers
   private int cost;
 
-  private PoolElement() {}
-
   /** Defines a route with pickups and drop-offs
   *
   * @param cust customers in the right order - pickups & dropp-offs
@@ -23,6 +21,8 @@ public class PoolElement implements Comparable<PoolElement> {
     this.cost = cost;
   }
 
+  /** constructor.
+   */
   //DynaPool2
   public PoolElement(TaxiOrder[] cust, char[] custActions, int numbOfCust, int cost) {
     this.cust = cust;

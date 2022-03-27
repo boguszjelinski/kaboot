@@ -8,7 +8,7 @@ public class LegPojo {
     this.status = status;
   }
 
-  public LegPojo() {
+  public LegPojo() { // controller tests need this
     super();
   }
 

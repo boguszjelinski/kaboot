@@ -8,10 +8,12 @@ public class RouteWithOrders {
   private final List<TaxiOrder> orders;
   private final Route route;
 
+  /** constructor.
+   */
   public RouteWithOrders(Route route, List<TaxiOrder> orders) {
     this.orders = orders;
     this.route = route;
-    for (TaxiOrder o: orders) {
+    for (TaxiOrder o : orders) {
       o.setRoute(null);
     }
   }

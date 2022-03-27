@@ -109,6 +109,8 @@ public class DispatcherService {
   private DynaPool2 dynaPool;
   private final ExternPool externPool;
 
+  /** constructor.
+   */
   public DispatcherService(TaxiOrderRepository taxiOrderRepository, CabRepository cabRepository,
                            RouteRepository routeRepository, LegRepository legRepository,
                            StatService statService, DistanceService distanceService,
@@ -263,7 +265,7 @@ public class DispatcherService {
       logger.warn("Solver returned wrong data set");
       // TASK: LCM should be called here !!!
     } else {
-      int assgnd = assignCustomers(x, cost, tempDemand, tempSupply, null);
+      int assgnd = assignCustomers(x, cost, tempDemand, tempSupply);
       logger.info("Customers assigned by solver: {}", assgnd);
     }
     // now we could check if a customer in pool has got a cab,
@@ -592,6 +594,14 @@ public class DispatcherService {
     return ret;
   }
 
+  /** DynaPool v2.
+
+   * @param dem orders
+   * @param supply cabs
+   * @param inPool how many passengers
+   * @param updateDb if not tests
+   * @return array
+   */
   public PoolElement[] findPool(TaxiOrder[] dem, Cab[] supply, int inPool, boolean updateDb) {
     if (inPool > DynaPool2.MAX_IN_POOL) {
       // TASK log
@@ -605,7 +615,16 @@ public class DispatcherService {
     return removeDuplicatesV2(poolList.toArray(new PoolElement[0]), supply, inPool, updateDb);
   }
 
-  public PoolElement[] removeDuplicatesV2(PoolElement[] arr, Cab[] supply, int inPool, boolean updateDb) {
+  /** sort pools by cost and remove duplicates.
+
+   * @param arr  pools
+   * @param supply cabs
+   * @param inPool how many passengers
+   * @param updateDb if not tests
+   * @return array
+   */
+  public PoolElement[] removeDuplicatesV2(PoolElement[] arr, Cab[] supply, int inPool,
+                                          boolean updateDb) {
     if (arr == null || supply == null || supply.length == 0) {
       return new PoolElement[0];
     }
@@ -626,7 +645,8 @@ public class DispatcherService {
       }
       tempCount++;
       Cab cab = supply[cabIdx];
-      int distCab = distanceService.distance[cab.getLocation()][arr[i].getCust()[0].getFromStand()];
+      int distCab = distanceService.distance[cab.getLocation()]
+                                            [arr[i].getCust()[0].getFromStand()];
       if (distCab == 0 // constraints inside pool are checked while "diving"
               || PoolUtil.constraintsMet(distanceService, arr[i], distCab)) {
         if (distCab != 0) {
@@ -650,8 +670,8 @@ public class DispatcherService {
     }
   }
 
-  private void assignAndRemove(PoolElement[] arr, Cab[] supply, int inPool, boolean updateDb, int i, int cabIdx,
-                               Cab cab) {
+  private void assignAndRemove(PoolElement[] arr, Cab[] supply, int inPool, boolean updateDb,
+                               int i, int cabIdx, Cab cab) {
     if (updateDb) {
       assignPoolToCab(cab, arr[i]);
     }
@@ -661,22 +681,28 @@ public class DispatcherService {
     for (int j = i + 1; j < arr.length; j++) {
       if (arr[j].getCost() != -1 // not invalidated; this check is for performance reasons
               && PoolUtil.isFoundV2(arr, i, j, inPool)) {
-        arr[j].setCost(-1); // duplicated; we remove an element with greater costs (list is pre-sorted)
+        arr[j].setCost(-1); // duplicated; we remove an element with greater costs
+        // (list is pre-sorted)
       }
     }
   }
 
+  /** assign pool.
+
+   * @param cab cab
+   * @param pool pool
+   */
   public void assignPoolToCab(Cab cab, PoolElement pool) {
     // update CAB
-    TaxiOrder order = pool.getCust()[0];
     int eta = 0; // expected time of arrival
     cab.setStatus(Cab.CabStatus.ASSIGNED);
     cabRepository.save(cab);
     Route route = new Route(Route.RouteStatus.ASSIGNED);
     route.setCab(cab);
     routeRepository.save(route);
-    Leg leg = null;
+    Leg leg;
     int legId = 0;
+    TaxiOrder order = pool.getCust()[0];
     if (cab.getLocation() != order.fromStand) { // cab has to move to pickup the first customer
       eta = distanceService.distance[cab.getLocation()][order.fromStand];
       leg = new Leg(cab.getLocation(), order.fromStand, legId++, Route.RouteStatus.ASSIGNED, eta);
@@ -690,9 +716,11 @@ public class DispatcherService {
   }
 
 
-  private PoolElement[] getPoolWith3and2(TaxiOrder[] demand, Cab[] supply, PoolElement[] pl4, boolean updateDb) {
+  private PoolElement[] getPoolWith3and2(TaxiOrder[] demand, Cab[] supply, PoolElement[] pl4,
+                                         boolean updateDb) {
     PoolElement[] ret;
-    TaxiOrder[] demand3 = PoolUtil.findCustomersWithoutPoolV2(pl4, demand); // TASK: [i]=null would be better than such routines
+    TaxiOrder[] demand3 = PoolUtil.findCustomersWithoutPoolV2(pl4, demand);
+    // TASK: [i]=null would be better than such routines
     if (demand3 != null && demand3.length > 0) { // there is still an opportunity
       PoolElement[] pl3;
       if (demand3.length < max3Pool) { // not too big for three customers, let's find out!
@@ -708,7 +736,8 @@ public class DispatcherService {
       }
       // with 2 passengers (this runs fast and no max is needed
       ret = getPoolWith2(demand3, supply, pl3, updateDb);
-      logger.debug("Pool2: used demand={} pool size={}", demand3.length, ret == null ? 0 : ret.length);
+      logger.debug("Pool2: used demand={} pool size={}",
+                          demand3.length, ret == null ? 0 : ret.length);
     } else {
       ret = pl4;
     }
@@ -719,16 +748,18 @@ public class DispatcherService {
     PoolElement[] pl3;
     final long startPool3 = System.currentTimeMillis();
     pl3 = findPool(demand3, supply, 3, updateDb);
-    logger.debug("Pool3: used demand={} pool size={}", demand3.length, pl3 == null ? 0 : pl3.length);
+    logger.debug("Pool3: used demand={} pool size={}",
+                                                  demand3.length, pl3 == null ? 0 : pl3.length);
     statSrvc.updateMaxAndAvgTime("pool3_time", startPool3);
     return pl3;
   }
 
-  private PoolElement[] getPoolWith2(TaxiOrder[] demand3, Cab[] supply, PoolElement[] pl3, boolean updateDb) {
+  private PoolElement[] getPoolWith2(TaxiOrder[] demand3, Cab[] supply, PoolElement[] pl3,
+                                     boolean updateDb) {
     PoolElement[] ret;
     TaxiOrder[] demand2 = PoolUtil.findCustomersWithoutPoolV2(pl3, demand3);
     if (demand2 != null && demand2.length > 0) {
-      PoolElement[] pl2 = findPool(demand2, supply,2, updateDb);
+      PoolElement[] pl2 = findPool(demand2, supply, 2, updateDb);
       if (pl2.length == 0) {
         ret = pl3;
       } else {
@@ -740,11 +771,11 @@ public class DispatcherService {
     return ret;
   }
 
-  /**
-   *
-   * @param supply
-   * @param demand
-   * @param cost
+  /** LCM.
+
+   * @param supply cabs
+   * @param demand orders
+   * @param cost distances
    * @return  returns demand and supply for the solver, not assigned by LCM
    */
   public TempModel runLcm(Cab[] supply, TaxiOrder[] demand, int[][] cost) {
@@ -752,7 +783,8 @@ public class DispatcherService {
     final long startLcm = System.currentTimeMillis();
 
     statSrvc.updateMaxAndAvgStats("lcm_size", cost.length);
-    LcmOutput out = LcmUtil.lcm(cost, Math.min(demand.length, supply.length) - maxSolverSize);
+    LcmOutput out = LcmUtil.lcm(cost,
+                        Math.min(demand.length, supply.length) - maxSolverSize);
     if (out == null) {
       return new TempModel(supply, demand);
     }
@@ -774,35 +806,39 @@ public class DispatcherService {
     // go thru LCM response (which are indexes in tempDemand and tempSupply)
     int sum = 0;
     for (LcmPair pair : pairs) {
-      sum += assignCustomerToCab(demand[pair.getClnt()], supply[pair.getCab()], null); // null: no pool here
+      sum += assignCustomerToCab(demand[pair.getClnt()], supply[pair.getCab()]); // null
+      // null: no pool here
     }
     logger.info("Number of customers assigned by LCM: {}", sum);
-    if (out.getMinVal() == LcmUtil.BIG_COST) { // no input for the solver; probably only when MAX_SOLVER_SIZE=0
+    if (out.getMinVal() == LcmUtil.BIG_COST) {
+      // no input for the solver; probably only when MAX_SOLVER_SIZE=0
       logger.info("No input for solver, out.minVal == LcmUtil.bigCost"); // should we return here?
       // TASK it does not sound reasonable to run solver under such circumstances
     }
     // also produce input for the solver
-    return new TempModel(LcmUtil.supplyForSolver(pairs, supply), LcmUtil.demandForSolver(pairs, demand));
+    return new TempModel(LcmUtil.supplyForSolver(pairs, supply),
+                         LcmUtil.demandForSolver(pairs, demand));
   }
 
-  /**
-   *
-   * @param x
-   * @param cost
-   * @param tmpDemand
-   * @param tmpSupply
-   * @param pool
+  /** assign.
+
+   * @param x return from solver
+   * @param cost solver's cost matrix
+   * @param tmpDemand orders
+   * @param tmpSupply cabs
    * @return number of assigned customers
    */
-  // solver returns a very simple output, it has to be compared with data which helped create its input
-  private int assignCustomers(int[] x, int[][] cost, TaxiOrder[] tmpDemand, Cab[] tmpSupply, PoolElement[] pool) {
+  // solver returns a very simple output,
+  // it has to be compared with data which helped create its input
+  private int assignCustomers(int[] x, int[][] cost, TaxiOrder[] tmpDemand, Cab[] tmpSupply) {
     int nn = cost.length;
     int count = 0;
 
     for (int s = 0; s < tmpSupply.length; s++) {
       for (int c = 0; c < tmpDemand.length; c++) {
-        if (x[nn * s + c] == 1 && cost[s][c] < LcmUtil.BIG_COST) { // not a fake assignment (to balance the model)
-          count += assignCustomerToCab(tmpDemand[c], tmpSupply[s], pool);
+        if (x[nn * s + c] == 1 && cost[s][c] < LcmUtil.BIG_COST) {
+          // not a fake assignment (to balance the model)
+          count += assignCustomerToCab(tmpDemand[c], tmpSupply[s]);
         }
       }
     }
@@ -810,14 +846,14 @@ public class DispatcherService {
   }
 
   /**
-   * save this particular assignment to the DB (cab, route, leg, taxi_order)
+   * save this particular assignment to the DB (cab, route, leg, taxi_order).
+
    * @param order customer request
    * @param cab cab
-   * @param pool the whole pool
    * @return  number of assigned customers
    */
   // TASK: it isn't transactional
-  private int assignCustomerToCab(TaxiOrder order, Cab cab, PoolElement[] pool) {
+  private int assignCustomerToCab(TaxiOrder order, Cab cab) {
     // update CAB
     int eta = 0; // expected time of arrival
     cab.setStatus(Cab.CabStatus.ASSIGNED);
@@ -825,7 +861,7 @@ public class DispatcherService {
     Route route = new Route(Route.RouteStatus.ASSIGNED);
     route.setCab(cab);
     routeRepository.save(route);
-    Leg leg = null;
+    Leg leg;
     int legId = 0;
     if (cab.getLocation() != order.fromStand) { // cab has to move to pickup the first customer
       eta = distanceService.distance[cab.getLocation()][order.fromStand];
@@ -834,19 +870,6 @@ public class DispatcherService {
       legRepository.save(leg);
       statSrvc.addToIntVal("total_pickup_distance", Math.abs(cab.getLocation() - order.fromStand));
     }
-    // legs & routes are assigned to customers in Pool
-    // if not assigned to a Pool we have to create a single-task route here
-    if (pool != null) {
-      for (PoolElement e : pool) { // PoolElement contains TaxiOrder IDs (primary keys)
-        if (e.getCust()[0].id.equals(order.id)) { // yeap, this id is in a pool
-          // checking number
-          // save pick-up phase
-          assignOrdersAndSaveLegsV2(cab, route, legId, e, eta);
-          return e.getNumbOfCust();
-        }
-      }
-    }
-    // Pool not found
     leg = new Leg(order.fromStand, order.toStand, legId, Route.RouteStatus.ASSIGNED,
                   distanceService.distance[order.fromStand][order.fromStand]);
     leg = saveLeg(leg, route);
@@ -855,30 +878,19 @@ public class DispatcherService {
     return 1; // one customer
   }
 
-  private void logPool(Cab cab, Route route, PoolElement e) {
-    StringBuilder stops = new StringBuilder();
-    int i = 0;
-    // pickup
-    for (; i < e.getNumbOfCust(); i++) {
-      stops.append(e.getCust()[i].getId()).append("(").append(e.getCust()[i].getFromStand()).append("), ");
-    }
-    // drop-off
-    for (; i < 2 * e.getNumbOfCust(); i++) {
-      stops.append(e.getCust()[i].getId()).append("(").append(e.getCust()[i].getToStand()).append("), ");
-    }
-    logger.info("Pool legs: cab_id={}, route_id={}, order_id(stop_id)={}", cab.getId(), route.getId(), stops);
-  }
-
   private void logPool2(Cab cab, Route route, PoolElement e) {
     StringBuilder stops = new StringBuilder();
     for (int i = 0; i < e.getNumbOfCust() * 2; i++) {
       if (e.custActions[i] == 'i') {
-        stops.append(e.getCust()[i].getId()).append("(from=").append(e.getCust()[i].getFromStand()).append("), ");
+        stops.append(e.getCust()[i].getId()).append("(from=").append(e.getCust()[i].getFromStand())
+                .append("), ");
       } else {
-        stops.append(e.getCust()[i].getId()).append("(to=").append(e.getCust()[i].getFromStand()).append("), ");
+        stops.append(e.getCust()[i].getId()).append("(to=").append(e.getCust()[i].getFromStand())
+                .append("), ");
       }
     }
-    logger.info("Pool legs: cab_id={}, route_id={}, order_id(from/to)={}", cab.getId(), route.getId(), stops);
+    logger.info("Pool legs: cab_id={}, route_id={}, order_id(from/to)={}",
+                cab.getId(), route.getId(), stops);
   }
 
   private void assignOrdersAndSaveLegsV2(Cab cab, Route route, int legId, PoolElement e, int eta) {
@@ -888,9 +900,11 @@ public class DispatcherService {
     for (; c < e.getNumbOfCust() + e.getNumbOfCust() - 1; c++) {
       leg = null;
       int stand1 = e.custActions[c] == 'i' ? e.getCust()[c].fromStand : e.getCust()[c].toStand;
-      int stand2 = e.custActions[c + 1] == 'i' ? e.getCust()[c + 1].fromStand : e.getCust()[c + 1].toStand;
+      int stand2 = e.custActions[c + 1] == 'i'
+                                      ? e.getCust()[c + 1].fromStand : e.getCust()[c + 1].toStand;
       if (stand1 != stand2) { // there is movement
-        leg = new Leg(stand1, stand2, legId++, Route.RouteStatus.ASSIGNED, distanceService.distance[stand1][stand2]);
+        leg = new Leg(stand1, stand2, legId++, Route.RouteStatus.ASSIGNED,
+                      distanceService.distance[stand1][stand2]);
         saveLeg(leg, route);
       }
       if (e.custActions[c] == 'i') {
@@ -921,7 +935,8 @@ public class DispatcherService {
       logger.warn("Attempt to assign a non existing order");
       return;
     }
-    if (curr.get().getStatus() == TaxiOrder.OrderStatus.CANCELLED) { // customer cancelled while sheduler was working
+    if (curr.get().getStatus() == TaxiOrder.OrderStatus.CANCELLED) {
+      // customer cancelled while sheduler was working
       return; // TASK: the whole route should be adjusted, a stand maybe ommited
     }
     // TASK: maybe 'curr' should be used later on, not 'o', to imbrace some more changes
@@ -941,9 +956,9 @@ public class DispatcherService {
     taxiOrderRepository.save(o);
   }
 
-  /** refusing orders that have waited too long due to lack of available cabs
-   *
-   * @param demand
+  /** refusing orders that have waited too long due to lack of available cabs.
+
+   * @param demand orders
    * @return array of orders that are still valid
    */
   private TaxiOrder[] expireRequests(TaxiOrder[] demand) {
@@ -951,13 +966,14 @@ public class DispatcherService {
 
     LocalDateTime now = LocalDateTime.now();
     for (TaxiOrder o : demand) {
-      long minutesRcvd = Duration.between(o.getReceived(), now).getSeconds()/60;
+      long minutesRcvd = Duration.between(o.getReceived(), now).getSeconds() / 60;
       long minutesAt = 0;
       if (o.getAtTime() != null) {
         minutesAt = Duration.between(o.getAtTime(), now).getSeconds() / 60;
       }
       if ((o.getAtTime() == null && minutesRcvd > o.getMaxWait())
-          || (o.getAtTime() != null && minutesAt > o.getMaxWait())) { // TASK: maybe scheduler should have its own, global MAX WAIT
+          || (o.getAtTime() != null && minutesAt > o.getMaxWait())) {
+        // TASK: maybe scheduler should have its own, global MAX WAIT
         logger.info("order_id={} refused, max wait exceeded", o.id);
         o.setStatus(TaxiOrder.OrderStatus.REFUSED);
         taxiOrderRepository.save(o);

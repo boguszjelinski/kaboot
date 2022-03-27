@@ -7,6 +7,9 @@ public class StatResponse {
   private final List<Object[]> orders;
   private final List<Object[]> cabs;
 
+  /** constructor.
+   *
+   */
   public StatResponse(List<Stat> kpis, List<Object[]> orders, List<Object[]> cabs) {
     this.kpis = kpis;
     this.orders = orders;

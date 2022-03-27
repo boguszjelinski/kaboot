@@ -19,7 +19,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 public class RouteController {
 
-  private final String ROLE_CAB = "ROLE_CAB";
+  private static final String ROLE_CAB = "ROLE_CAB";
 
   private final Logger logger = LoggerFactory.getLogger(RouteController.class);
 
@@ -31,9 +31,10 @@ public class RouteController {
     this.taxiOrderRepository = taxiOrderRepository;
   }
 
-  /**
+  /** GET.
    *  curl -v --user cab0:cab0 http://localhost:8080/routes
    *  {"id":0,"status":"ASSIGNED"}
+
    * @param auth auth
    * @return one route
    */
@@ -58,6 +59,11 @@ public class RouteController {
     return r;
   }
 
+  /** GET.
+
+   * @param auth authentication data
+   * @return antity
+   */
   @CrossOrigin("*")
   @GetMapping(path = "/routeswithorders", produces = MediaType.APPLICATION_JSON_VALUE)
   public RouteWithOrders getValidRouteWithOrdersByCab(Authentication auth) {
@@ -65,7 +71,7 @@ public class RouteController {
     Route r = getFirstRoute(retrieveByCabIdAndStatus(cabId, Route.RouteStatus.ASSIGNED));
     // getting rid of redundant info
     if (r != null && r.getOrders() != null) {
-      for (TaxiOrder o: r.getOrders()) {
+      for (TaxiOrder o : r.getOrders()) {
         if (o.getCab() != null) {
           o.getCab().setOrders(null);
         }
@@ -82,11 +88,19 @@ public class RouteController {
     }
   }
 
+  /** PUT.
+
+   * @param id route id
+   * @param route body
+   * @param auth authentication data
+   * @return OK
+   */
   // mainly to mark COMPLETED and to bill the customer
   @PutMapping(value = "/routes/{id}", consumes = "application/json")
-  public String updateRoute(@PathVariable Long id, @RequestBody RoutePojo route, Authentication auth) {
+  public String updateRoute(@PathVariable Long id, @RequestBody RoutePojo route,
+                            Authentication auth) {
     logger.info("PUT route={}", id);
-    Route r = null;
+    Route r;
     Optional<Route> ro = repository.findById(id);
     if (ro.isEmpty()) {
       logger.info("No such route={}", id);

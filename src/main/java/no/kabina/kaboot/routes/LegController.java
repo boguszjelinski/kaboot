@@ -3,7 +3,6 @@ package no.kabina.kaboot.routes;
 import java.time.LocalDateTime;
 import java.util.Optional;
 import java.util.Set;
-
 import no.kabina.kaboot.orders.TaxiOrder;
 import no.kabina.kaboot.orders.TaxiOrderRepository;
 import no.kabina.kaboot.utils.AuthUtils;
@@ -26,15 +25,16 @@ public class LegController {
     this.orderRepo = orderRepo;
   }
 
-  /** mainly to mark COMPLETED and to bill the customer
-   * @param id
-   * @param leg
-   * @param auth
-   * @return
+  /** mainly to mark COMPLETED and to bill the customer.
+
+   * @param id leg id
+   * @param leg body
+   * @param auth authentication data
+   * @return OK
    */
   @PutMapping(value = "/legs/{id}", consumes = "application/json")
   public String updateLeg(@PathVariable Long id, @RequestBody LegPojo leg, Authentication auth) {
-    Leg l = null;
+    Leg l;
     logger.info("PUT leg={}", id);
     Optional<Leg> o = legRepo.findById(id);
     if (o.isPresent()) {
@@ -44,7 +44,8 @@ public class LegController {
     }
     Long usrId = AuthUtils.getUserId(auth, "ROLE_CAB");
     if (l.getRoute() == null || l.getRoute().getCab() == null
-        || usrId.longValue() != l.getRoute().getCab().getId()) { // now it is that simple - cab_id == usr_id
+        || usrId.longValue() != l.getRoute().getCab().getId()) {
+      // now it is that simple - cab_id == usr_id
       return null;
     }
     l.setStatus(leg.getStatus());

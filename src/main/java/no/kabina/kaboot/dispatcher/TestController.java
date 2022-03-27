@@ -17,8 +17,9 @@ public class TestController {
     this.service = service;
   }
 
-  /**
+  /** GET.
    *  just to test scheduler
+
    * @param auth authentication
    * @return OK
    */

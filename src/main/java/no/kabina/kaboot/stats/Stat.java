@@ -14,8 +14,8 @@ public class Stat {
 
   protected Stat() { }
 
-  /**
-   *
+  /** constructor.
+
    * @param name key
    * @param intVal integer
    * @param dblVal double

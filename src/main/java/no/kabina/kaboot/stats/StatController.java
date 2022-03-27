@@ -15,6 +15,8 @@ public class StatController {
   private final TaxiOrderRepository taxiOrderRepository;
   private final CabRepository cabRepository;
 
+  /** constructor.
+   */
   public StatController(StatRepository statRepository, TaxiOrderRepository taxiOrderRepository,
                         CabRepository cabRepository) {
     this.statRepository = statRepository;
@@ -22,10 +24,14 @@ public class StatController {
     this.cabRepository = cabRepository;
   }
 
+  /** API for a React app.
+
+   * @return stats
+   */
   @GetMapping(path = "/stats", produces = MediaType.APPLICATION_JSON_VALUE)
   public StatResponse getAllStats() {
-    return new StatResponse (statRepository.findAll(),
-                             taxiOrderRepository.countStatus(),
-                             cabRepository.countStatus());
+    return new StatResponse(statRepository.findAll(),
+                            taxiOrderRepository.countStatus(),
+                            cabRepository.countStatus());
   }
 }

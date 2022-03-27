@@ -28,6 +28,12 @@ public class StopController {
     return stopRepository.findAll();
   }
 
+  /** controller for routing tables.
+
+   * @param id stopId
+   * @param auth authentication data
+   * @return two lists
+   */
   @GetMapping("/stops/{id}/traffic")
   public StopTraffic getTraffic(@PathVariable int id, Authentication auth) {
     logger.info("GET traffic for stop={}", id);
