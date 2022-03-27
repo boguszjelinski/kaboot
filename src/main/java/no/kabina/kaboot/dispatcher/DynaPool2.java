@@ -344,12 +344,6 @@ public class DynaPool2 {
     public int[] custIDsSorted;
     public char[] custActionsSorted;
 
-    /*Branch (String key, int cost, int[] drops) {
-      this.key = key;
-      this.cost = cost;
-      this.custIDs = drops;
-    }
-    */
     // constructor for leavs
     Branch(int cost, int outs, int[] ids, char[] actions, int[] idsSorted, char[] actionsSorted) {
       this.cost = cost;

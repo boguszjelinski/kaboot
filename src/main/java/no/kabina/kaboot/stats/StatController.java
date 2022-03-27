@@ -23,7 +23,7 @@ public class StatController {
   }
 
   @GetMapping(path = "/stats", produces = MediaType.APPLICATION_JSON_VALUE)
-  StatResponse getAllStats() {
+  public StatResponse getAllStats() {
     return new StatResponse (statRepository.findAll(),
                              taxiOrderRepository.countStatus(),
                              cabRepository.countStatus());

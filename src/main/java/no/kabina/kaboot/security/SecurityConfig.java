@@ -14,11 +14,13 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 @EnableWebSecurity
 public class SecurityConfig extends WebSecurityConfigurerAdapter {
 
+  private final String CUSTOMER = "CUSTOMER";
+
   @Override
   protected void configure(HttpSecurity http) throws Exception {
     http.authorizeRequests()
-                .antMatchers("/cabs").hasAnyRole("CAB","CUSTOMER")
-                .antMatchers("/stops").hasAnyRole("CAB","CUSTOMER")
+                .antMatchers("/cabs").hasAnyRole("CAB", CUSTOMER)
+                .antMatchers("/stops").hasAnyRole("CAB", CUSTOMER)
                 .antMatchers("/orders").hasRole("CUSTOMER")
                 .antMatchers("/legs").hasRole("CAB")
                 .antMatchers("/routes").hasRole("CAB")

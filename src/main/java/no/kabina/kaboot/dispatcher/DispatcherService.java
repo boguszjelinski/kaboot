@@ -140,7 +140,6 @@ public class DispatcherService {
   */
   //@Job(name = "Taxi scheduler", retries = 2)
   public void findPlan(boolean forceRun) {
-    int[][] cost;
     //UUID uuid = UUID.randomUUID();  // TASK: to mark cabs and customers as assigned to this instance of sheduler
     // first update some statistics
 
@@ -164,44 +163,49 @@ public class DispatcherService {
     Cab[] supply = tmpModel.getSupply();
 
     if (supply.length > 0 && demand.length > 0) {
-      logger.info("Start dispatching demand:{} supply:{}", demand.length, supply.length);
-      // try to assign to existing routes
-      int lenBefore = demand.length;
-      demand = findMatchingRoutes(demand);
-      int lenAfter = demand.length;
-      if (lenBefore != lenAfter) {
-        logger.info("Route matcher found allocated {} requests", lenBefore - lenAfter);
-      }
-      PoolElement[] pl = null;
-      if (useExternPool) {
-        externPool.setDispatcherService(this);
-        pl = externPool.findPool(demand, supply, true);
-      } else {
-        pl = generatePool(demand, supply, true);
-      }
-      if (pl != null && pl.length > 0) {
-        demand = PoolUtil.removePoolFromDemand(pl, demand); // findFirstLegInPoolOrLone
-        logger.info("Demand after pooling: {}", demand.length);
-        supply = PoolUtil.trimSupply(supply); // supply vector may have nulls (= cabs allocated by pool finder)
-      }
-      logger.info("Demand after pooling: {}", demand.length);
-      // now build a balanced cost matrix for solver
-      cost = lcmUtil.calculateCost(solverInput, solverOutput, demand, supply);
-
-      statSrvc.updateMaxAndAvgStats("model_size", cost.length);
-      logger.info("Before LCM: demand={}, supply={}", demand.length, supply.length);
-      if (demand.length > maxSolverSize && supply.length > maxSolverSize) { // too big to send to solver, it has to be cut by LCM
-        // both sides has to be bigger, if one is smaller than we will just reverse-LCM (GCM) on the bigger side
-        TempModel tempModel = runLcm(supply, demand, cost);
-        demand = tempModel.getDemand();
-        supply = tempModel.getSupply();
-        // to be sent to solver
-        logger.info("After LCM: demand={}, supply={}", demand.length, supply.length);
-        cost = lcmUtil.calculateCost(solverInput, solverOutput, demand, supply);
-      }
-      runSolver(supply, demand, cost);
-      statSrvc.updateMaxAndAvgTime("sheduler_time", startSheduler);
+      dispatch(startSheduler, demand, supply);
     }
+  }
+
+  private void dispatch(long startSheduler, TaxiOrder[] demand, Cab[] supply) {
+    int[][] cost;
+    logger.info("Start dispatching demand:{} supply:{}", demand.length, supply.length);
+    // try to assign to existing routes
+    int lenBefore = demand.length;
+    demand = findMatchingRoutes(demand);
+    int lenAfter = demand.length;
+    if (lenBefore != lenAfter) {
+      logger.info("Route matcher found allocated {} requests", lenBefore - lenAfter);
+    }
+    PoolElement[] pl = null;
+    if (useExternPool) {
+      externPool.setDispatcherService(this);
+      pl = externPool.findPool(demand, supply, true);
+    } else {
+      pl = generatePool(demand, supply, true);
+    }
+    if (pl != null && pl.length > 0) {
+      demand = PoolUtil.removePoolFromDemand(pl, demand); // findFirstLegInPoolOrLone
+      logger.info("Demand after pooling: {}", demand.length);
+      supply = PoolUtil.trimSupply(supply); // supply vector may have nulls (= cabs allocated by pool finder)
+    }
+    logger.info("Demand after pooling: {}", demand.length);
+    // now build a balanced cost matrix for solver
+    cost = lcmUtil.calculateCost(solverInput, solverOutput, demand, supply);
+
+    statSrvc.updateMaxAndAvgStats("model_size", cost.length);
+    logger.info("Before LCM: demand={}, supply={}", demand.length, supply.length);
+    if (demand.length > maxSolverSize && supply.length > maxSolverSize) { // too big to send to solver, it has to be cut by LCM
+      // both sides has to be bigger, if one is smaller than we will just reverse-LCM (GCM) on the bigger side
+      TempModel tempModel = runLcm(supply, demand, cost);
+      demand = tempModel.getDemand();
+      supply = tempModel.getSupply();
+      // to be sent to solver
+      logger.info("After LCM: demand={}, supply={}", demand.length, supply.length);
+      cost = lcmUtil.calculateCost(solverInput, solverOutput, demand, supply);
+    }
+    runSolver(supply, demand, cost);
+    statSrvc.updateMaxAndAvgTime("sheduler_time", startSheduler);
   }
 
   /**
@@ -328,48 +332,6 @@ public class DispatcherService {
     }
     return null;
   }
-
-  // TASK !
-  // we can minimize the total trip time, but we would have to know the cab's current location
-  /*
-  private int findLeg(TaxiOrder demand, List<Leg> legs) {
-    List<LegIndicesWithDistance> feasible = new ArrayList<>();
-    int i = 1;
-    while (i < legs.size()) { // not from 0 as each leg we are looking for must have a predecessor
-      // routes from the same stand which have NOT started will surely be seen by passengers, they can get aboard
-      if (demand.fromStand == legs.get(i).getFromStand()
-              && legs.get(i - 1).getRoute().getId().equals(legs.get(i).getRoute().getId()) // previous leg is from the same route
-              && legs.get(i - 1).getStatus() != RouteStatus.COMPLETED // the previous leg cannot be completed TASK !! in the future consider other statuses here
-      // we want the previous leg to be active to give some time for both parties to get the assignment
-      ) {
-        boolean toFound = false;
-        int distance = 0;
-        // we have found "from", now let's find "to"
-        int k = i;
-        for (; k < legs.size(); k++) {
-          distance += legs.get(k).getDistance();
-          if (!legs.get(k).getRoute().getId().equals(legs.get(i).getRoute().getId())) {
-            break; // won't find
-          }
-          if (demand.toStand == legs.get(k).getToStand()) {
-            toFound = true;
-            break;
-          }
-        }
-        if (toFound) {
-          feasible.add(new LegIndicesWithDistance(i, k, distance));
-        }
-        i = k - 1;
-      }
-      i++;
-    }
-    if (feasible.isEmpty()) {
-      return -1;
-    }
-    feasible.sort((LegIndicesWithDistance t1, LegIndicesWithDistance t2) -> t1.distance - t2.distance);
-    return feasible.get(0).idxFrom; // first has shortest distance
-  }
-  */
 
   private class LegIndicesWithDistance {
     LegIndicesWithDistance(int idxFrom, int idxTo, int distance) {
@@ -574,7 +536,7 @@ public class DispatcherService {
   public PoolElement[] generatePool(TaxiOrder[] demand, Cab[] supply, boolean updateDb) {
     final long startPool = System.currentTimeMillis();
     logger.debug("generatePool demand:{} supply:{}", demand.length, supply.length);
-    if (demand == null || demand.length < 2) {
+    if (demand.length < 2) {
       // you can't have a pool with 1 order
       return new PoolElement[0];
     }
@@ -594,7 +556,7 @@ public class DispatcherService {
   }
 
   public PoolElement[] findPool(TaxiOrder[] dem, Cab[] supply, int inPool, boolean updateDb) {
-    if (inPool > dynaPool.MAX_IN_POOL) {
+    if (inPool > DynaPool2.MAX_IN_POOL) {
       // TASK log
       return new PoolElement[0];
     }
@@ -622,10 +584,7 @@ public class DispatcherService {
       // find nearest cab to first pickup and check if WAIT and LOSS constraints met - allocate
       int cabIdx = PoolUtil.findNearestCab(distanceService, supply, arr[i].getCust()[0]); // LCM
       if (cabIdx == -1) { // no more cabs
-        // mark all pools as dead
-        for (int j = i + 1; j < arr.length; j++) {
-          arr[j].setCost(-1);
-        }
+        markPoolsAsDead(arr, i);
         break;
       }
       tempCount++;
@@ -638,18 +597,7 @@ public class DispatcherService {
         }
         ret.add(arr[i]);
         // allocate
-        if (updateDb) {
-          assignPoolToCab(cab, arr[i]);
-        }
-        // remove the cab from list so that it cannot be allocated twice
-        supply[cabIdx] = null;
-        // remove any further duplicates
-        for (int j = i + 1; j < arr.length; j++) {
-          if (arr[j].getCost() != -1 // not invalidated; this check is for performance reasons
-                  && PoolUtil.isFoundV2(arr, i, j, inPool)) {
-            arr[j].setCost(-1); // duplicated; we remove an element with greater costs (list is pre-sorted)
-          }
-        }
+        assignAndRemove(arr, supply, inPool, updateDb, i, cabIdx, cab);
       } else { // constraints not met, mark as unusable
         arr[i].setCost(-1);
       }
@@ -657,6 +605,28 @@ public class DispatcherService {
     // just collect non-duplicated pool plans
     logger.debug("tempCount: {} tempCount2: {}", tempCount, tempCount2);
     return ret.toArray(new PoolElement[0]);
+  }
+
+  private void markPoolsAsDead(PoolElement[] arr, int i) {
+    for (int j = i + 1; j < arr.length; j++) {
+      arr[j].setCost(-1);
+    }
+  }
+
+  private void assignAndRemove(PoolElement[] arr, Cab[] supply, int inPool, boolean updateDb, int i, int cabIdx,
+                               Cab cab) {
+    if (updateDb) {
+      assignPoolToCab(cab, arr[i]);
+    }
+    // remove the cab from list so that it cannot be allocated twice
+    supply[cabIdx] = null;
+    // remove any further duplicates
+    for (int j = i + 1; j < arr.length; j++) {
+      if (arr[j].getCost() != -1 // not invalidated; this check is for performance reasons
+              && PoolUtil.isFoundV2(arr, i, j, inPool)) {
+        arr[j].setCost(-1); // duplicated; we remove an element with greater costs (list is pre-sorted)
+      }
+    }
   }
 
   public void assignPoolToCab(Cab cab, PoolElement pool) {
@@ -689,11 +659,8 @@ public class DispatcherService {
     if (demand3 != null && demand3.length > 0) { // there is still an opportunity
       PoolElement[] pl3;
       if (demand3.length < max3Pool) { // not too big for three customers, let's find out!
-        final long startPool3 = System.currentTimeMillis();
-        pl3 = findPool(demand3, supply,3, updateDb);
-        logger.debug("Pool3: used demand={} pool size={}", demand3.length, pl3 == null ? 0 : pl3.length);
-        statSrvc.updateMaxAndAvgTime("pool3_time", startPool3);
-        if (pl3.length == 0) {
+        pl3 = getPoolWith3(supply, updateDb, demand3);
+        if (pl3 == null || pl3.length == 0) {
           pl3 = pl4;
         } else {
           demand3 = PoolUtil.findCustomersWithoutPoolV2(pl3, demand3); // for getPoolWith2
@@ -709,6 +676,15 @@ public class DispatcherService {
       ret = pl4;
     }
     return ret;
+  }
+
+  private PoolElement[] getPoolWith3(Cab[] supply, boolean updateDb, TaxiOrder[] demand3) {
+    PoolElement[] pl3;
+    final long startPool3 = System.currentTimeMillis();
+    pl3 = findPool(demand3, supply, 3, updateDb);
+    logger.debug("Pool3: used demand={} pool size={}", demand3.length, pl3 == null ? 0 : pl3.length);
+    statSrvc.updateMaxAndAvgTime("pool3_time", startPool3);
+    return pl3;
   }
 
   private PoolElement[] getPoolWith2(TaxiOrder[] demand3, Cab[] supply, PoolElement[] pl3, boolean updateDb) {
@@ -868,46 +844,6 @@ public class DispatcherService {
     logger.info("Pool legs: cab_id={}, route_id={}, order_id(from/to)={}", cab.getId(), route.getId(), stops);
   }
 
-  /*
-  private void assignOrdersAndSaveLegs(Cab cab, Route route, int legId, PoolElement e, int eta) {
-    logPool(cab, route, e);
-    Leg leg;
-    int c = 0;
-    for (; c < e.getNumbOfCust() - 1; c++) {
-      leg = null;
-      if (e.getCust()[c].fromStand != e.getCust()[c + 1].fromStand) { // there is movement
-        leg = new Leg(e.getCust()[c].fromStand, e.getCust()[c + 1].fromStand, legId++, Route.RouteStatus.ASSIGNED,
-                      distanceService.distance[e.getCust()[c].fromStand][e.getCust()[c + 1].fromStand]);
-        saveLeg(leg, route);
-      }
-      e.getCust()[c].setInPool(true);
-      assignOrder(leg, e.getCust()[c], cab, route, eta, "assignOrdersAndSaveLegs1");
-      // c + 1 means that this distance will add to 'eta' of the next customer being picked up
-      if (e.getCust()[c].fromStand != e.getCust()[c + 1].fromStand) {
-        eta += distanceService.distance[e.getCust()[c].fromStand][e.getCust()[c + 1].fromStand];
-      }
-    }
-    leg = null;
-    // save drop-off phase - the first leg
-    if (e.getCust()[c].fromStand != e.getCust()[c + 1].toStand) {
-      leg = new Leg(e.getCust()[c].fromStand, e.getCust()[c + 1].toStand, legId++, Route.RouteStatus.ASSIGNED,
-                    distanceService.distance[e.getCust()[c].fromStand][e.getCust()[c + 1].toStand]);
-      leg = saveLeg(leg, route);
-    }
-    //the last customer being picked up
-    e.getCust()[c].setInPool(true);
-    assignOrder(leg, e.getCust()[c], cab, route, eta, "assignOrdersAndSaveLegs2");
-    // 2* as the vector contains both pick-up & drop-off phases
-    for (c++; c < 2 * e.getNumbOfCust() - 1; c++) {
-      if (e.getCust()[c].toStand != e.getCust()[c + 1].toStand) {
-        leg = new Leg(e.getCust()[c].toStand, e.getCust()[c + 1].toStand, legId++, Route.RouteStatus.ASSIGNED,
-                      distanceService.distance[e.getCust()[c].toStand][e.getCust()[c + 1].toStand]);
-        saveLeg(leg, route);
-      }
-      // here we don't update TaxiOrder
-    }
-  }
-  */
   private void assignOrdersAndSaveLegsV2(Cab cab, Route route, int legId, PoolElement e, int eta) {
     logPool2(cab, route, e);
     Leg leg;
@@ -959,12 +895,6 @@ public class DispatcherService {
     Duration duration = Duration.between(o.getReceived(), LocalDateTime.now());
     statSrvc.addAverageElement(AVG_ORDER_ASSIGN_TIME, duration.getSeconds());
 
-    /*if (c == null) {
-      c = r.getCab();
-      if (c == null) {
-        logger.info("assignOrder got Cab=null, Route did not have a Cab either");
-      }
-    }*/
     o.setStatus(TaxiOrder.OrderStatus.ASSIGNED);
     o.setCab(c);
     o.setRoute(r);
@@ -993,10 +923,6 @@ public class DispatcherService {
           || (o.getAtTime() != null && minutesAt > o.getMaxWait())) { // TASK: maybe scheduler should have its own, global MAX WAIT
         logger.info("order_id={} refused, max wait exceeded", o.id);
         o.setStatus(TaxiOrder.OrderStatus.REFUSED);
-        /*if (o.getCab() == null || o.getCab().getId() == null) {
-          logger.info("Refusing order_id={}, cab is null ", o.id);
-        }
-        */
         taxiOrderRepository.save(o);
       } else {
         newDemand.add(o);

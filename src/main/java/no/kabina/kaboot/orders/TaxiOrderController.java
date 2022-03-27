@@ -2,6 +2,7 @@ package no.kabina.kaboot.orders;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -81,7 +82,7 @@ public class TaxiOrderController {
     Long custId = AuthUtils.getUserId(auth, ROLE_CUSTOMER);
     if (custId == -1) {
       logger.info("GET orders not authorised");
-      return null;
+      return new ArrayList<>();
     }
     logger.info("GET orders for customer {}", custId);
     Customer customer = new Customer();
@@ -122,7 +123,6 @@ public class TaxiOrderController {
     TaxiOrder order = new TaxiOrder(newTaxiOrder.fromStand, newTaxiOrder.toStand, newTaxiOrder.maxWait,
                       newTaxiOrder.maxLoss, newTaxiOrder.shared, TaxiOrder.OrderStatus.RECEIVED, newTaxiOrder.atTime);
     order.setEta(-1);
-    //order.setMaxWait(20);
     order.setInPool(false);
     order.setDistance(dist);
     TaxiOrder o = service.saveTaxiOrder(order, custId);
@@ -158,29 +158,6 @@ public class TaxiOrderController {
       statSrvc.addAverageElement(DispatcherService.AVG_ORDER_COMPLETE_TIME, duration.getSeconds());
     }
     order.setStatus(newTaxiOrder.getStatus()); // we care only about status for now
-
-    // CANCELLED have cab_id null, why?
-    /*if (order.getStatus() != TaxiOrder.OrderStatus.RECEIVED && order.getCab() == null) {
-      if (order.getRoute() != null) {
-        Cab cab = null;
-        try {
-          cab = order.getRoute().getCab();
-          logger.warn("Takig Cab from Route {} order_id={}", order.getRoute().getId(), order.getId());
-        } catch (Exception e) {
-          cab = null;
-        }
-        if (cab == null || cab.getId() == null) {
-          logger.warn("Updating order_id={}, Cab is still null when Route {} is not",
-                      order.getId(), order.getRoute().getId());
-        }
-        order.setCab(cab);
-      } else {
-        logger.warn("Updating order_id={}, not nice - order is {} and Cab and Route are null",
-                    order.getId(), order.getStatus());
-      }
-    }
-    */
-
     logger.debug("Updating order_id={}, status={}", order.getId(), order.getStatus());
     service.updateTaxiOrder(order);
     return "OK";

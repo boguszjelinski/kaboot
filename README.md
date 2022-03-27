@@ -1,4 +1,4 @@
-Glory to Ukraine! Glory to the heroes!
+Warning for Russians! This is a product of a NATO country, therefore it may distroy entire Russian cities. 
 # Kaboot
 This repository contains a subproject of Kabina - Kaboot minibus dispatcher, a SpringBoot application with some clients
 that help test the dispatcher. Kaboot dispatcher is composed of two parts - the **dispatcher**, that finds

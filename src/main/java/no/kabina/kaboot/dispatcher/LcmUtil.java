@@ -17,8 +17,11 @@
 package no.kabina.kaboot.dispatcher;
 
 import java.io.File;
+import java.nio.file.Files;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -126,26 +129,8 @@ public class LcmUtil {
         cost[c][d] = distanceService.getDistances()[tmpSupply[c].getLocation()][tmpDemand[d].fromStand];
       }
     }
-    // for the external solver only
-    //writeCostsForPython(inputFile, n, cost);
     writeGlpkProg(inputFile, outputFile, n, cost);
     return cost;
-  }
-
-  private static void writeCostsForPython(String inputFile, int n, int[][] cost) {
-    int d;
-    int c;
-    try (FileWriter fr = new FileWriter(new File(inputFile))) {
-      fr.write(n + "\n");
-      for (c = 0; c < n; c++) {
-        for (d = 0; d < n; d++) {
-          fr.write(cost[c][d] + " ");
-        }
-        fr.write("\n");
-      }
-    } catch (IOException ioe) {
-      logger.warn("IOE: {}", ioe.getMessage());
-    }
   }
 
   private static void writeGlpkProg(String input, String output, int n, int[][] cost) {
@@ -170,18 +155,22 @@ public class LcmUtil {
             + "}\n"
             + "\n"
             + "data;\nset I := ";
-            //+ "set I := 1 2 3 4;\n"
-            //+ "set J := 1 2 3 4;\n"
-            //+ "\n"
-            //+ "param c :     1 2 3 4 :=\n"
-            //+ "           1  5 1 9 100\n"
-            //+ "           2  5 1 9 100 \n"
-            //+ "           3  0 3 5 100\n"
-            //+ "           4  5 8 0 100;\n"
-            //+ "end;\n";
+    //+ "set I := 1 2 3 4;\n"
+    //+ "set J := 1 2 3 4;\n"
+    //+ "\n"
+    //+ "param c :     1 2 3 4 :=\n"
+    //+ "           1  5 1 9 100\n"
+    //+ "           2  5 1 9 100 \n"
+    //+ "           3  0 3 5 100\n"
+    //+ "           4  5 8 0 100;\n"
+    //+ "end;\n"
 
-    File file = new File(output);
-    file.delete();
+
+    try {
+      Files.delete(Paths.get(output));
+    } catch (IOException e) {
+      e.printStackTrace();
+    }
 
     try (FileWriter fr = new FileWriter(new File(input))) {
       fr.write(body);

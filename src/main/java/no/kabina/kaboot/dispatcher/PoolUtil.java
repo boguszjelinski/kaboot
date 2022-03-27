@@ -16,23 +16,19 @@
 
 package no.kabina.kaboot.dispatcher;
 
+import static java.lang.Math.abs;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-
 import no.kabina.kaboot.cabs.Cab;
 import no.kabina.kaboot.orders.TaxiOrder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.data.geo.Distance;
-
-import static java.lang.Math.abs;
 
 public class PoolUtil {
 
   private static final Logger logger = LoggerFactory.getLogger(PoolUtil.class);
-
-  private int maxNumbStands;
 
   TaxiOrder[] demand;
   int [][]cost;
@@ -42,7 +38,6 @@ public class PoolUtil {
   List<PoolElement> poolList = new ArrayList<>();
 
   public PoolUtil(int stands) {
-    this.maxNumbStands = stands;
     this.cost = setCosts(stands);
   }
 
@@ -185,6 +180,7 @@ public class PoolUtil {
   public PoolElement[] findPool(TaxiOrder[] dem, int inPool) {
     this.poolList = new ArrayList<>();
     this.demand = dem;
+    logger.debug("findPool, dem.length={}", dem.length);
     // 'poolList' will be built
     checkPool(0, demand.length, 0, demand.length, inPool); // this is not SMP
     return removeDuplicates(poolList.toArray(new PoolElement[0]), inPool);
@@ -193,7 +189,7 @@ public class PoolUtil {
   // returning allocated pools DynaPool v1
   public static PoolElement[] removeDuplicates(PoolElement[] arr, int inPool) {
     if (arr == null) {
-      return null;
+      return new PoolElement[0]; // empty array
     }
     Arrays.sort(arr);
     // removing duplicates
@@ -300,8 +296,12 @@ public class PoolUtil {
     if (arr == null || arr.length == 0) {
       return tempDemand;
     }
-    List<TaxiOrder> ret = new ArrayList<>();
+    return rmPoolFromDemand(arr, tempDemand);
 
+  }
+
+  private static  TaxiOrder[] rmPoolFromDemand(PoolElement[] arr, TaxiOrder[] tempDemand) {
+    List<TaxiOrder> ret = new ArrayList<>();
     for (TaxiOrder td : tempDemand) {
       boolean found = false;
       for (PoolElement a : arr) {
@@ -345,22 +345,26 @@ public class PoolUtil {
     List<TaxiOrder> ret = new ArrayList<>();
 
     for (TaxiOrder td : tempDemand) {
-      boolean found = false;
-      for (PoolElement a : arr) {
-        for (int j = 0; j < a.getCust().length; j++) {
-          if (a.custActions[j] == 'i' && a.getCust()[j].id.equals(td.id)) { // this customer will be picked up by another customer should not be sent tol solver
-            found = true;
-            break;
-          }
-        }
-        if (found) {
-          break;
-        }
-      }
-      if (!found) { // 'd' is not picked up by others, he is the first one to be picked up, therefore will be sent to solver
+      if (!elementIsFound(arr, td)) { // 'd' is not picked up by others, he is the first one to be picked up, therefore will be sent to solver
         ret.add(td);
       }
     }
     return ret.toArray(new TaxiOrder[0]); // ret.size()
+  }
+
+  private static boolean elementIsFound(PoolElement[] arr, TaxiOrder td) {
+    boolean found = false;
+    for (PoolElement a : arr) {
+      for (int j = 0; j < a.getCust().length; j++) {
+        if (a.custActions[j] == 'i' && a.getCust()[j].id.equals(td.id)) { // this customer will be picked up by another customer should not be sent tol solver
+          found = true;
+          break;
+        }
+      }
+      if (found) {
+        break;
+      }
+    }
+    return found;
   }
 }

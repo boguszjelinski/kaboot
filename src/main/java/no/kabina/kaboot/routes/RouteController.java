@@ -19,6 +19,8 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 public class RouteController {
 
+  private final String ROLE_CAB = "ROLE_CAB";
+
   private final Logger logger = LoggerFactory.getLogger(RouteController.class);
 
   private final RouteRepository repository;
@@ -37,7 +39,7 @@ public class RouteController {
    */
   @GetMapping(path = "/routes", produces = MediaType.APPLICATION_JSON_VALUE)
   public Route getValidRouteByCab(Authentication auth) {
-    Long cabId = AuthUtils.getUserId(auth, "ROLE_CAB");
+    Long cabId = AuthUtils.getUserId(auth, ROLE_CAB);
     Route r = getFirstRoute(retrieveByCabIdAndStatus(cabId, Route.RouteStatus.ASSIGNED));
     // a Cab doesn't need these details
     if (r == null) {
@@ -59,7 +61,7 @@ public class RouteController {
   @CrossOrigin("*")
   @GetMapping(path = "/routeswithorders", produces = MediaType.APPLICATION_JSON_VALUE)
   public RouteWithOrders getValidRouteWithOrdersByCab(Authentication auth) {
-    Long cabId = AuthUtils.getUserId(auth, "ROLE_CAB");
+    Long cabId = AuthUtils.getUserId(auth, ROLE_CAB);
     Route r = getFirstRoute(retrieveByCabIdAndStatus(cabId, Route.RouteStatus.ASSIGNED));
     // getting rid of redundant info
     if (r != null && r.getOrders() != null) {
@@ -80,18 +82,6 @@ public class RouteController {
     }
   }
 
-  private Route clearRoute(List<Route> routes) {
-    if (routes == null || routes.isEmpty()) {
-      return null;
-    } else {
-      Route r = routes.get(0);
-      for (Leg l : r.getLegs()) {
-        l.setRoute(null);
-      }
-      return r; // just the first route
-    }
-  }
-
   // mainly to mark COMPLETED and to bill the customer
   @PutMapping(value = "/routes/{id}", consumes = "application/json")
   public String updateRoute(@PathVariable Long id, @RequestBody RoutePojo route, Authentication auth) {
@@ -104,7 +94,7 @@ public class RouteController {
     }
     r = ro.get();
 
-    Long usrId = AuthUtils.getUserId(auth, "ROLE_CAB");
+    Long usrId = AuthUtils.getUserId(auth, ROLE_CAB);
     if (usrId.longValue() != r.getCab().getId()) { // now it is that simple - cab_id == usr_id
       return null;
     }

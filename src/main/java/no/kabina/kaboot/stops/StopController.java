@@ -32,15 +32,12 @@ public class StopController {
   public StopTraffic getTraffic(@PathVariable int id, Authentication auth) {
     logger.info("GET traffic for stop={}", id);
     StopTraffic ret = stopService.findTraffic(id);
-    if (ret != null) {
-      if (ret.getRoutes() != null) {
-        for (RouteWithEta route: ret.getRoutes()) {
-          route.getRoute().getCab().setOrders(null);
-          route.getRoute().setOrders(null);
-        }
+    if (ret != null && ret.getRoutes() != null) {
+      for (RouteWithEta route : ret.getRoutes()) {
+        route.getRoute().getCab().setOrders(null);
+        route.getRoute().setOrders(null);
       }
     }
-
     return ret;
   }
 }

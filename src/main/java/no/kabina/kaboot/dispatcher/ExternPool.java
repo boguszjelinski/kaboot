@@ -45,7 +45,7 @@ public class ExternPool {
   /**
    * for testing
    */
-  public ExternPool(String flagFile, String demandFile, String supplyFile, String outputFile, int numbOfThreads) {
+  public ExternPool(String flagFile, String demandFile, String supplyFile, String outputFile) {
     this.flagFile = flagFile;
     this.demandFile = demandFile;
     this.supplyFile = supplyFile;
@@ -86,7 +86,7 @@ public class ExternPool {
     String json = readResponse(outputFile);
     deleteFile(outputFile);
 
-    if (json == null || json.length() < 3) {
+    if (json.length() < 3) {
       logger.warn("Empty pool read from external pool");
       return new ExternPoolElement[0];
     }
