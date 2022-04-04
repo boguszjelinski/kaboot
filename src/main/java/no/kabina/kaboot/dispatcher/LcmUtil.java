@@ -46,7 +46,7 @@ public class LcmUtil {
 
   private LcmUtil() {} // hiding public
   
-  /** Low Cost Method aka "greedy" - looks for lowest values in the matrix
+  /** Low Cost Method aka "greedy" - looks for lowest values in the matrix.
   *
   * @param cost cost
   */
@@ -58,7 +58,7 @@ public class LcmUtil {
     int lcmMinVal = BIG_COST;
     int[][] costLcm = Arrays.stream(cost).map(int[]::clone).toArray(int[][]::new); // clone, not to change the parameter
     List<LcmPair> pairs = new ArrayList<>();
-    for (int i = 0; i < howMany; i++) { // we need to repeat the search (cut off rows/columns) 'hoeMany' times
+    for (int i = 0; i < howMany; i++) { // we need to repeat the search (cut off rows/columns) 'howMany' times
       lcmMinVal = BIG_COST;
       int smin = -1;
       int dmin = -1;
@@ -130,7 +130,22 @@ public class LcmUtil {
       }
     }
     writeGlpkProg(inputFile, outputFile, n, cost);
+    writeMunkresInput(cost, numbDemand, numbSupply);
     return cost;
+  }
+
+  private static void writeMunkresInput(int[][] cost, int numbDemand, int numbSupply) {
+    try (FileWriter fr = new FileWriter(new File("C:\\Users\\dell\\TAXI\\munkinp.txt"))) {
+      fr.write(numbDemand + " " + numbSupply + "\n");
+      for (int c = 0; c < numbSupply; c++) {
+        for (int d = 0; d < numbDemand; d++) {
+          fr.write(cost[c][d] + ", ");
+        }
+        fr.write("\n");
+      }
+    } catch (IOException e) {
+      e.printStackTrace();
+    }
   }
 
   private static void writeGlpkProg(String input, String output, int n, int[][] cost) {
@@ -169,7 +184,7 @@ public class LcmUtil {
     try {
       Files.delete(Paths.get(output));
     } catch (IOException e) {
-      e.printStackTrace();
+      //e.printStackTrace();
     }
 
     try (FileWriter fr = new FileWriter(new File(input))) {

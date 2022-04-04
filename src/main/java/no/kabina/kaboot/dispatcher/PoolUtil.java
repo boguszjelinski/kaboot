@@ -304,4 +304,21 @@ public class PoolUtil {
     }
     return found;
   }
+
+  /**
+   * Difference as angle of two bearings (stops).
+
+   * @param a first bearing
+   * @param b second one
+   * @return angle
+   */
+  public static int bearingDiff(int a, int b) {
+    int r = (a - b) % 360;
+    if (r < -180.0) {
+      r += 360.0;
+    } else if (r >= 180.0) {
+      r -= 360.0;
+    }
+    return Math.abs(r);
+  }
 }

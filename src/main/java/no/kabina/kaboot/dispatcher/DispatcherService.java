@@ -106,15 +106,17 @@ public class DispatcherService {
   private final StatService statSrvc;
   private final DistanceService distanceService;
   private final LcmUtil lcmUtil;
-  private DynaPool2 dynaPool;
+  private DynaPool dynaPool;
   private final ExternPool externPool;
+  private final DynaPoolAsync asyncUtil;
 
   /** constructor.
    */
   public DispatcherService(TaxiOrderRepository taxiOrderRepository, CabRepository cabRepository,
                            RouteRepository routeRepository, LegRepository legRepository,
                            StatService statService, DistanceService distanceService,
-                           LcmUtil lcmUtil, StopRepository stopRepository, ExternPool externPool) {
+                           LcmUtil lcmUtil, StopRepository stopRepository, ExternPool externPool,
+                           DynaPoolAsync asyncUtil) {
     this.taxiOrderRepository = taxiOrderRepository;
     this.cabRepository = cabRepository;
     this.routeRepository = routeRepository;
@@ -123,13 +125,13 @@ public class DispatcherService {
     this.distanceService = distanceService;
     this.lcmUtil = lcmUtil;
     this.externPool = externPool;
-
+    this.asyncUtil = asyncUtil;
     if (distanceService.getDistances() == null) {
       distanceService.initDistance(stopRepository);
     }
   }
 
-  void setDynaPool(DynaPool2 pool) { // for testing
+  void setDynaPool(DynaPool pool) { // for testing
     this.dynaPool = pool;
   }
 
@@ -148,7 +150,7 @@ public class DispatcherService {
     // first update some statistics
 
     if (dynaPool == null) {
-      this.dynaPool = new DynaPool2(distanceService, maxAngle);
+      this.dynaPool = new DynaPool(distanceService, asyncUtil, maxAngle);
     }
     if (!forceRun && !isOnline) { // userfull to run RestAPI on separate host
       logger.info("Scheduler will not be run");
@@ -272,7 +274,7 @@ public class DispatcherService {
     // if not - the other one should get a chance
   }
 
-  private void runExternalSolver() {
+  public void runExternalSolver() {
     try {
       // TASK: rm out file first
       Process p = Runtime.getRuntime().exec(solverCmd);
@@ -283,6 +285,17 @@ public class DispatcherService {
       logger.warn("IOException while running solver: {}", e.getMessage());
     } catch (Exception e) {
       logger.warn("Exception while running solver: {}", e.getMessage());
+    }
+  }
+
+  public void runExternalMunkres() {
+    try {
+      Process p = Runtime.getRuntime().exec("C:\\Users\\dell\\TAXI\\C\\munkres\\munkres.exe");
+      p.waitFor();
+    } catch (IOException e) {
+      logger.warn("IOException while running munkres: {}", e.getMessage());
+    } catch (Exception e) {
+      logger.warn("Exception while running munkres: {}", e.getMessage());
     }
   }
 
@@ -390,9 +403,9 @@ public class DispatcherService {
                   && distanceService.distance[leg.getFromStand()][demand.fromStand]
                     + distanceService.distance[demand.fromStand][leg.getToStand()]
                      < leg.getDistance() * extendMargin
-                  && DynaPool2.bearingDiff(distanceService.bearing[leg.getFromStand()],
+                  && PoolUtil.bearingDiff(distanceService.bearing[leg.getFromStand()],
                                            distanceService.bearing[demand.fromStand]) < maxAngle
-                  && DynaPool2.bearingDiff(distanceService.bearing[demand.fromStand],
+                  && PoolUtil.bearingDiff(distanceService.bearing[demand.fromStand],
                                            distanceService.bearing[leg.getToStand()]) < maxAngle
                   ) // 5% TASK - global config, wait at stop?
           )
@@ -421,9 +434,9 @@ public class DispatcherService {
               && distanceService.distance[legs.get(k).getFromStand()][demand.toStand]
                                 + distanceService.distance[demand.toStand][legs.get(k).getToStand()]
                     < legs.get(k).getDistance() * extendMargin
-              && DynaPool2.bearingDiff(distanceService.bearing[legs.get(k).getFromStand()],
+              && PoolUtil.bearingDiff(distanceService.bearing[legs.get(k).getFromStand()],
                                        distanceService.bearing[demand.toStand]) < maxAngle
-              && DynaPool2.bearingDiff(distanceService.bearing[demand.toStand],
+              && PoolUtil.bearingDiff(distanceService.bearing[demand.toStand],
                                        distanceService.bearing[legs.get(k).getToStand()]) < maxAngle
               ) {
             // passenger is dropped before "getToStand", but the whole distance is counted above
@@ -603,13 +616,13 @@ public class DispatcherService {
    * @return array
    */
   public PoolElement[] findPool(TaxiOrder[] dem, Cab[] supply, int inPool, boolean updateDb) {
-    if (inPool > DynaPool2.MAX_IN_POOL) {
+    if (inPool > DynaPool.MAX_IN_POOL) {
       // TASK log
       return new PoolElement[0];
     }
     dynaPool.setDemand(dem);
     dynaPool.initMem(inPool);
-    dynaPool.dive(0, inPool);
+    dynaPool.dive(0, inPool, 1);
     List<PoolElement> poolList = dynaPool.getList(inPool);
     logger.debug("Pool{} internal list size: {}", inPool, poolList.size());
     return removeDuplicatesV2(poolList.toArray(new PoolElement[0]), supply, inPool, updateDb);
@@ -806,8 +819,7 @@ public class DispatcherService {
     // go thru LCM response (which are indexes in tempDemand and tempSupply)
     int sum = 0;
     for (LcmPair pair : pairs) {
-      sum += assignCustomerToCab(demand[pair.getClnt()], supply[pair.getCab()]); // null
-      // null: no pool here
+      sum += assignCustomerToCab(demand[pair.getClnt()], supply[pair.getCab()]);
     }
     logger.info("Number of customers assigned by LCM: {}", sum);
     if (out.getMinVal() == LcmUtil.BIG_COST) {

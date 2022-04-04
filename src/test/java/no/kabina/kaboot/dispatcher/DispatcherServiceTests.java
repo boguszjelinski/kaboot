@@ -14,9 +14,6 @@ import no.kabina.kaboot.stats.Stat;
 import no.kabina.kaboot.stats.StatRepository;
 import no.kabina.kaboot.stats.StatService;
 import no.kabina.kaboot.stops.Stop;
-import no.kabina.kaboot.stops.StopRepository;
-import org.junit.Before;
-import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.runner.RunWith;
@@ -26,12 +23,14 @@ import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.junit4.SpringRunner;
 
-import java.time.LocalDateTime;
+import java.io.*;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Random;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.Assert.assertNotNull;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 
@@ -68,6 +67,9 @@ public class DispatcherServiceTests {
     DispatcherService service;
 
     @Autowired
+    DynaPool dynapool;
+
+    @Autowired
     LcmUtil lcmUtil;
 
     @BeforeAll
@@ -101,6 +103,115 @@ public class DispatcherServiceTests {
         }
         int[] x = service.readSolversResult(cost.length);
         assertThat(x.length - 2401).isSameAs(0);
+    }
+
+    @Test
+    public void compareLcmWithSolver() throws IOException {
+        int solverTime, munkresTime;
+        int size = 200;
+        int stops = 5000;
+
+        int[][] ret = new int[1000][2];
+        Random rand = new Random(10L);
+        try (FileWriter fr = new FileWriter(new File("C:\\Users\\dell\\TAXI\\lcm_solv.txt"))) {
+            for (int i=0; i<300; i++) {
+                TempModel model = genRandomModel(rand, stops, size);
+                TaxiOrder[] orders = model.getDemand();
+                Cab[] cabs = model.getSupply();
+                int[][] cost = lcmUtil.calculateCost("glpk.mod", "out.txt", orders, cabs);
+                //assertThat(cost.length).isSameAs(size);
+                // LCM
+                LcmOutput out = LcmUtil.lcm(cost, size);
+                //assertNotNull(out);
+                //assertThat(out.getPairs().size()).isSameAs(size);
+                int sumLcm = sumUpLcmDistances(out, cost);
+                // SOLVER
+                try {
+                    service.runExternalSolver();
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+                int[] x = service.readSolversResult(cost.length);
+                int sumSolver = sumUpSolverDistance(x, cost, orders, cabs);
+                fr.write(sumLcm + "," + sumSolver + "\n");
+            }
+        }
+        int a = 0;
+    }
+
+    @Test
+    public void compareSolverWithMunkres() {
+        int solverTime, munkresTime;
+        int size = 600;
+        int stops = 5000;
+        Random rand = new Random(10L);
+        TempModel model = genRandomModel(rand, stops, size);
+        TaxiOrder[] orders = model.getDemand();
+        Cab[] cabs = model.getSupply();
+        int [][] cost = lcmUtil.calculateCost("glpk.mod", "out.txt", orders, cabs);
+        //assertThat(cost.length).isSameAs(size);
+        // LCM
+        LcmOutput out = LcmUtil.lcm(cost, size);
+        //assertNotNull(out);
+        //assertThat(out.getPairs().size()).isSameAs(size);
+        int sumLcm = sumUpLcmDistances(out, cost);
+        // SOLVER
+        try {
+            long time1 = System.currentTimeMillis();
+            service.runExternalSolver();
+            long time2 = System.currentTimeMillis();
+            solverTime = (int) ((time2 - time1) / 100F);
+            service.runExternalMunkres();
+            long time3 = System.currentTimeMillis();
+            munkresTime = (int) ((time3 - time2) / 100F);
+            int a=0;
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        int[] x = service.readSolversResult(cost.length);
+        int[] x2 = readMunkresResult(cost.length);
+        int sumSolver = sumUpSolverDistance(x, cost, orders, cabs);
+        int sumMunkres = sumUpSolverDistance(x2, cost, orders, cabs);
+        int a = 0;
+    }
+
+    private int sumUpLcmDistances(LcmOutput out, int [][] cost) {
+        int sum = 0;
+        for (LcmPair p : out.getPairs()) {
+            sum += cost[p.getCab()][p.getClnt()];
+        }
+        return sum;
+    }
+
+    private int sumUpSolverDistance(int[] x, int[][] cost, TaxiOrder[] tmpDemand, Cab[] tmpSupply) {
+        int nn = cost.length;
+        int sum = 0;
+        for (int s = 0; s < tmpSupply.length; s++) {
+            for (int c = 0; c < tmpDemand.length; c++) {
+                if (x[nn * s + c] == 1 && cost[s][c] < LcmUtil.BIG_COST) {
+                    // not a fake assignment (to balance the model)
+                    sum += cost[s][c];
+                }
+            }
+        }
+        return sum;
+    }
+
+    public int[] readMunkresResult(int n) {
+        int[] x = new int[n * n];
+        try (BufferedReader reader = new BufferedReader(new FileReader("C:\\Users\\dell\\TAXI\\munkout.txt"))) {
+            String line;
+            for (int i = 0; i < n * n; i++) {
+                line = reader.readLine();
+                if (line == null) {
+                    return new int[0];
+                }
+                x[i] = Integer.parseInt(line);
+            }
+        } catch (IOException e) {
+            return new int[0];
+        }
+        return x;
     }
 
     @Test
@@ -144,22 +255,22 @@ public class DispatcherServiceTests {
 
     @Test
     public void testDynaPoolV2_4() {
-        DynaPool2 util = new DynaPool2(distanceService, 100); // 100 max angle
+        //DynaPool2 util = new DynaPool2(distanceService, new DynaPoolUtil(), 100); // 100 max angle
         // it takes 100secs
-        PoolElement[] pool = util.findPool(PoolUtilTests.genDemand(90, 50), 4);
+        PoolElement[] pool = dynapool.findPool(PoolUtilTests.genDemand(150, 50), 4, 3);
         assertThat(pool.length).isSameAs(5); // TASK: one missing
         //assertThat(poolIsValid(pool)).isSameAs(0);
     }
 
-    @Test
+  /*  @Test
     public void testGenerateDynaPoolV2() {
-        DynaPool2 poolUtil = new DynaPool2(distanceService, 100);
+        DynaPool2 poolUtil = new DynaPool2(distanceService, new DynaPoolUtil(), 100);
         service.setDynaPool(poolUtil);
         PoolElement[] pool = service.generatePool(PoolUtilTests.genDemand(90, 90), genSupply(100),false);
         assertThat(pool.length).isSameAs(6);
         //assertThat(poolIsValid(pool)).isSameAs(0);
     }
-
+*/
     @Test
     public void testExternPool() {
         ExternPool util = new ExternPool();
@@ -195,6 +306,32 @@ public class DispatcherServiceTests {
         }
         return new TempModel(cabs, orders);
     }
+
+    private TempModel genRandomModel(Random rand, int numbOfStands, int size) {
+        TaxiOrder[] orders = new TaxiOrder[size];
+        Cab[] cabs = new Cab[size];
+        for (int i = 0; i < size; i++) {
+            cabs[i] = new Cab(rand.nextInt(numbOfStands), "", Cab.CabStatus.FREE);
+            cabs[i].setId((long)i);
+            int from = rand.nextInt(numbOfStands); // concentrate demand in one tenth of stops
+            orders[i] = new TaxiOrder(from, randomTo(rand, from, numbOfStands),
+                    20,20, true, TaxiOrder.OrderStatus.RECEIVED, null);
+            orders[i].setId((long)i);
+        }
+        return new TempModel(cabs, orders);
+    }
+
+    private static int randomTo(Random rand, int from, int maxStand) {
+        int MAX_TRIP = 15;
+        int diff = rand.nextInt(MAX_TRIP * 2) - MAX_TRIP;
+        if (diff == 0) diff = 1;
+        int to = 0;
+        if (from + diff > maxStand -1 ) to = from - diff;
+        else if (from + diff < 0) to = 0;
+        else to = from + diff;
+        return to;
+    }
+
 
     public static List<Stop> getAllStops() {
         List<Stop> stops = new ArrayList<>();

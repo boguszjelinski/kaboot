@@ -19,59 +19,74 @@ package no.kabina.kaboot.dispatcher;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import no.kabina.kaboot.orders.TaxiOrder;
-import org.apache.commons.lang3.builder.HashCodeBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
 
-public class DynaPool2 {
+@Service
+public class DynaPool {
 
-  private final Logger logger = LoggerFactory.getLogger(DynaPool2.class);
+  private final Logger logger = LoggerFactory.getLogger(DynaPool.class);
 
-  private DistanceService distSrvc;
   private TaxiOrder[] demand;
   public static final int MAX_IN_POOL = 8; // just for memory allocation, might be 10 as well
+  public static final int MAX_THREAD = 8;
   private List<Branch>[] node;
-  private final int maxAngle;
 
-  public DynaPool2(DistanceService srvc, int maxAngle) {
+  @Value("${kaboot.scheduler.max-angle}")
+  private int maxAngle;
+
+  @Autowired
+  DistanceService distSrvc;
+
+  @Autowired
+  DynaPoolAsync asyncUtil;
+
+  public DynaPool() {}
+
+  public DynaPool(DistanceService srvc, DynaPoolAsync asyncUtil) {
+    this.distSrvc = srvc;
+    this.asyncUtil = asyncUtil;
+  }
+
+  public DynaPool(DistanceService srvc, DynaPoolAsync asyncUtil, int maxAngle) {
     this.distSrvc = srvc;
     this.maxAngle = maxAngle;
+    this.asyncUtil = asyncUtil;
   }
 
   public void setDemand(TaxiOrder[] demand) {
     this.demand = demand;
   }
 
-  /**
-   *  Constructor for tests.
-
-   * @param dists distances
-   * @param bearing bearing
-   * @param maxAngle max allowed angle when a bus takesa turn
+  /**  Constructor for tests.
    */
-  public DynaPool2(int [][] dists, int[] bearing, int maxAngle) {
+  public DynaPool(int [][] dists, int[] bearing, int maxAngle) {
     this.maxAngle = maxAngle;
     if (distSrvc == null) {
       distSrvc = new DistanceService(dists, bearing);
     }
+    if (asyncUtil == null) {
+      asyncUtil = new DynaPoolAsync(distSrvc);
+    }
   }
 
-  /**
-   *  Constructor for tests.
-
-   * @param dem orders
-   * @param inPool how many passengers
-   * @return list of pools
+  /**  Constructor for tests.
    */
-  public PoolElement[] findPool(TaxiOrder[] dem, int inPool) {
+  public PoolElement[] findPool(TaxiOrder[] dem, int inPool, int threadsNumb) {
     if (inPool > MAX_IN_POOL) {
       // TASK log
       return new PoolElement[0];
     }
     setDemand(dem);
+    asyncUtil.setDemand(dem);
     initMem(inPool);
-    dive(0, inPool);
+    dive(0, inPool, threadsNumb);
     String logStr = "";
     for (int i = 0; i < inPool + inPool - 1; i++) {
       logStr += "node[" + i + "].size: " + node[i].size() + ", ";
@@ -94,112 +109,37 @@ public class DynaPool2 {
    * @param lev starting with 0
    * @param inPool how many passengers can a cab take
    */
-  public void dive(int lev, int inPool) {
+  public void dive(int lev, int inPool, int threadsNumb) {
     if (lev > inPool + inPool - 3) { // lev >= 2*inPool-2, where -2 are last two levels
       storeLeaves(lev);
       return; // last two levels are "leaves"
     }
-    dive(lev + 1, inPool);
+    dive(lev + 1, inPool, threadsNumb);
 
-    for (int c = 0; c < demand.length; c++) {
-      for (Branch b : node[lev + 1]) {
-        // we iterate over product of the stage further in the tree: +1
-        storeBranchIfNotFoundDeeperAndNotTooLong(lev, c, b, inPool);
+    int step = demand.length / threadsNumb;
+    threadsNumb += demand.length % threadsNumb > 0 ? 1 : 0;
+    // +1 as there might be one "tail" thread from division below (step)
+    CompletableFuture<List<Branch>>[] arr = new CompletableFuture[threadsNumb];
+
+    for (int thread = 0, cust = 0; cust < demand.length; cust += step, thread++) {
+      arr[thread] = asyncUtil.checkCustRange(cust, Math.min(cust + step, demand.length), lev, inPool, node[lev + 1]);
+    }
+    CompletableFuture.allOf(arr);
+    // integrate results from multiple threads
+    for (int i = 0; i < threadsNumb; i++) {
+      try {
+        if (arr[i] != null && arr[i].get() != null) {
+          node[lev].addAll(arr[i].get());
+        }
+      } catch (InterruptedException e) {
+        e.printStackTrace();
+      } catch (ExecutionException e) {
+        e.printStackTrace();
       }
     }
     // removing duplicates which come from lev+1,
     // as for that level it does not matter which order is better in stages towards leaves
     node[lev] = rmDuplicates(node[lev], lev);
-  }
-
-  private void storeBranchIfNotFoundDeeperAndNotTooLong(int lev, int c, Branch b, int inPool) {
-    // isFoundInBranchOrTooLong(int c, Branch b)
-    // two situations: c IN and c OUT
-    // c IN has to have c OUT in level+1, and c IN cannot exist in level + 1
-    // c OUT cannot have c OUT in level +1
-    boolean inFound = false;
-    boolean outFound = false;
-    for (int i = 0; i < b.custIDs.length; i++) {
-      if (b.custIDs[i] == c) {
-        if (b.custActions[i] == 'i') {
-          inFound = true;
-        } else {
-          outFound = true;
-        }
-        // current passenger is in the branch below
-      }
-    }
-    // now checking if anyone in the branch does not lose too much with the pool
-    // c IN
-    int nextStop = b.custActions[0] == 'i'
-                            ? demand[b.custIDs[0]].fromStand : demand[b.custIDs[0]].toStand;
-    if (!inFound
-        && outFound
-        && !isTooLong(distSrvc.getDistances()[demand[c].fromStand][nextStop], b)
-        // TASK? if the next stop is OUT of passenger 'c' - we might allow bigger angle
-        && bearingDiff(distSrvc.bearing[demand[c].fromStand], distSrvc.bearing[nextStop]) < maxAngle
-        ) {
-      storeBranch('i', lev, c, b, inPool);
-    }
-    // c OUT
-    if (lev > 0 // the first stop cannot be OUT
-        && b.outs < inPool // numb OUT must be numb IN
-        && !outFound // there is no such OUT later on
-        && !isTooLong(distSrvc.getDistances()[demand[c].toStand][nextStop], b)
-        && bearingDiff(distSrvc.bearing[demand[c].toStand], distSrvc.bearing[nextStop]) < maxAngle
-        ) {
-      storeBranch('o', lev, c, b, inPool);
-    }
-  }
-
-  private void storeBranch(char action, int lev, int c, Branch b, int inPool) {
-    int len = inPool + inPool - lev;
-    int[] custIDs = new int[len];
-    int[] sortedIDs = new int[len];
-    custIDs[0] = c;
-    sortedIDs[0] = c;
-    char[] actions = new char[len];
-    char[] sortedActions = new char[len];
-    actions[0] = action;
-    sortedActions[0] = action;
-    // !! System.arraycopy is slower
-    for (int j = 0; j < len - 1; j++) { // further stage has one passenger less: -1
-      custIDs[j + 1] = b.custIDs[j];
-      actions[j + 1] = b.custActions[j];
-      // j>0 is sorted by lev+1
-      sortedIDs[j + 1] = b.custIDs[j];
-      sortedActions[j + 1] = b.custActions[j];
-    }
-    Branch b2 = new Branch(new StringBuilder().append(c).append(action).append(b.key).toString(),
-        // no sorting as we have to remove lev+1 duplicates eg. 1-4-5 and 1-5-4
-        distSrvc.getDistances()[action == 'i' ? demand[c].fromStand : demand[c].toStand]
-        [b.custActions[0] == 'i' ? demand[b.custIDs[0]].fromStand
-                : demand[b.custIDs[0]].toStand] + b.cost,
-        action == 'o' ? b.outs + 1: b.outs, custIDs, actions, sortedIDs, sortedActions);
-    node[lev].add(b2);
-  }
-
-  // wait - distance from previous stop
-  private boolean isTooLong(int wait, Branch b) {
-    for (int i = 0; i < b.custIDs.length; i++) {
-      if (wait > demand[b.custIDs[i]].getDistance()
-          //distSrvc.getDistances()[demand[b.custIDs[i]].fromStand][demand[b.custIDs[i]].toStand]
-          * (100.0 + demand[b.custIDs[i]].getMaxLoss()) / 100.0) {
-        return true;
-      }
-      if (b.custActions[i] == 'i' && wait > demand[b.custIDs[i]].getMaxWait()) {
-        return true;
-      }
-      if (i + 1 < b.custIDs.length) {
-        wait += distSrvc.getDistances()[b.custActions[i] == 'i'
-                                        ? demand[b.custIDs[i]].fromStand
-                                        : demand[b.custIDs[i]].toStand]
-                                       [b.custActions[i + 1] == 'i'
-                                        ? demand[b.custIDs[i + 1]].fromStand
-                                        : demand[b.custIDs[i + 1]].toStand];
-      }
-    }
-    return false;
   }
 
   private void storeLeaves(int lev) {
@@ -213,7 +153,7 @@ public class DynaPool2 {
         } else if (distSrvc.getDistances()[demand[c].toStand][demand[d].toStand]
                     < distSrvc.getDistances()[demand[d].fromStand][demand[d].toStand]
                       * (100.0 + demand[d].getMaxLoss()) / 100.0
-                && bearingDiff(distSrvc.bearing[demand[c].toStand],
+                && PoolUtil.bearingDiff(distSrvc.bearing[demand[c].toStand],
                                distSrvc.bearing[demand[d].toStand]) < maxAngle
         ) {
           // TASK - this calculation above should be replaced by
@@ -222,23 +162,6 @@ public class DynaPool2 {
         }
       }
     }
-  }
-
-  /**
-   * Difference as angle of two bearings (stops).
-
-   * @param a first bearing
-   * @param b second one
-   * @return angle
-   */
-  public static int bearingDiff(int a, int b) {
-    int r = (a - b) % 360;
-    if (r < -180.0) {
-      r += 360.0;
-    } else if (r >= 180.0) {
-      r -= 360.0;
-    }
-    return Math.abs(r);
   }
 
   private void addBranch(int id1, int id2, char dir1, char dir2, int outs, int lev) {
@@ -361,68 +284,5 @@ public class DynaPool2 {
       ret.add(new PoolElement(orders, p.custActions, inPool, p.cost));
     }
     return ret;
-  }
-
-  class Branch implements Comparable<Branch> {
-    public String key; // used to remove duplicates and search in hashmap
-    public int cost;
-    public int outs; // number of OUT nodes, so that we can guarantee enough IN nodes
-    // TASK wrong naming - order id
-    public int[] custIDs; // we could get rid of it to gain on memory (key stores this too); but we would lose time on parsing
-    public char[] custActions;
-
-    // to create "key" effectively
-    public int[] custIDsSorted;
-    public char[] custActionsSorted;
-
-    // constructor for leavs
-    Branch(int cost, int outs, int[] ids, char[] actions, int[] idsSorted, char[] actionsSorted) {
-      this.cost = cost;
-      this.outs = outs;
-      this.custIDs = ids;
-      this.custActions = actions;
-      this.custIDsSorted = idsSorted;
-      this.custActionsSorted = actionsSorted;
-      StringBuilder buf = new StringBuilder();
-      for (int i = 0; i < idsSorted.length; i++) {
-        buf.append(idsSorted[i]).append(actionsSorted[i]);
-      }
-      this.key = buf.toString();
-    }
-
-    // constructor for non-leaves
-    Branch(String key, int cost, int outs, int[] ids, char[] actions, int[] idsSorted,
-           char[] actionsSorted) {
-      this.key = key;
-      this.cost = cost;
-      this.outs = outs;
-      this.custIDs = ids;
-      this.custActions = actions;
-      this.custIDsSorted = idsSorted;
-      this.custActionsSorted = actionsSorted;
-    }
-
-    @Override
-    public int compareTo(Branch pool) {
-      return this.key.compareTo(pool.key);
-    }
-
-    @Override
-    public boolean equals(Object pool) {
-      if (pool == null || this.getClass() != pool.getClass()) {
-        return false;
-      }
-      return this.key.equals(((Branch) pool).key);
-    }
-
-    @Override
-    public int hashCode() {
-      return new HashCodeBuilder(17, 37)
-              .append(key)
-              .append(cost)
-              .append(custIDs[0])
-              .append(custIDs[1])
-              .toHashCode();
-    }
   }
 }

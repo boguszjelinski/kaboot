@@ -2,15 +2,12 @@ package no.kabina.kaboot.dispatcher;
 
 import no.kabina.kaboot.cabs.Cab;
 import no.kabina.kaboot.orders.TaxiOrder;
-import no.kabina.kaboot.stops.Stop;
-import org.junit.Before;
 import org.junit.Test;
 import org.springframework.test.context.ActiveProfiles;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
-import java.util.concurrent.ExecutionException;
 
 import static java.lang.Math.abs;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -37,28 +34,28 @@ public class PoolUtilTests {
 
     @Test
     public void testDynaPoolV2_3() {
-        DynaPool2 util = new DynaPool2(distances, bearing, 100); // 100 max angle
-        PoolElement[] pool = util.findPool(genDemand(250, MAX_LOSS), 3);
+        DynaPool util = new DynaPool(distances, bearing, 100); // 100 max angle
+        PoolElement[] pool = util.findPool(genDemand(250, MAX_LOSS), 3, 1);
         assertThat(pool.length).isSameAs(1); // TASK: 1?
         assertThat(poolIsValid(pool)).isSameAs(0);
     }
 
     @Test
     public void testDynaPoolV2_4() {
-        DynaPool2 util = new DynaPool2(distances, bearing, 100); // 100 max angle
-        PoolElement[] pool = util.findPool(genDemand(100, MAX_LOSS), 4);
+        DynaPool util = new DynaPool(distances, bearing, 100); // 100 max angle
+        PoolElement[] pool = util.findPool(genDemand(100, MAX_LOSS), 4, 1);
         assertThat(pool.length).isSameAs(0); // TASK: 0?
         assertThat(poolIsValid(pool)).isSameAs(0);
     }
 
     @Test
     public void testBearingDiff() {
-        assertThat(DynaPool2.bearingDiff(10, 21)).isEqualTo(11);
-        assertThat(DynaPool2.bearingDiff(32, 20)).isEqualTo(12);
-        assertThat(DynaPool2.bearingDiff(-5, -18)).isEqualTo(13);
-        assertThat(DynaPool2.bearingDiff(-5, 9)).isEqualTo(14);
-        assertThat(DynaPool2.bearingDiff(-175, 170)).isEqualTo(15);
-        assertThat(DynaPool2.bearingDiff(-175, 5)).isEqualTo(180);
+        assertThat(PoolUtil.bearingDiff(10, 21)).isEqualTo(11);
+        assertThat(PoolUtil.bearingDiff(32, 20)).isEqualTo(12);
+        assertThat(PoolUtil.bearingDiff(-5, -18)).isEqualTo(13);
+        assertThat(PoolUtil.bearingDiff(-5, 9)).isEqualTo(14);
+        assertThat(PoolUtil.bearingDiff(-175, 170)).isEqualTo(15);
+        assertThat(PoolUtil.bearingDiff(-175, 5)).isEqualTo(180);
     }
 
     @Test
@@ -71,8 +68,6 @@ public class PoolUtilTests {
         assertThat(pool.length).isSameAs(10); // 14 when run from maven, not from Idea (which is what, not maven?)
         //assertThat(externPoolIsValid(pool, orders, cabs)).isSameAs(0);
     }
-
-
 
     Cab[] genCabs(int count) {
         List<Cab> list = new ArrayList<>();
