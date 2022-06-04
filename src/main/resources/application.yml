@@ -27,7 +27,7 @@ spring:
 
 org:
     jobrunr:
-        background-job-server.enabled: true
+        background-job-server.enabled: false
         dashboard.enabled: true
 
 logging:
@@ -45,7 +45,8 @@ springdoc:
         path: /api-docs
 kaboot:
     consts:
-        max-non-lcm: 200
+        max-non-lcm: 500
+        max-munkres: 1200
         max-pool4: 50
         max-pool3: 75
         max-stand: 3300
@@ -60,6 +61,10 @@ kaboot:
         cmd: "glpsol -m glpk.mod"
         input: "glpk.mod"
         output: "out.txt"
+    munkres:
+        cmd: "C:\\Users\\dell\\TAXI\\C\\munkres\\munkres.exe"
+        input: "C:\\Users\\dell\\TAXI\\munkinp.txt"
+        output: "C:\\Users\\dell\\TAXI\\munkout.txt"
     extern-pool:
         in-use: true
         flag-file: "flag.txt"

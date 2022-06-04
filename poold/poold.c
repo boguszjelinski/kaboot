@@ -18,20 +18,20 @@ struct tm * timeinfo;
 char *stopsFileName, *ordersFileName, *cabsFileName, *outFileName, *flagFileName, *exitFileName;
 char json[MAXJSON];
 int numbThreads = 4;
-int maxInPool[3]= {200, 410, 600};
+int maxInPool[3]= {201, 410, 600};
 int inPool[3]= {4, 3, 2};
 
 Stop stops[MAXSTOPSNUMB];
 int stopsNumb;
 
 Order demand[MAXORDERSNUMB];
-Order demandTemp[MAXORDERSNUMB]; // see adjustDemand()
+Order demandTemp[MAXORDERSNUMB];
 int demandSize;
 
 Cab supply[MAXCABSNUMB];
 int cabsNumb;
 
-int memSize[MAXNODE] = {1000000, 4000000, 9000000, 9000000, 9000000, 1500000, 50000};
+int memSize[MAXNODE] = {5000000, 9000000, 9000000, 9000000, 9000000, 1500000, 50000};
 Branch *node[MAXNODE];
 int nodeSize[MAXNODE];
 int nodeSizeSMP[NUMBTHREAD];
@@ -148,6 +148,7 @@ int readline (char str[], FILE *fp)
 {
     int c, i=0;
     while ((c = getc(fp)) != EOF) {
+        if (i==0 && (c == '\n' || c == '\r')) continue; // ignore lines starting with new line, or ignore the end of previous line in Linux
         str[i++] = c;
         if (c == '\n' || c == '\r') return i;
     } 
@@ -200,7 +201,7 @@ int main(int argc, char **argv)
         outFileName = argv[5];
         flagFileName = argv[6];
     } else {
-        int lines = readFile("poolcfg.txt", CONFIG);
+        int lines = readFile("C:\\Users\\dell\\TAXI\\GITLAB\\kaboot\\poold\\poolcfg.txt", CONFIG);
         if (lines < 1) {
             numbThreads = 4;
             stopsFileName = "C:\\Users\\dell\\TAXI\\GITLAB\\kaboot\\db\\stops-Budapest-import.csv";
@@ -209,6 +210,14 @@ int main(int argc, char **argv)
             outFileName = "C:\\Users\\dell\\TAXI\\GITLAB\\kaboot\\pools.csv";
             flagFileName = "C:\\Users\\dell\\TAXI\\GITLAB\\kaboot\\flag.txt";
             exitFileName = "C:\\Users\\dell\\TAXI\\GITLAB\\kaboot\\exit.txt";
+            /*
+           stopsFileName = "/cygdrive/c/Users/dell/Taxi/GITLAB/kaboot/db/stops-Budapest-import.csv";
+            ordersFileName = "/cygdrive/c/Users/dell/Taxi/GITLAB/kaboot/orders.csv";
+            cabsFileName = "/cygdrive/c/Users/dell/Taxi/GITLAB/kaboot/cabs.csv";
+            outFileName = "/cygdrive/c/Users/dell/Taxi/GITLAB/kaboot/pools.csv";
+            flagFileName = "/cygdrive/c/Users/dell/Taxi/GITLAB/kaboot/flag.txt";
+            exitFileName = "/cygdrive/c/Users/dell/Taxi/GITLAB/kaboot/exit.txt";
+            */
         }
     }
     // just testing
@@ -233,6 +242,7 @@ int main(int argc, char **argv)
             for (int i=0; i<3; i++)
                 if (demandSize < maxInPool[i])
                     findPool(inPool[i], numbThreads, json); 
+                    //findPool(4, numbThreads, json); 
             *(json + strlen(json) - 1) = 0; // last comma removed
             strcat(json, "]");
             FILE *out = fopen(outFileName, "w");

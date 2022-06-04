@@ -16,9 +16,7 @@
 
 package no.kabina.kaboot.dispatcher;
 
-import java.io.BufferedReader;
-import java.io.FileReader;
-import java.io.IOException;
+import java.io.*;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -69,6 +67,9 @@ public class DispatcherService {
   @Value("${kaboot.consts.max-non-lcm}")
   private int maxSolverSize; // how big can a solver model be; 0 = no solver at all
 
+  @Value("${kaboot.consts.max-munkres}")
+  private int maxMunkresSize; // how big can a solver model be; 0 = no solver at all
+
   @Value("${kaboot.consts.max-stand}")
   private int maxNumbStands;
 
@@ -77,6 +78,15 @@ public class DispatcherService {
 
   @Value("${kaboot.solver.output}")
   private String solverOutput;
+
+  @Value("${kaboot.munkres.cmd}")
+  private String munkresCmd;
+
+  @Value("${kaboot.munkres.input}")
+  private String munkresInput;
+
+  @Value("${kaboot.munkres.output}")
+  private String munkresOutput;
 
   @Value("${kaboot.solver.input}")
   private String solverInput;
@@ -198,9 +208,8 @@ public class DispatcherService {
     }
     logger.info("Demand after pooling: {}", demand.length);
     // now build a balanced cost matrix for solver
-    int[][] cost = lcmUtil.calculateCost(solverInput, solverOutput, demand, supply);
-
-    statSrvc.updateMaxAndAvgStats("model_size", cost.length);
+    int[][] cost = lcmUtil.calculateCost(munkresInput, solverOutput, demand, supply);
+    statSrvc.updateMaxAndAvgStats("model_size", Math.max(demand.length, supply.length));
     logger.info("Before LCM: demand={}, supply={}", demand.length, supply.length);
     if (demand.length > maxSolverSize && supply.length > maxSolverSize) {
       // too big to send to solver, it has to be cut by LCM
@@ -255,16 +264,17 @@ public class DispatcherService {
       }
       // recalculate cost matrix again
       // it writes input file for solver
-      cost = lcmUtil.calculateCost(solverInput, solverOutput, tempDemand, tempSupply);
+      cost = lcmUtil.calculateCost(munkresInput, munkresOutput, tempDemand, tempSupply);
     }
-    statSrvc.updateMaxAndAvgStats("solver_size", cost.length);
+    statSrvc.updateMaxAndAvgStats("solver_size", Math.max(tempDemand.length, tempSupply.length));
     logger.info("Runnnig solver: demand={}, supply={}", tempDemand.length, tempSupply.length);
-    runExternalSolver();
+
+    runExternalMunkres();
     // read results from a file
-    int[] x = readSolversResult(cost.length);
+    int[] x = readMunkresResult(tempDemand.length * tempSupply.length, munkresOutput);
     logger.info("Read vector from solver, length: {}", x.length);
-    if (x.length != cost.length * cost.length) {
-      logger.warn("Solver returned wrong data set");
+    if (x.length != tempDemand.length * tempSupply.length) {
+      logger.warn("Munkres returned wrong data set");
       // TASK: LCM should be called here !!!
     } else {
       int assgnd = assignCustomers(x, cost, tempDemand, tempSupply);
@@ -290,7 +300,7 @@ public class DispatcherService {
 
   public void runExternalMunkres() {
     try {
-      Process p = Runtime.getRuntime().exec("C:\\Users\\dell\\TAXI\\C\\munkres\\munkres.exe");
+      Process p = Runtime.getRuntime().exec(munkresCmd);
       p.waitFor();
     } catch (IOException e) {
       logger.warn("IOException while running munkres: {}", e.getMessage());
@@ -322,6 +332,37 @@ public class DispatcherService {
       return new int[0];
     }
     return x;
+  }
+
+  public static int[] readMunkresResult(int n, String munkresOutputFile) {
+    int[] x = new int[n];
+    try (BufferedReader reader = new BufferedReader(new FileReader(munkresOutputFile))) {
+      String line;
+      for (int i = 0; i < n; i++) {
+        line = reader.readLine();
+        if (line == null) {
+          return new int[0];
+        }
+        x[i] = Integer.parseInt(line);
+      }
+    } catch (IOException e) {
+      return new int[0];
+    }
+    return x;
+  }
+
+  public static void writeMunkresInput(int[][] cost, int numbDemand, int numbSupply, String munkresInput) {
+    try (FileWriter fr = new FileWriter(new File(munkresInput))) {
+      fr.write(numbDemand + " " + numbSupply + "\n");
+      for (int c = 0; c < numbSupply; c++) {
+        for (int d = 0; d < numbDemand; d++) {
+          fr.write(cost[c][d] + ", ");
+        }
+        fr.write("\n");
+      }
+    } catch (IOException e) {
+      e.printStackTrace();
+    }
   }
 
   /**
@@ -843,12 +884,11 @@ public class DispatcherService {
   // solver returns a very simple output,
   // it has to be compared with data which helped create its input
   private int assignCustomers(int[] x, int[][] cost, TaxiOrder[] tmpDemand, Cab[] tmpSupply) {
-    int nn = cost.length;
     int count = 0;
 
     for (int s = 0; s < tmpSupply.length; s++) {
       for (int c = 0; c < tmpDemand.length; c++) {
-        if (x[nn * s + c] == 1 && cost[s][c] < LcmUtil.BIG_COST) {
+        if (x[tmpDemand.length * s + c] == 1) {
           // not a fake assignment (to balance the model)
           count += assignCustomerToCab(tmpDemand[c], tmpSupply[s]);
         }

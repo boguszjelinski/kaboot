@@ -165,21 +165,20 @@ class CustomerRunnable extends ApiClient implements Runnable {
             }
         }
           
-        if (duration >= MAX_TRIP_LEN * (60/CHECK_INTERVAL)) {
+        if (duration >= MAX_TRIP_LEN * (60.0/CHECK_INTERVAL)) {
             log("Something wrong - customer has never reached the destination", custId, order.id, order.cab_id);
         } else {
             if (order.inPool) {
-                if (duration/(60/CHECK_INTERVAL) > (int) (order.distance * (1+ (order.maxLoss/100)) + MAX_TRIP_LOSS)) {
+                if (duration/(60.0/CHECK_INTERVAL) > order.distance * (1.0+ (order.maxLoss/100.0)) + MAX_TRIP_LOSS) {
                     // complain
                     String str = " - duration: " + duration/(60/CHECK_INTERVAL) 
                                 + ", distance: " + order.distance
                                 + ", maxLoss: " + order.maxLoss
                                 + ", " + duration/(60/CHECK_INTERVAL) + ">" + (int) (order.distance * (1+ (order.maxLoss/100)) + MAX_TRIP_LOSS);
-                    log("Duration in pool was too long" + str, 
-                        custId, order.id, order.cab_id);
+                    log("Duration in pool was too long" + str, custId, order.id, order.cab_id);
                 }
             } else { // not a carpool
-                if (duration/(60/CHECK_INTERVAL) > (int) (order.distance + MAX_TRIP_LOSS)) {
+                if (duration/(60.0/CHECK_INTERVAL) > order.distance + MAX_TRIP_LOSS) {
                     // complain
                     String str = " - duration: " + duration/(60/CHECK_INTERVAL) 
                                 + ", distance: " + order.distance

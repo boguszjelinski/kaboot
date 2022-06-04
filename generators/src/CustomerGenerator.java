@@ -25,7 +25,7 @@ public class CustomerGenerator extends ApiClient {
     static int DURATION =  30; // min
     static int REQ_PER_MIN = 60;
     static int MAX_WAIT = 15;
-    static int MAX_POOL_LOSS = 10; // 1%
+    static int MAX_POOL_LOSS = 90; // 1%
     static int MAX_TRIP = 4; // this does not have any impact, distance not based on ID any more
     static int AT_TIME_LAG = 30;
     static int maxStand = 3300; // default

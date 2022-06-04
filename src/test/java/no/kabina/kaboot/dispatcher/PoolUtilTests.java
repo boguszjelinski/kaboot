@@ -42,8 +42,12 @@ public class PoolUtilTests {
 
     @Test
     public void testDynaPoolV2_4() {
-        DynaPool util = new DynaPool(distances, bearing, 100); // 100 max angle
-        PoolElement[] pool = util.findPool(genDemand(100, MAX_LOSS), 4, 1);
+        int size = 100;
+        DynaPool util = new DynaPool(distances, bearing, 120); // 100 max angle
+        TaxiOrder[] orders = genDemand(size, 90);
+        for (TaxiOrder o: orders)
+            o.setDistance(distances[o.fromStand][o.toStand]);
+        PoolElement[] pool = util.findPool(orders, 4, 1);
         assertThat(pool.length).isSameAs(0); // TASK: 0?
         assertThat(poolIsValid(pool)).isSameAs(0);
     }
@@ -60,10 +64,13 @@ public class PoolUtilTests {
 
     @Test
     public void testExternPool4() {
+        int size = 100;
         ExternPool util = new ExternPool(); //"poold", "orders.csv","cabs.csv", "pools.csv", 8);
         ExternPool.ExternPoolElement[] pool = null;
-        TaxiOrder[] orders = genDemand(200, MAX_LOSS);
-        Cab[] cabs = genCabs(200);
+        TaxiOrder[] orders = genDemand(size, 90);
+        for (TaxiOrder o: orders)
+            o.setDistance(distances[o.fromStand][o.toStand]);
+        Cab[] cabs = genCabs(size);
         pool = util.findExternPool(orders, cabs, false);
         assertThat(pool.length).isSameAs(10); // 14 when run from maven, not from Idea (which is what, not maven?)
         //assertThat(externPoolIsValid(pool, orders, cabs)).isSameAs(0);
@@ -191,5 +198,21 @@ public class PoolUtilTests {
         {23,21},{23,24},{30,31},{3,4},{26,22},{42,45},{36,32},{17,18},{46,42},{42,44},{17,18},{35,34},{47,49},{39,42},
         {3,0},{41,38},{1,0},{37,35},{32,29},{16,19},{13,12},{8,9},{8,9},{28,31},{5,6},{5,6},{36,33},{7,5},
         {1,4},{29,31},{22,21},{0,1},{10,11},{1,0},{41,40},{24,26},
+            {14,12},{44,42},{48,47},{43,45},{32,29},{21,24},{39,44},
+            {35,44},{46,34},{33,19},{33,46},{35,41},{45,36},{14,21},
+            {18,5},{8,49},{2,25},{27,14},{20,11},{15,4},{29,37},{42,33},
+            {28,15},{38,46},{31,38},{15,6},{31,23},{21,32},
+            {8,11},{8,9},{10,11},{36,37},{36,38},{40,36},{49,48},
+            {12,21},{28,16},{1,11},{12,9},{39,31},{23,36},{18,7},
+            {48,34},{39,25},{38,49},{47,40},{17,10},{26,34},{23,39},
+            {42,29},{23,16},{23,11},{31,24},{0,10},{21,27},{13,4},
+            {24,10},{19,8},{27,34},{6,19},{28,40},{23,35},{29,20},
+            {21,13},{34,45},{34,27},{16,5},{11,17},{14,2},{35,23},
+            {45,43},{14,15},{44,41},{4,3},{18,15},{34,31},{20,21},
+            {33,26},{18,7},{10,11},{12,19},{58,49},{34,25},{27,39},
+            {21,32},{14,27},{19,6},{3,10},{34,20},{26,13},{10,19},
+            {15,22},{21,19},{35,27},{13,4},{34,45},{15,1},{21,27},
+            {25,22},{31,19},{32,27},{13,14},{32,45},{15,13},{31,27}
+
     };
 }

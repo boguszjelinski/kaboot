@@ -108,6 +108,31 @@ public class LcmUtil {
    * @return matrix
    */
   public int[][] calculateCost(String inputFile, String outputFile, TaxiOrder[] tmpDemand, Cab[] tmpSupply) {
+    int numbSupply = tmpSupply.length;
+    int numbDemand = tmpDemand.length;
+
+    if (numbSupply == 0 || numbDemand == 0) {
+      return new int[0][0];
+    }
+    int[][] cost = new int[numbSupply][numbDemand];
+
+    for (int c = 0; c < numbSupply; c++) {
+      for (int d = 0; d < numbDemand; d++) {
+        // check that cabs and customers are in range is done in getRidOfDistantCabs & Customers
+        cost[c][d] = distanceService.getDistances()[tmpSupply[c].getLocation()][tmpDemand[d].fromStand];
+      }
+    }
+    DispatcherService.writeMunkresInput(cost, numbDemand, numbSupply, inputFile);
+    return cost;
+  }
+
+  /**
+   * create a cost matrix for LCM and solver
+   * @param tmpDemand requests from customers
+   * @param tmpSupply cabs available
+   * @return matrix
+   */
+  public int[][] calculateGlpkCost(String inputFile, String outputFile, TaxiOrder[] tmpDemand, Cab[] tmpSupply) {
     int c;
     int d;
     int numbSupply = tmpSupply.length;
@@ -130,22 +155,7 @@ public class LcmUtil {
       }
     }
     writeGlpkProg(inputFile, outputFile, n, cost);
-    writeMunkresInput(cost, numbDemand, numbSupply);
     return cost;
-  }
-
-  private static void writeMunkresInput(int[][] cost, int numbDemand, int numbSupply) {
-    try (FileWriter fr = new FileWriter(new File("C:\\Users\\dell\\TAXI\\munkinp.txt"))) {
-      fr.write(numbDemand + " " + numbSupply + "\n");
-      for (int c = 0; c < numbSupply; c++) {
-        for (int d = 0; d < numbDemand; d++) {
-          fr.write(cost[c][d] + ", ");
-        }
-        fr.write("\n");
-      }
-    } catch (IOException e) {
-      e.printStackTrace();
-    }
   }
 
   private static void writeGlpkProg(String input, String output, int n, int[][] cost) {

@@ -95,6 +95,12 @@
 			<artifactId>springfox-swagger-ui</artifactId>
 			<version>3.0.0</version>
 		</dependency>
+		<dependency>
+			<groupId>io.gatling.highcharts</groupId>
+			<artifactId>gatling-charts-highcharts</artifactId>
+			<version>3.7.6</version>
+			<scope>test</scope>
+		</dependency>
 	</dependencies>
 
 	<build>
@@ -154,6 +160,15 @@
 						</goals>
 					</execution>
 				</executions>
+			</plugin>
+			<plugin>
+				<groupId>io.gatling</groupId>
+				<artifactId>gatling-maven-plugin</artifactId>
+				<configuration>
+					<!--<simulationsFolder>src/test/gatling</simulationsFolder>-->
+					<!--<simulationClass>PerformanceTest</simulationClass>-->
+				</configuration>
+				<version>4.1.5</version>
 			</plugin>
 		</plugins>
 	</build>

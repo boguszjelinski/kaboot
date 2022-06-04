@@ -43,13 +43,14 @@ void iterate(void *arguments) {
 
 int dive(int lev, int inPool, int numbThreads) 
 {
-    const int chunk = (int) (demandSize / numbThreads);
-
     if (lev > inPool + inPool - 3) { // lev >= 2*inPool-2, where -2 are last two levels
       storeLeaves(lev);
       return; // last two levels are "leaves"
     }
     dive(lev + 1, inPool, numbThreads);
+
+    const int chunk = (int) (demandSize / numbThreads);
+    if (numbThreads*chunk < demandSize) numbThreads++; // last thread will be the reminder of division
 
     for (int i = 0; i<numbThreads; i++) { // TASK: allocated orders might be spread unevenly -> count non-allocated and devide chunks ... evenly
         args[i]->i = i; 
@@ -76,7 +77,7 @@ int dive(int lev, int inPool, int numbThreads)
     nodeSize[lev] = idx;
     // removing duplicates which come from lev+1,
     // as for that level it does not matter which order is better in stages towards leaves
-    rmDuplicates(lev);
+    //rmDuplicates(lev);
 }
 
 void storeLeaves(int lev) {
@@ -169,7 +170,6 @@ void storeBranchIfNotFoundDeeperAndNotTooLong(int thread, int lev, int ordId, in
         // TASK? if the next stop is OUT of passenger 'c' - we might allow bigger angle
         && bearingDiff(stops[demand[ordId].fromStand].bearing, stops[nextStop].bearing) < MAXANGLE
         ) storeBranch(thread, 'i', lev, ordId, ptr, inPool);
-    
     // c OUT
     if (lev > 0 // the first stop cannot be OUT
         && ptr->outs < inPool // numb OUT must be numb IN
@@ -207,8 +207,9 @@ void storeBranch(int thread, char action, int lev, int ordId, Branch *b, int inP
 boolean isTooLong(int wait, Branch *b) 
 {
     for (int i = 0; i < b->ordNumb; i++) {
-        if (wait > demand[b->ordIDs[i]].distance //distance[demand[b->ordIDs[i]].fromStand][demand[b->ordIDs[i]].toStand] 
-                  * (100.0 + demand[b->ordIDs[i]].maxLoss) / 100.0) return true;
+        if (wait >  //distance[demand[b->ordIDs[i]].fromStand][demand[b->ordIDs[i]].toStand] 
+                demand[b->ordIDs[i]].distance * (100.0 + demand[b->ordIDs[i]].maxLoss) / 100.0) 
+                  return true;
         if (b->ordActions[i] == 'i' && wait > demand[b->ordIDs[i]].maxWait) return true;
         if (i + 1 < b->ordNumb) 
             wait += distance[b->ordActions[i] == 'i' ? demand[b->ordIDs[i]].fromStand : demand[b->ordIDs[i]].toStand]
@@ -237,7 +238,8 @@ void rmDuplicates(int lev) {
     Branch *arr = node[lev];
     int idx;
 
-    if (nodeSize[lev] < 2) {
+    if (lev == 0 || nodeSize[lev] < 1) { // lev==0: 1) there will be no more upper level - no need to remove
+        // 2) we should not remove as the one with lower cost might not be feasible when added the cost of a cab
         return;
     }
 
@@ -332,6 +334,7 @@ void rmFinalDuplicates(char *json, int inPool) {
       cabIdx = findNearestCab(from);
       if (cabIdx == -1) { // no more cabs
         // mark th rest of pools as dead
+        // TASK: why? we won't use this information, node[0] will be garbage-collected
         printf("NO CAB\n");
         for (int j = i + 1; j < size; j++) arr[j].cost = -1;
         break;
@@ -340,6 +343,7 @@ void rmFinalDuplicates(char *json, int inPool) {
       if (distCab == 0 // constraints inside pool are checked while "diving" in recursion
               || constraintsMet(ptr, distCab)) {
         ptr->cab = cabIdx; // not supply[cabIdx].id as it is faster to reference it in Boot (than finding IDs)
+        supply[ptr->cab].location = -1; // allocated
         saveInJson(json, ptr);
         // remove any further duplicates
         for (int j = i + 1; j < size; j++)
@@ -371,7 +375,6 @@ boolean constraintsMet(Branch *el, int distCab) {
 }
 
 void saveInJson(char *json, Branch *ptr) {
-  supply[ptr->cab].location = -1; // allocated
   int l = strlen(json);
   l += sprintf(json + l, "{\"cab\":%d,\"len\":%d,\"ids\":[", ptr->cab, ptr->ordNumb/2); 
   for (int i=0; i<ptr->ordNumb; i++) {
@@ -397,7 +400,7 @@ void saveInJson(char *json, Branch *ptr) {
 
 boolean isFound(Branch *br1, Branch *br2, int size) 
 {   
-    for (int x = 0; x < size; x++) // -1 the last is OUT
+    for (int x = 0; x < size; x++)
       if (br1->ordActions[x] == 'i') 
         for (int y = 0; y < size; y++) 
           if (br2->ordActions[y] == 'i' && br2->ordIDs[y] == br1->ordIDs[x])

@@ -6,7 +6,7 @@ the optimal assignment plan for requests and available buses, and **Rest API**, 
 for receiving requests, share statuses and store them in a database. 
 
 Kaboot dispatcher consists of four vital components:
-* GLPK linear solver, scenarios with 1000 customers & 1000 buses have been tested
+* GLPK and Munkres solvers, for flexibility and speed respectively, scenarios with 1000 customers & 1000 buses have been tested
 * fast pool finder (multithreaded, linearly scalable, written in C) to assign several customers to one bus and create routes with several stops, 5+ passengers with 10+ stops are 
   allowed with finder based on [dynamic programming](https://en.wikipedia.org/wiki/Dynamic_programming) principles. Java version available.
 * route extender to assign customers to matching routes (including non-perfect matching)  
@@ -130,7 +130,7 @@ delete from route;
 * wait 1min after having reached a waypoint (stand) - time for customers to get the notification via RestAPI
 * mark cab as FREE at the last stand
 
-### Customer ~~~~
+### Customer
 * request a cab
 * wait for an assignment - a proposal 
 * do you like it ?
@@ -155,7 +155,7 @@ There is a lot of work in progress in Kaboot:
 * resistance to bizarre situations (customers interrupting trips, for example)
 * use of commercial solvers - performance gain?
 * extended tuning  
-* faster pool finder written in C or Rust
+* faster pool finder written in C or Rust - DONE, 2022-03
 
 ## Important parameters / limits
 
