@@ -30,3 +30,17 @@ type Task struct {
 	Place int
     Status string
 }
+
+type Demand struct {
+	Id int
+	From int
+	To int
+    Eta int // set when assigned
+    InPool bool
+    Cab_id int
+    Status string
+    MaxWait int // max wait for assignment
+    MaxLoss int // [%] loss in Pool
+    // LocalDateTime atTime;
+    Distance int
+}

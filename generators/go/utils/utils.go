@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"kabina/model"
 	"math"
+	"math/rand"
 	"net/http"
 	"strconv"
 	"time"
@@ -55,6 +56,19 @@ func GetRoute(usr string) (model.Route, error) {
 	return result, nil
 }
 
+func GetOrder(usr string, id int) (model.Demand, error) {
+	var result model.Demand
+	body, err := SendReq(usr, "http://" + address + "/orders/" + strconv.Itoa(id), "GET", nil)
+	if err != nil {
+		return result, err
+	}
+	if err := json.Unmarshal(body, &result); err != nil {
+		fmt.Println("Can not unmarshal Order")
+		return result, err
+	}
+	return result, nil
+}
+
 func UpdateCab(usr string, cab_id int, stand int, status string) {
 	values := map[string]string{"location": strconv.Itoa(stand), "status": status}
     json_data, err := json.Marshal(values)
@@ -87,6 +101,34 @@ func UpdateStatus(usr string, url string, id int, status string) {
 	}
 }
 
+func SaveDemand(method string, usr string, dem model.Demand) (model.Demand, error) {
+	var result model.Demand
+	values := map[string]string{"fromStand": strconv.Itoa(dem.From), 
+								"toStand": strconv.Itoa(dem.From), 
+								"status": "RECEIVED",
+								"maxWait": strconv.Itoa(dem.MaxWait),
+								"maxLoss": strconv.Itoa(dem.MaxLoss),
+								"shared": "true"}
+	json_data, err := json.Marshal(values)
+	if err != nil {
+		fmt.Print(err.Error())
+		return result, err
+	}
+	body, err := SendReq(usr, "http://" + address + "/orders/", method, bytes.NewReader(json_data))
+	if err != nil {
+		fmt.Print(err.Error())
+		return result, err
+	}
+	if err != nil {
+		return result, err
+	}
+	if err := json.Unmarshal(body, &result); err != nil {
+		fmt.Println("Can not unmarshal Demand")
+		return result, err
+	}
+	return result, nil
+}
+
 func SendReq(usr string, url string, method string, body io.Reader ) ([]byte, error) {
 	req, err := http.NewRequest(method, url, body)
 	if err != nil {
@@ -110,6 +152,7 @@ func SendReq(usr string, url string, method string, body io.Reader ) ([]byte, er
 	return respBody, nil
 }
 
+//================ BEGIN: DISTANCE SERVICE ==============
 func GetDistance(stops *[]model.Stop, from_id int, to_id int) int {
 	var from = -1
 	var to = -1
@@ -150,4 +193,18 @@ func deg2rad(deg float64) float64 {
 
 func rad2deg(rad float64) float64 {
 	return (rad * 180.0 / math.Pi);
+}
+//================ END: DISTANCE SERVICE ==============
+const MAX_TRIP = 4; // this should not have any impact, distance not based on ID any more, but maybe it will help a bit
+
+func RandomTo(from int, maxStand int) int {
+	diff := rand.Intn(MAX_TRIP * 2) - MAX_TRIP;
+	if diff == 0 { diff = 1 }
+	to := 0;
+	if from + diff > maxStand -1 { 
+		to = from - diff 
+	} else if from + diff < 0 { 
+		to = 0 
+	} else { to = from + diff; }
+	return to;
 }
