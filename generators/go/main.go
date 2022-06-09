@@ -37,7 +37,7 @@ func main() {
     	defer logFile.Close()
 		log.SetOutput(logFile)
 		var stops []model.Stop
-		stops, _ = utils.GetStops("cab0");
+		stops, _ = utils.GetEntity[[]model.Stop]("cab0", "/stops");
 		// well, why GetStops returns error? sth with Bearing
 		for c := 0; c < MAX_CABS; c++ {
 			go RunCab(&stops, c, c * multi)
@@ -73,7 +73,7 @@ func main() {
 func RunCab(stops *[]model.Stop, cab_id int, stand int) {
 	var usr string = "cab" + strconv.Itoa(cab_id) 
 	log.Printf("Starting my shift, cab_id=%d\n", cab_id)
-	cab, err := utils.GetCab(usr, cab_id)
+	cab, err := utils.GetEntity[model.Cab](usr, "/cabs/" + strconv.Itoa(cab_id))
 	if err != nil {
 		log.Printf("cab_id=%d not activated\n", cab_id);
 		return;
@@ -86,7 +86,7 @@ func RunCab(stops *[]model.Stop, cab_id int, stand int) {
 	cab.Location = stand; // the cab location read from DB (see above) might be wrong, that was the day before e.g.
 
 	for t := 0; t < MAX_TIME * (60/CHECK_INTERVAL); t++ { 
-		route, err := utils.GetRoute(usr) // TODO: status NULL
+		route, err := utils.GetEntity[model.Route](usr, "/routes") // TODO: status NULL
 		if err == nil { // this cab has been assigned a job
 			log.Printf("New route to run, cab_id=%d, route_id=%d\n", cab_id,  route.Id);
 			// go to first task - virtual walk, just wait this amount of time
@@ -118,14 +118,13 @@ func RunCab(stops *[]model.Stop, cab_id int, stand int) {
 				utils.UpdateCab(usr, cab_id, cab.Location, "ASSIGNED")
 			}
 			deliverPassengers(stops, usr, legs, cab);
-			utils.UpdateStatus(usr, "routes", route.Id, "COMPLETED")
+			utils.UpdateStatus(usr, "/routes/", route.Id, "COMPLETED")
 		} 
 		time.Sleep(CHECK_INTERVAL * time.Second)
 	}
 }
 
 func deliverPassengers(stops *[]model.Stop, usr string, legs []model.Task, cab model.Cab) {
-	
 	for l:=0; l < len(legs); l++ {
 		time.Sleep(60 * time.Second) // wait 1min: pickup + dropout; but it is stupid if the first leg has no passenger!!
 		// go from where you are to task.stand
@@ -133,7 +132,7 @@ func deliverPassengers(stops *[]model.Stop, usr string, legs []model.Task, cab m
 		log.Printf("Cab cab_id=%d is moving from %d to %d, task_id=%d\n", 
 				   cab.Id, task.FromStand, task.ToStand, task.Id)
 		task.Status = "STARTED"
-		utils.UpdateStatus(usr, "legs", task.Id, "STARTED")
+		utils.UpdateStatus(usr, "/legs/", task.Id, "STARTED")
 		// wait as long as it takes to go
 		var dist = utils.GetDistance(stops, task.FromStand, task.ToStand)
 		if dist == -1 {
@@ -142,7 +141,7 @@ func deliverPassengers(stops *[]model.Stop, usr string, legs []model.Task, cab m
 		}
 		time.Sleep(time.Duration(120 * dist) * time.Second) // cab is moving
 
-		utils.UpdateStatus(usr, "legs", task.Id, "COMPLETED")
+		utils.UpdateStatus(usr, "/legs/", task.Id, "COMPLETED")
 		cab.Location = task.ToStand;
 
 		// inform sheduler / customer
@@ -152,7 +151,7 @@ func deliverPassengers(stops *[]model.Stop, usr string, legs []model.Task, cab m
 		utils.UpdateCab(usr, cab.Id, task.ToStand, cab.Status) // such call should 'completed' tasks; at the last task -> 'complete' route and 'free' that cab
 		// !! update leg here -> completed
 		// a route can be extended with new legs (but only these 'not started'), we have to read it again
-		route, err := utils.GetRoute(usr)
+		route, err := utils.GetEntity[model.Route](usr, "/routes")
 		if err != nil { 
 			log.Printf("Could not update route, cab_id=%d\n", cab.Id)
 			break
@@ -233,7 +232,7 @@ func waitForAssignment(usr string, orderId int, custId int) (model.Demand, error
 	var order model.Demand
 	order.Id = -1
 	for t := 0; t < MAX_WAIT_FOR_RESPONSE * (60 / CHECK_INTERVAL); t++ {
-		order, err := utils.GetOrder(usr, orderId)
+		order, err := utils.GetEntity[model.Demand](usr, "/orders/" + strconv.Itoa(orderId))
 		if err != nil {
 			//log.Printf("Serious error, order not found or received, cust_id=%d, order_id=%d\n", custId, orderId);
 			// ignore
@@ -252,7 +251,7 @@ func waitForAssignment(usr string, orderId int, custId int) (model.Demand, error
 func hasArrived(usr string, cabId int, from int, wait int) bool {
 	for t := 0; t < wait * (60/CHECK_INTERVAL); t++ { // *4 as 15 secs below
 		time.Sleep(CHECK_INTERVAL * time.Second)
-		cab, err := utils.GetCab(usr, cabId);
+		cab, err := utils.GetEntity[model.Cab](usr, "/cabs/" + strconv.Itoa(cabId));
 		if err != nil { // ignore error
 			continue
 		}
@@ -277,7 +276,7 @@ func takeATrip(usr string, custId int, order model.Demand) {
 		if (order.status == OrderStatus.COMPLETED && order.cab_id != -1)  {
 			break;
 		}*/
-		cab, err := utils.GetCab(usr, order.Cab_id);
+		cab, err := utils.GetEntity[model.Cab](usr, "/cabs/" + strconv.Itoa(order.Cab_id));
 		if err != nil { // ignore error
 			continue
 		}
@@ -317,4 +316,3 @@ func takeATrip(usr string, custId int, order model.Demand) {
 		}
 	}
 }
-

@@ -17,88 +17,40 @@ import (
 const address string = "localhost"
 var client = &http.Client{ Timeout: time.Second * 10 }
 
-func GetCab(usr string, cab int) (model.Cab, error) {
-	var result model.Cab
-	body, err := SendReq(usr, "http://" + address + "/cabs/" + strconv.Itoa(cab), "GET", nil)
-	if err != nil {
-		return result, err
-	}
-	if err := json.Unmarshal(body, &result); err != nil { // Parse []byte to the go struct pointer
-		fmt.Println("Can not unmarshal Cab")
-		return result, err
-	}
-	return result, nil
-}
-
-func GetStops(usr string) ([]model.Stop, error) {
-	var result []model.Stop
-	body, err := SendReq(usr, "http://" + address + "/stops", "GET", nil)
-	if err != nil {
-		return result, err
-	}
-	if err := json.Unmarshal(body, &result); err != nil { // Parse []byte to the go struct pointer
-		fmt.Println("Can not unmarshal Stops")
-		return result, err
-	}
-	return result, nil
-}
-
-func GetRoute(usr string) (model.Route, error) {
-	var result model.Route
-	body, err := SendReq(usr, "http://" + address + "/routes", "GET", nil)
+func GetEntity[N model.Cab | model.Demand | model.Route | []model.Stop ](usr string, path string) (N, error) {
+	var result N
+	body, err := SendReq(usr, "http://" + address + path, "GET", nil)
 	if err != nil {
 		return result, err
 	}
 	if err := json.Unmarshal(body, &result); err != nil {
-		//fmt.Println("Can not unmarshal Route")
-		return result, err
-	}
-	return result, nil
-}
-
-func GetOrder(usr string, id int) (model.Demand, error) {
-	var result model.Demand
-	body, err := SendReq(usr, "http://" + address + "/orders/" + strconv.Itoa(id), "GET", nil)
-	if err != nil {
-		return result, err
-	}
-	if err := json.Unmarshal(body, &result); err != nil {
-		fmt.Println("Can not unmarshal Order")
+		fmt.Println("Can not unmarshal " + path)
 		return result, err
 	}
 	return result, nil
 }
 
 func UpdateCab(usr string, cab_id int, stand int, status string) {
-	values := map[string]string{"location": strconv.Itoa(stand), "status": status}
+	UpdateEntity(usr, "/cabs/", cab_id, map[string]string{"location": strconv.Itoa(stand), "status": status})
+}
+
+func UpdateStatus(usr string, path string, id int, status string) {
+	UpdateEntity(usr, path, id, map[string]string{"status": status})
+}
+
+func UpdateEntity(usr string, path string, id int, values map[string]string) {
     json_data, err := json.Marshal(values)
 	if err != nil {
 		fmt.Print(err.Error())
 		return
 	}
-	_, err = SendReq(usr, "http://" + address + "/cabs/" + strconv.Itoa(cab_id), 
+	_, err = SendReq(usr, "http://" + address + path + strconv.Itoa(id),
 						 "PUT", bytes.NewReader(json_data))
 	if err != nil {
 		fmt.Print(err.Error())
 		return
 	}
 	//fmt.Println(body)
-}
-
-func UpdateStatus(usr string, url string, id int, status string) {
-	values := map[string]string{"status": status}
-	//fmt.Printf("Update %s %d status %s\n", url, id, status);
-	json_data, err := json.Marshal(values)
-	if err != nil {
-		fmt.Print(err.Error())
-		return
-	}
-	_, err = SendReq(usr, "http://" + address + "/" + url+ "/" + strconv.Itoa(id), 
-						 "PUT", bytes.NewReader(json_data))
-	if err != nil {
-		fmt.Print(err.Error())
-		return
-	}
 }
 
 func SaveDemand(method string, usr string, dem model.Demand) (model.Demand, error) {
