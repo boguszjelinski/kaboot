@@ -53,10 +53,10 @@ public class ExternPool {
   }
 
   public ExternPool() {
-    this.flagFile = "C:\\Users\\dell\\TAXI\\GITLAB\\kaboot\\flag.txt";
-    this.demandFile = "C:\\Users\\dell\\TAXI\\GITLAB\\kaboot\\orders.csv";
-    this.supplyFile = "C:\\Users\\dell\\TAXI\\GITLAB\\kaboot\\cabs.csv";
-    this.outputFile = "C:\\Users\\dell\\TAXI\\GITLAB\\kaboot\\pools.csv";
+    this.flagFile = "/Users/m91127/Boot/kaboot/flag.txt";
+    this.demandFile = "/Users/m91127/Boot/kaboot/orders.csv";
+    this.supplyFile = "/Users/m91127/Boot/kaboot/cabs.csv";
+    this.outputFile = "/Users/m91127/Boot/kaboot/pools.csv";
   }
 
   /**
@@ -75,7 +75,7 @@ public class ExternPool {
     writeCabs(supplyFile, cabs);
 
     try {
-      Process p = Runtime.getRuntime().exec("runner " + flagFile); // TASK runner name in YML
+      Process p = Runtime.getRuntime().exec("/Users/m91127/Boot/kaboot/runner " + flagFile); // TASK runner name in YML
       p.waitFor();
     } catch (IOException e) {
       logger.warn("IOException while calling poold: {}", e.getMessage());

@@ -27,7 +27,7 @@ public class CabRunnable extends ApiClient implements Runnable {
     private int stand;
     private List<Stop> stops;
 
-    public CabRunnable(int id, int stand) { 
+    public CabRunnable(int id, int stand) {
         this.cabId = id; 
         this.stand = stand;
         logger = Logger.getLogger("kaboot.simulator.cabgenerator");
@@ -82,7 +82,8 @@ public class CabRunnable extends ApiClient implements Runnable {
                 // but let's check
                 if (task.fromStand != cab.location) { 
                     // strange - scheduler did not know cab's location (! never found in logs)
-                    log("Error, first leg does not start at cabs location. Moving", cab.location, task.fromStand, cab_id, + task.id);
+                    log("Error, first leg does not start at cabs location. Moving",
+                            cab.location, task.fromStand, cab_id, + task.id);
                     waitMins(getDistance(stops, cab.location, task.fromStand)); // cab is moving
                     cab.location = task.fromStand;
                     // inform that cab is at the stand -> update Cab entity, 'completed' previous Task

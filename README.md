@@ -28,10 +28,9 @@ It is not meant to be a market-ready solution due to limited resources.
   
 See here to find more: https://gitlab.com/kabina/kabina/-/blob/master/minibuses.pdf
 ## Prerequisites:
-* GLPK solver: https://www.gnu.org/software/glpk/
 * PostgreSQL (tested with MariaDB too)
 * Java SDK
-* C compiler (optional)
+* C compiler
 ## How to run
 ### Core
 

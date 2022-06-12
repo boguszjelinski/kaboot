@@ -3,6 +3,7 @@ package utils
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -15,13 +16,16 @@ import (
 )
 
 const address string = "localhost"
-var client = &http.Client{ Timeout: time.Second * 10 }
+var client = &http.Client{ Timeout: time.Second * 30 }
 
 func GetEntity[N model.Cab | model.Demand | model.Route | []model.Stop ](usr string, path string) (N, error) {
 	var result N
 	body, err := SendReq(usr, "http://" + address + path, "GET", nil)
 	if err != nil {
 		return result, err
+	}
+	if len(body) == 0 {
+		return result, errors.New("Empty body")
 	}
 	if err := json.Unmarshal(body, &result); err != nil {
 		fmt.Println("Can not unmarshal " + path)
@@ -56,26 +60,33 @@ func UpdateEntity(usr string, path string, id int, values map[string]string) {
 func SaveDemand(method string, usr string, dem model.Demand) (model.Demand, error) {
 	var result model.Demand
 	values := map[string]string{"fromStand": strconv.Itoa(dem.From), 
-								"toStand": strconv.Itoa(dem.From), 
-								"status": "RECEIVED",
+								"toStand": strconv.Itoa(dem.To), 
+								"status": dem.Status,
 								"maxWait": strconv.Itoa(dem.MaxWait),
 								"maxLoss": strconv.Itoa(dem.MaxLoss),
-								"shared": "true"}
+								"shared": strconv.FormatBool(dem.InPool)}
 	json_data, err := json.Marshal(values)
 	if err != nil {
 		fmt.Print(err.Error())
 		return result, err
 	}
-	body, err := SendReq(usr, "http://" + address + "/orders/", method, bytes.NewReader(json_data))
+	url := "http://" + address + "/orders/";
+	if method == "PUT" {
+		url += strconv.Itoa(dem.Id)
+	}
+	body, err := SendReq(usr, url, method, bytes.NewReader(json_data))
 	if err != nil {
 		fmt.Print(err.Error())
 		return result, err
 	}
-	if err != nil {
-		return result, err
+	if len(body) == 0 {
+		return result, errors.New("Empty body")
+	}
+	if method == "PUT" {
+		return result, nil // just empty body
 	}
 	if err := json.Unmarshal(body, &result); err != nil {
-		fmt.Println("Can not unmarshal Demand")
+		fmt.Printf("Can not unmarshal taxi order, usr=%s, from=%d to=%d\n", usr, dem.From, dem.To)
 		return result, err
 	}
 	return result, nil

@@ -38,7 +38,6 @@ public class GcmUtil {
     if (tmpSupply.length <= goalSize) {
       return tmpSupply; // nothing to do
     }
-
     Integer[] minDistances = findMinDistancesForSupply(cost);
 
     // finding max values and getting rid of them
@@ -94,10 +93,12 @@ public class GcmUtil {
   }
 
   public static Integer[] findMinDistancesForDemand(int[][] cost) {
+    if (cost.length == 0) {
+      return new Integer[0];
+    }
+    Integer[] minDistances = new Integer[cost[0].length];
 
-    Integer[] minDistances = new Integer[cost.length];
-
-    for (int d = 0; d < cost.length; d++) {
+    for (int d = 0; d < cost[0].length; d++) {
       int minVal = LcmUtil.BIG_COST;
       for (int[] ints : cost) {
         if (ints[d] < minVal) {
@@ -110,11 +111,16 @@ public class GcmUtil {
   }
 
   public static Integer[] findMinDistancesForSupply(int[][] cost) {
-    Integer[] minDistances = new Integer[cost.length];
+    if (cost.length == 0) {
+      return new Integer[0];
+    }
+    int supLen = cost.length;
+    int demLen = cost[0].length;
+    Integer[] minDistances = new Integer[supLen];
 
-    for (int s = 0; s < cost.length; s++) {
+    for (int s = 0; s < supLen; s++) {
       int minVal = LcmUtil.BIG_COST;
-      for (int d = 0; d < cost.length; d++) {
+      for (int d = 0; d < demLen; d++) {
         if (cost[s][d] < minVal) {
           minVal = cost[s][d];
         }

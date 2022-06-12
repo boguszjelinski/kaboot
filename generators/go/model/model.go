@@ -33,11 +33,11 @@ type Task struct {
 
 type Demand struct {
 	Id int
-	From int
-	To int
+	From int `json:"fromStand"`
+	To int `json:"toStand"`
     Eta int // set when assigned
     InPool bool
-    Cab_id int
+    Cab Cab
     Status string
     MaxWait int // max wait for assignment
     MaxLoss int // [%] loss in Pool

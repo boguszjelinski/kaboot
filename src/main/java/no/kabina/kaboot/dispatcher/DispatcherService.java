@@ -211,10 +211,15 @@ public class DispatcherService {
     int[][] cost = lcmUtil.calculateCost(munkresInput, solverOutput, demand, supply);
     statSrvc.updateMaxAndAvgStats("model_size", Math.max(demand.length, supply.length));
     logger.info("Before LCM: demand={}, supply={}", demand.length, supply.length);
+    // n*m model
+    // IF min(n,m) > max_non_lcm THEN reduce to max_non_lcm with LCM (max_non_lcm is max_munkres, although one dimension of munkres can be bigger)
+    // then
+    // IF max(n,m) > max_munkres THEN reduce the bigger side to max_munkres with MAXMIN (previously called GCM)
+    // matrix max_non_lcm * max_munkres is sent to munkres
     if (demand.length > maxSolverSize && supply.length > maxSolverSize) {
       // too big to send to solver, it has to be cut by LCM
-      // both sides has to be bigger, if one is smaller then
-      // we will just reverse-LCM (GCM) on the bigger side
+      // both sides have to be bigger, if one is smaller then
+      // we will just MAXMIN on the bigger side
       TempModel tempModel = runLcm(supply, demand, cost);
       demand = tempModel.getDemand();
       supply = tempModel.getSupply();
@@ -246,24 +251,24 @@ public class DispatcherService {
   }
 
   /**
-   * run linear solver (python script for now).
+   * run linear solver
 
    * @param tempSupply cabs
    * @param tempDemand orders
    * @param cost matrix
    */
   public void runSolver(Cab[] tempSupply, TaxiOrder[] tempDemand, int[][] cost) {
-    if (cost.length > maxSolverSize) {
-      // still too big to send to solver, it has to be cut hard
-      if (tempSupply.length > maxSolverSize) {
-        // some cabs will not get passengers, they have to wait for new ones
-        tempSupply = GcmUtil.reduceSupply(cost, tempSupply, maxSolverSize);
-      }
-      if (tempDemand.length > maxSolverSize) {
-        tempDemand = GcmUtil.reduceDemand(cost, tempDemand, maxSolverSize);
-      }
+    // we assume that one of the dimension is reduced by LCM to max_non_lcm
+    // and max_non_lcm < max_munkres
+    if (tempSupply.length > maxMunkresSize) {
+      // some cabs will not get passengers, they have to wait for new ones
+      tempSupply = GcmUtil.reduceSupply(cost, tempSupply, maxMunkresSize);
       // recalculate cost matrix again
       // it writes input file for solver
+      cost = lcmUtil.calculateCost(munkresInput, munkresOutput, tempDemand, tempSupply);
+    }
+    if (tempDemand.length > maxMunkresSize) {
+      tempDemand = GcmUtil.reduceDemand(cost, tempDemand, maxMunkresSize);
       cost = lcmUtil.calculateCost(munkresInput, munkresOutput, tempDemand, tempSupply);
     }
     statSrvc.updateMaxAndAvgStats("solver_size", Math.max(tempDemand.length, tempSupply.length));
