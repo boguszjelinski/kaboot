@@ -35,6 +35,7 @@
 #include "stdio.h"
 #include "string.h"
 #include "float.h"
+#include <stdlib.h> // Mac
 
 int width  = 5;
 int length = 4;
@@ -451,7 +452,7 @@ void print_matrix(int *v, int n, int length) // {v: pointer to vector, n: length
 
 void write_matrix(int *v, int n, int length)
 {
-    FILE *out = fopen("C:\\Users\\dell\\TAXI\\munkout.txt", "w");
+    FILE *out = fopen("/Users/m91127/Boot/kaboot/munkout.txt", "w");
     for (int i=0; i<n; ++i) {
         for (int j=0; j<length; j++)
           if (j == *v) fputs("1\n", out);
@@ -469,7 +470,7 @@ int main()
                           13, 16, 9, 14,
                           12, 19, 8, 18,
                           14, 17,10, 19};*/
-    readFile("C:\\Users\\dell\\TAXI\\munkinp.txt");
+    readFile("/Users/m91127/Boot/kaboot/munkinp.txt");
     
     int matched_col[width];
     int matched_row[length];

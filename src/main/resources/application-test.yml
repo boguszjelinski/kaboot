@@ -8,11 +8,6 @@ spring:
     username: kabina
     password: kaboot
 
-org:
-  jobrunr:
-    background-job-server.enabled: false
-    dashboard.enabled: true
-
 kaboot:
   consts:
     max-non-lcm: 200

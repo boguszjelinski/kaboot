@@ -9,7 +9,7 @@
 //			"-LC:\\msys64\\mingw64\\x86_64-w64-mingw32\\lib\\postgres",
 //			"-lpq"
 //			"-IC:\\msys64\\mingw64\\include\\postgres",
-
+// MAC: cc -Wno-implicit-function-declaration poold.c distsrvc.c dynapool.c -w -o poold
 extern short distance[MAXSTOPSNUMB][MAXSTOPSNUMB];
 
 time_t rawtime;
@@ -18,7 +18,7 @@ struct tm * timeinfo;
 char *stopsFileName, *ordersFileName, *cabsFileName, *outFileName, *flagFileName, *exitFileName;
 char json[MAXJSON];
 int numbThreads = 4;
-int maxInPool[3]= {201, 410, 600};
+int maxInPool[3]= {121, 410, 600};
 int inPool[3]= {4, 3, 2};
 
 Stop stops[MAXSTOPSNUMB];
@@ -31,7 +31,7 @@ int demandSize;
 Cab supply[MAXCABSNUMB];
 int cabsNumb;
 
-int memSize[MAXNODE] = {5000000, 9000000, 9000000, 9000000, 9000000, 1500000, 50000};
+int memSize[MAXNODE] = {5000000, 9000000, 9000000, 14000000, 12000000, 1500000, 50000};
 Branch *node[MAXNODE];
 int nodeSize[MAXNODE];
 int nodeSizeSMP[NUMBTHREAD];
@@ -201,16 +201,23 @@ int main(int argc, char **argv)
         outFileName = argv[5];
         flagFileName = argv[6];
     } else {
-        int lines = readFile("C:\\Users\\dell\\TAXI\\GITLAB\\kaboot\\poold\\poolcfg.txt", CONFIG);
+        int lines = 0; //readFile("C:\\Users\\dell\\TAXI\\GITLAB\\kaboot\\poold\\poolcfg.txt", CONFIG);
         if (lines < 1) {
             numbThreads = 4;
+            stopsFileName = "/Users/m91127/Boot/kaboot/db/stops-Budapest-import.csv";
+            ordersFileName = "/Users/m91127/Boot/kaboot/orders.csv";
+            cabsFileName = "/Users/m91127/Boot/kaboot/cabs.csv";
+            outFileName = "/Users/m91127/Boot/kaboot/pools.csv";
+            flagFileName = "/Users/m91127/Boot/kaboot/flag.txt";
+            exitFileName = "/Users/m91127/Boot/kaboot/exit.txt";
+            /*
             stopsFileName = "C:\\Users\\dell\\TAXI\\GITLAB\\kaboot\\db\\stops-Budapest-import.csv";
             ordersFileName = "C:\\Users\\dell\\TAXI\\GITLAB\\kaboot\\orders.csv";
             cabsFileName = "C:\\Users\\dell\\TAXI\\GITLAB\\kaboot\\cabs.csv";
             outFileName = "C:\\Users\\dell\\TAXI\\GITLAB\\kaboot\\pools.csv";
             flagFileName = "C:\\Users\\dell\\TAXI\\GITLAB\\kaboot\\flag.txt";
             exitFileName = "C:\\Users\\dell\\TAXI\\GITLAB\\kaboot\\exit.txt";
-            /*
+
            stopsFileName = "/cygdrive/c/Users/dell/Taxi/GITLAB/kaboot/db/stops-Budapest-import.csv";
             ordersFileName = "/cygdrive/c/Users/dell/Taxi/GITLAB/kaboot/orders.csv";
             cabsFileName = "/cygdrive/c/Users/dell/Taxi/GITLAB/kaboot/cabs.csv";
@@ -225,6 +232,7 @@ int main(int argc, char **argv)
     //exit(0);
 
     stopsNumb = readFile(stopsFileName, STOPS);
+    printf("Stops numb: %d\n", stopsNumb);
     initDistance();
     initMem();
 
@@ -257,7 +265,7 @@ int main(int argc, char **argv)
             break;
         } 
         sleep(1); // 1sec
-        printf(".");
+        printf(".\n");
     }
     freeMem();
     printf("Exiting ...\n");

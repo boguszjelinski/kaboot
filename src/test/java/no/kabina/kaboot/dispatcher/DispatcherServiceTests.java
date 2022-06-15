@@ -115,15 +115,15 @@ public class DispatcherServiceTests {
         int [][] costMunk = null;
         try {
             long time2 = System.currentTimeMillis();
-            costMunk = lcmUtil.calculateCost( "C:\\Users\\dell\\TAXI\\munkinp.txt", "", orders, cabs);
-            service.runExternalMunkres();
+            costMunk = lcmUtil.calculateCost( "\"/Users/m91127/Boot/kaboot/munkinp.txt", "", orders, cabs);
+            service.runExternalMunkres("/Users/m91127/Boot/kaboot/munkres/munkres");
             long time3 = System.currentTimeMillis();
             munkresTime = (int) ((time3 - time2) / 100F);
         } catch (Exception e) {
             e.printStackTrace();
         }
         int[] x2 = service.readMunkresResult(orders.length * cabs.length, "C:\\Users\\dell\\TAXI\\munkout.txt");
-        int sumMunkres = sumUpSolverDistance(x2, costMunk, orders, cabs);
+        int sumMunkres = sumUpMunkresDistance(x2, costMunk, orders, cabs);
     }
 
     @Test
@@ -186,15 +186,15 @@ public class DispatcherServiceTests {
 
     @Test
     public void compareSolverWithMunkres() {
-        int solverTime, munkresTime;
-        int size = 600;
+        int solverTime, munkresTime, rMunkresTime;
+        int size = 50;
         int stops = 5000;
         Random rand = new Random(10L);
         TempModel model = genRandomModel(rand, stops, size);
         TaxiOrder[] orders = model.getDemand();
         Cab[] cabs = model.getSupply();
         int [][] cost = lcmUtil.calculateGlpkCost("glpk.mod", "out.txt", orders, cabs);
-        int [][] costMunk;
+        int [][] costMunk = null;
                 //assertThat(cost.length).isSameAs(size);
         // LCM
         LcmOutput out = LcmUtil.lcm(cost, size);
@@ -207,20 +207,74 @@ public class DispatcherServiceTests {
             service.runExternalSolver();
             long time2 = System.currentTimeMillis();
             solverTime = (int) ((time2 - time1) / 100F);
-            costMunk = lcmUtil.calculateCost( "C:\\Users\\dell\\TAXI\\munkinp.txt", "", orders, cabs);
-            service.runExternalMunkres();
+            costMunk = lcmUtil.calculateCost( "/Users/m91127/Boot/kaboot/munkinp.txt", "", orders, cabs);
+            service.runExternalMunkres("/Users/m91127/Boot/kaboot/munkres/munkres");
             long time3 = System.currentTimeMillis();
             munkresTime = (int) ((time3 - time2) / 100F);
+            service.runExternalMunkres("/Users/m91127/Boot/kaboot/munkres/rmunkres");
+            long time4 = System.currentTimeMillis();
+            rMunkresTime = (int) ((time4 - time3) / 100F);
             int a=0;
         } catch (Exception e) {
             e.printStackTrace();
         }
         int[] x = service.readSolversResult(cost.length);
-        int[] x2 = service.readMunkresResult(orders.length * cabs.length, "C:\\Users\\dell\\TAXI\\munkout.txt");
+        int[] x2 = service.readMunkresResult(orders.length * cabs.length, "/Users/m91127/Boot/kaboot/munkout.txt");
+        int[] x3 = service.readMunkresResult(orders.length * cabs.length, "/Users/m91127/Boot/kaboot/rmunkout.txt");
         int sumSolver = sumUpSolverDistance(x, cost, orders, cabs);
-        int sumMunkres = sumUpSolverDistance(x2, cost, orders, cabs);
+        int sumMunkres = sumUpMunkresDistance(x2, costMunk, orders, cabs);
+        int sumRMunkres = sumUpRMunkresDistance(x3, costMunk, orders, cabs);
         int a = 0;
     }
+
+    @Test
+    public void TestMunkres() {
+        int munkresTime;
+        int size = 10;
+        int stops = 5000;
+        Random rand = new Random(10L);
+        TempModel model = genRandomModel(rand, stops, size);
+        TaxiOrder[] orders = model.getDemand();
+        Cab[] cabs = model.getSupply();
+        int [][] costMunk = lcmUtil.calculateCost( "/Users/m91127/Boot/kaboot/munkinp.txt", "", orders, cabs);
+        try {
+            long time1 = System.currentTimeMillis();
+            service.runExternalMunkres("/Users/m91127/Boot/kaboot/munkres/munkres");
+            long time2 = System.currentTimeMillis();
+            munkresTime = (int) ((time2 - time1) / 100F);
+            int x=1;
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        int[] x3 = service.readMunkresResult(orders.length * cabs.length, "/Users/m91127/Boot/kaboot/munkout.txt");
+        int sumRMunkres = sumUpMunkresDistance(x3, costMunk, orders, cabs);
+        int a = 0;
+    }
+
+    @Test
+    public void TestRMunkres() {
+        int munkresTime;
+        int size = 1000;
+        int stops = 5000;
+        Random rand = new Random(10L);
+        TempModel model = genRandomModel(rand, stops, size);
+        TaxiOrder[] orders = model.getDemand();
+        Cab[] cabs = model.getSupply();
+        int [][] costMunk = lcmUtil.calculateCost( "/Users/m91127/Boot/kaboot/munkinp.txt", "", orders, cabs);
+        try {
+            long time1 = System.currentTimeMillis();
+            service.runExternalMunkres("/Users/m91127/Boot/kaboot/munkres/rmunkres");
+            long time2 = System.currentTimeMillis();
+            munkresTime = (int) ((time2 - time1) / 100F);
+            int x=1;
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        int[] x3 = service.readMunkresResult(orders.length * cabs.length, "/Users/m91127/Boot/kaboot/rmunkout.txt");
+        int sumRMunkres = sumUpRMunkresDistance(x3, costMunk, orders, cabs);
+        int a = 0;
+    }
+
 
     private int sumUpLcmDistances(LcmOutput out, int [][] cost) {
         int sum = 0;
@@ -244,11 +298,36 @@ public class DispatcherServiceTests {
         return sum;
     }
 
-    private boolean waitIsOK(int[] x, int[][] cost, TaxiOrder[] tmpDemand, Cab[] tmpSupply) {
-        int nn = cost.length;
+    private int sumUpRMunkresDistance(int[] x, int[][] cost, TaxiOrder[] tmpDemand, Cab[] tmpSupply) {
+        int sum = 0;
         for (int s = 0; s < tmpSupply.length; s++) {
             for (int c = 0; c < tmpDemand.length; c++) {
-                if (x[nn * s + c] == 1 && cost[s][c] < LcmUtil.BIG_COST) {
+                if (x[tmpDemand.length * s + c] == 1 && cost[s][c] < LcmUtil.BIG_COST) {
+                    // not a fake assignment (to balance the model)
+                    sum += cost[s][c];
+                }
+            }
+        }
+        return sum;
+    }
+
+    private int sumUpMunkresDistance(int[] x, int[][] cost, TaxiOrder[] tmpDemand, Cab[] tmpSupply) {
+        int sum = 0;
+        for (int s = 0; s < tmpSupply.length; s++) {
+            for (int c = 0; c < tmpDemand.length; c++) {
+                if (x[tmpDemand.length * s + c] == 1 && cost[s][c] < LcmUtil.BIG_COST) {
+                    // not a fake assignment (to balance the model)
+                    sum += cost[s][c];
+                }
+            }
+        }
+        return sum;
+    }
+
+    private boolean waitIsOK(int[] x, int[][] cost, TaxiOrder[] tmpDemand, Cab[] tmpSupply) {
+        for (int s = 0; s < tmpSupply.length; s++) {
+            for (int c = 0; c < tmpDemand.length; c++) {
+                if (x[tmpDemand.length * s + c] == 1 && cost[s][c] < LcmUtil.BIG_COST) {
                     if (cost[s][c] > tmpDemand[c].getMaxWait())
                         return false;
                 }

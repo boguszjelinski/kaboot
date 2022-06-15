@@ -23,14 +23,14 @@ public class TestController {
    * @param auth authentication
    * @return OK
    */
-  @GetMapping("/schedulework")
+  @GetMapping("/dispatch")
   public String one(Authentication auth) {
-    Long id = AuthUtils.getUserId(auth, "ROLE_ADMIN");
-    if (id != -1) {
+    //Long id = AuthUtils.getUserId(auth, "ROLE_ADMIN");
+    //if (id != -1) {
       logger.info("Manual scheduler execution");
       service.findPlan(true);
       return "OK";
-    }
-    return "NOK";
+    //}
+    //return "NOK";
   }
 }

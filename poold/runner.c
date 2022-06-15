@@ -7,7 +7,7 @@ int main(int argc, char **argv) {
     if (argc == 2) {
         flagFileName = argv[1];
     } else {
-        flagFileName = "C:\\Users\\dell\\TAXI\\GITLAB\\kaboot\\flag.txt";
+        flagFileName = "/Users/m91127/Boot/kaboot/flag.txt";
     }
     // create flag
     FILE *out = fopen(flagFileName, "w");

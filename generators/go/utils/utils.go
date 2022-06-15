@@ -15,12 +15,14 @@ import (
 	"time"
 )
 
-const address string = "localhost"
+const host1 string = "192.168.10.176"
+const host2 string = "localhost"
+
 var client = &http.Client{ Timeout: time.Second * 30 }
 
 func GetEntity[N model.Cab | model.Demand | model.Route | []model.Stop ](usr string, path string) (N, error) {
 	var result N
-	body, err := SendReq(usr, "http://" + address + path, "GET", nil)
+	body, err := SendReq(usr, "http://" + host1 + path, "GET", nil)
 	if err != nil {
 		return result, err
 	}
@@ -48,7 +50,7 @@ func UpdateEntity(usr string, path string, id int, values map[string]string) {
 		fmt.Print(err.Error())
 		return
 	}
-	_, err = SendReq(usr, "http://" + address + path + strconv.Itoa(id),
+	_, err = SendReq(usr, "http://" + host2 + path + strconv.Itoa(id),
 						 "PUT", bytes.NewReader(json_data))
 	if err != nil {
 		fmt.Print(err.Error())
@@ -70,7 +72,7 @@ func SaveDemand(method string, usr string, dem model.Demand) (model.Demand, erro
 		fmt.Print(err.Error())
 		return result, err
 	}
-	url := "http://" + address + "/orders/";
+	url := "http://" + host2 + "/orders/";
 	if method == "PUT" {
 		url += strconv.Itoa(dem.Id)
 	}

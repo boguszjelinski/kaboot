@@ -122,7 +122,7 @@ public class LcmUtil {
         cost[c][d] = distanceService.getDistances()[tmpSupply[c].getLocation()][tmpDemand[d].fromStand];
       }
     }
-    DispatcherService.writeMunkresInput(cost, numbDemand, numbSupply, inputFile);
+    DispatcherService.writeMunkresInput(cost, numbDemand, numbSupply, inputFile, false);
     return cost;
   }
 

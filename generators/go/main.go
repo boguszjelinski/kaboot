@@ -15,12 +15,12 @@ import (
 // for cabs
 const MAX_TIME = 30 // minutes; how long should a cab wait for assigments == how long customer requests are sent
 const CHECK_INTERVAL = 15 // secs
-const MAX_CABS = 600
+const MAX_CABS = 1000
 const MAX_STAND = 5191
 const CAB_SPEED = 60 // km/h
 
 // the customer part
-const REQ_PER_MIN = 60;
+const REQ_PER_MIN = 150;
 const MAX_WAIT = 15;
 const MAX_POOL_LOSS = 90; // 90% detour
 const MAX_WAIT_FOR_RESPONSE = 3
@@ -155,7 +155,10 @@ func deliverPassengers(stops *[]model.Stop, usr string, legs []model.Task, cab m
 		// inform sheduler / customer
 		if (l == len(legs) - 1) {
 			cab.Status = "FREE"
+		} else {
+			cab.Status = "ASSIGNED" // unneeded but strange "CHARGING" in log
 		}
+
 		utils.UpdateCab(usr, cab.Id, task.ToStand, cab.Status) // such call should 'completed' tasks; at the last task -> 'complete' route and 'free' that cab
 		// !! update leg here -> completed
 		// a route can be extended with new legs (but only these 'not started'), we have to read it again

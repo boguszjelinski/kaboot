@@ -25,11 +25,6 @@ spring:
     jackson:
         serialization.FAIL_ON_EMPTY_BEANS: false
 
-org:
-    jobrunr:
-        background-job-server.enabled: false
-        dashboard.enabled: true
-
 logging:
     level:
         org.springframework: ERROR
@@ -50,9 +45,8 @@ kaboot:
         max-pool4: 50
         max-pool3: 75
         max-stand: 3300
-        max-trip: 15
+        max-trip: 18
     scheduler:
-        online: true
         at-time-lag: 3
         extend-margin: 1.05
         max-legs: 8
@@ -62,9 +56,9 @@ kaboot:
         input: "glpk.mod"
         output: "out.txt"
     munkres:
-        cmd: "C:\\Users\\dell\\TAXI\\C\\munkres\\munkres.exe"
-        input: "C:\\Users\\dell\\TAXI\\munkinp.txt"
-        output: "C:\\Users\\dell\\TAXI\\munkout.txt"
+        cmd: "/Users/m91127/Boot/kaboot/munkres/rmunkres"
+        input: "/Users/m91127/Boot/kaboot/rmunkinp.txt"
+        output: "/Users/m91127/Boot/kaboot/rmunkout.txt"
     extern-pool:
         in-use: true
         flag-file: "flag.txt"

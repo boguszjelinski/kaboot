@@ -67,9 +67,6 @@ public class DispatcherService {
   @Value("${kaboot.consts.max-non-lcm}")
   private int maxSolverSize; // how big can a solver model be; 0 = no solver at all
 
-  @Value("${kaboot.consts.max-munkres}")
-  private int maxMunkresSize; // how big can a solver model be; 0 = no solver at all
-
   @Value("${kaboot.consts.max-stand}")
   private int maxNumbStands;
 
@@ -90,9 +87,6 @@ public class DispatcherService {
 
   @Value("${kaboot.solver.input}")
   private String solverInput;
-
-  @Value("${kaboot.scheduler.online}")
-  private boolean isOnline;
 
   @Value("${kaboot.scheduler.at-time-lag}")
   private int atTimeLag;
@@ -155,16 +149,9 @@ public class DispatcherService {
   */
   //@Job(name = "Taxi scheduler", retries = 2)
   public void findPlan(boolean forceRun) {
-    // UUID uuid = UUID.randomUUID()
     // TASK: to mark cabs and customers as assigned to this instance of sheduler
-    // first update some statistics
-
     if (dynaPool == null) {
       this.dynaPool = new DynaPool(distanceService, asyncUtil, maxAngle);
-    }
-    if (!forceRun && !isOnline) { // userfull to run RestAPI on separate host
-      logger.info("Scheduler will not be run");
-      return;
     }
     logger.debug("Scheduler executed");
     updateAvgStats();
@@ -258,23 +245,10 @@ public class DispatcherService {
    * @param cost matrix
    */
   public void runSolver(Cab[] tempSupply, TaxiOrder[] tempDemand, int[][] cost) {
-    // we assume that one of the dimension is reduced by LCM to max_non_lcm
-    // and max_non_lcm < max_munkres
-    if (tempSupply.length > maxMunkresSize) {
-      // some cabs will not get passengers, they have to wait for new ones
-      tempSupply = GcmUtil.reduceSupply(cost, tempSupply, maxMunkresSize);
-      // recalculate cost matrix again
-      // it writes input file for solver
-      cost = lcmUtil.calculateCost(munkresInput, munkresOutput, tempDemand, tempSupply);
-    }
-    if (tempDemand.length > maxMunkresSize) {
-      tempDemand = GcmUtil.reduceDemand(cost, tempDemand, maxMunkresSize);
-      cost = lcmUtil.calculateCost(munkresInput, munkresOutput, tempDemand, tempSupply);
-    }
     statSrvc.updateMaxAndAvgStats("solver_size", Math.max(tempDemand.length, tempSupply.length));
     logger.info("Runnnig solver: demand={}, supply={}", tempDemand.length, tempSupply.length);
 
-    runExternalMunkres();
+    runExternalMunkres(munkresCmd);
     // read results from a file
     int[] x = readMunkresResult(tempDemand.length * tempSupply.length, munkresOutput);
     logger.info("Read vector from solver, length: {}", x.length);
@@ -303,9 +277,9 @@ public class DispatcherService {
     }
   }
 
-  public void runExternalMunkres() {
+  public void runExternalMunkres(String cmd) {
     try {
-      Process p = Runtime.getRuntime().exec(munkresCmd);
+      Process p = Runtime.getRuntime().exec(cmd);
       p.waitFor();
     } catch (IOException e) {
       logger.warn("IOException while running munkres: {}", e.getMessage());
@@ -356,12 +330,12 @@ public class DispatcherService {
     return x;
   }
 
-  public static void writeMunkresInput(int[][] cost, int numbDemand, int numbSupply, String munkresInput) {
+  public static void writeMunkresInput(int[][] cost, int numbDemand, int numbSupply, String munkresInput, boolean withComma) {
     try (FileWriter fr = new FileWriter(new File(munkresInput))) {
       fr.write(numbDemand + " " + numbSupply + "\n");
       for (int c = 0; c < numbSupply; c++) {
         for (int d = 0; d < numbDemand; d++) {
-          fr.write(cost[c][d] + ", ");
+          fr.write(cost[c][d] + (withComma?",":"") +" ");
         }
         fr.write("\n");
       }
