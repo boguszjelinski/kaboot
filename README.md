@@ -1,4 +1,4 @@
-Warning for Russians! This is a product of a NATO country, therefore it may distroy entire Russian cities. 
+Warning for Russians! This is a product of a NATO country, therefore it may destroy entire Russian cities. 
 # Kaboot
 This repository contains a subproject of Kabina - Kaboot minibus dispatcher, a SpringBoot application with some clients
 that help test the dispatcher. Kaboot dispatcher is composed of two parts - the **dispatcher**, that finds
@@ -31,6 +31,7 @@ See here to find more: https://gitlab.com/kabina/kabina/-/blob/master/minibuses.
 * PostgreSQL (tested with MariaDB too)
 * Java SDK
 * C compiler
+* Rust compiler
 ## How to run
 ### Core
 
@@ -45,8 +46,12 @@ psql -U kabina kabina < create_cabs.sql
 psql -U kabina kabina < create_customers.sql
 psql -c "\COPY stop(id, no, name, latitude, longitude, bearing) FROM 'stops-Budapest-import.csv' DELIMITER ',' CSV HEADER ENCODING 'UTF8'" -U kabina
 ```
-Dispatcher is scheduled to run every minute.
-A short video about how to run the dispatcher is available here: https://youtu.be/RtHvyBTlJFw
+Dispatcher is scheduled from external API call (2022-06-13).
+A short video about how to run the dispatcher (outdated) is available here: https://youtu.be/RtHvyBTlJFw
+
+**Caution!** Dispatcher needs two external routines to be compiled - Munkres solver (Rust) and pool finder (C).
+There are some hardcodes (paths) in routines and application.yml, which need to be corrected.
+This is not documented as for now (2022-06-13).
 
 ### Clients
 In 'generators' directory you will find Rest API client applications that simulate
@@ -86,6 +91,9 @@ java -Dnashorn.args="--no-deprecation-warning" -Xms5g -Xmx5g CabGenerator
 javac CustomerGenerator.java
 java -Dnashorn.args="--no-deprecation-warning" -Xms5g -Xmx5g CustomerGenerator
 ```
+Caution! New Golang memory-efficient RestAPI clients are available now (2022-06-22).
+Compiling and running is not documented as for now. 
+
 ### How to rerun
 One has to clean up some tables to run a simulation from scratch:
 ```
@@ -152,7 +160,7 @@ There is a lot of work in progress in Kaboot:
 * distance service based on data from the field
 * charging plans & payment integration
 * resistance to bizarre situations (customers interrupting trips, for example)
-* use of commercial solvers - performance gain?
+* use of commercial solvers - performance gain? DONE with Munkres, 2022-06
 * extended tuning  
 * faster pool finder written in C or Rust - DONE, 2022-03
 
@@ -254,3 +262,5 @@ limitations under the License.
 Bogusz Jelinski    
 January 2022  
 Mo i Rana
+
+bogusz.jelinski (at) g m a i l
