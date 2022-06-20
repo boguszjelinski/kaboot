@@ -13,7 +13,7 @@ extern int nodeSizeSMP[NUMBTHREAD];
 
 extern struct arg_struct {
    int i;
-   int chunk;
+   float chunk;
    int lev;
    int inPool;
 } *args[NUMBTHREAD];
@@ -52,7 +52,7 @@ void storeBranch(int thread, char action, int lev, int ordId, Branch *b, int inP
     nodeSizeSMP[thread]++;
 }
 
-// b is index of Branch in lev+1
+// branch is index of existing Branch in lev+1
 void storeBranchIfNotFoundDeeperAndNotTooLong(int thread, int lev, int ordId, int branch, int inPool) {
     // two situations: c IN and c OUT
     // c IN has to have c OUT in level+1, and c IN cannot exist in level + 1
@@ -91,9 +91,9 @@ void storeBranchIfNotFoundDeeperAndNotTooLong(int thread, int lev, int ordId, in
 
 void iterate(void *arguments) {
   struct arg_struct *ar = arguments;
-  int size = (ar->i + 1) * ar->chunk > demandSize ? demandSize : (ar->i + 1) * ar->chunk;
+  int size = round((ar->i + 1) * ar->chunk) > demandSize ? demandSize : round((ar->i + 1) * ar->chunk);
   
-  for (int ordId = ar->i * ar->chunk; ordId < size; ordId++) 
+  for (int ordId = round(ar->i * ar->chunk); ordId < size; ordId++) 
    if (demand[ordId].id != -1) { // not allocated in previous search (inPool+1)
     for (int b = 0; b < nodeSize[ar->lev + 1]; b++) 
       if (node[ar->lev + 1][b].cost != -1) {  
