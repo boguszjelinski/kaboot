@@ -227,10 +227,7 @@ int main(int argc, char **argv)
             */
         }
     }
-    // just testing
-    //setCosts(100);    genDemand(200);    findPool(4, 4, json); 
-    //exit(0);
-
+        
     stopsNumb = readFile(stopsFileName, STOPS);
     printf("Stops numb: %d\n", stopsNumb);
     initDistance();
@@ -250,7 +247,7 @@ int main(int argc, char **argv)
             for (int i=0; i<3; i++)
                 if (demandSize < maxInPool[i])
                     findPool(inPool[i], numbThreads, json); 
-                    //findPool(4, numbThreads, json); 
+              //      findPool(4, 8, json); 
             *(json + strlen(json) - 1) = 0; // last comma removed
             strcat(json, "]");
             FILE *out = fopen(outFileName, "w");
@@ -259,6 +256,7 @@ int main(int argc, char **argv)
 
             remove(flagFileName);
             showtime("STOP");
+            //break;
         } 
         if (access(exitFileName, F_OK ) == 0 ) {
             remove(exitFileName);

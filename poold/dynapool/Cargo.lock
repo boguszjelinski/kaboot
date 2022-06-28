@@ -15,6 +15,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "cc"
+version = "1.0.73"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2fff2a6927b3bb87f9595d67196a70493f627687a71d87a0d692242c33f58c11"
+
+[[package]]
 name = "csv"
 version = "1.1.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -40,11 +46,11 @@ dependencies = [
 name = "dynapool"
 version = "0.1.0"
 dependencies = [
+ "cc",
  "csv",
  "rustc-serialize",
  "serde",
  "serde_json",
- "sprintf",
 ]
 
 [[package]]
@@ -137,12 +143,6 @@ dependencies = [
  "ryu",
  "serde",
 ]
-
-[[package]]
-name = "sprintf"
-version = "0.1.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "082cb9266c8691c70a98442f8f893ba3549f02f64e128cb096dac92e1c428340"
 
 [[package]]
 name = "syn"
