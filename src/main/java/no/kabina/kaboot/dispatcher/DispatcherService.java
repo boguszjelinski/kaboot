@@ -38,6 +38,7 @@ import org.apache.commons.lang3.ArrayUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -140,7 +141,7 @@ public class DispatcherService {
   }
 
   public void runPlan() {
-    findPlan(false);
+    findPlan();
   }
 
   /** 1) get the data from DB.
@@ -148,7 +149,8 @@ public class DispatcherService {
   *   3) write this plan to DB
   */
   //@Job(name = "Taxi scheduler", retries = 2)
-  public void findPlan(boolean forceRun) {
+  @Scheduled(fixedDelay = 15000)
+  public void findPlan() {
     // TASK: to mark cabs and customers as assigned to this instance of sheduler
     if (dynaPool == null) {
       this.dynaPool = new DynaPool(distanceService, asyncUtil, maxAngle);

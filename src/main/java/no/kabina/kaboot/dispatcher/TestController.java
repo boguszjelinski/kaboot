@@ -28,7 +28,7 @@ public class TestController {
     //Long id = AuthUtils.getUserId(auth, "ROLE_ADMIN");
     //if (id != -1) {
       logger.info("Manual scheduler execution");
-      service.findPlan(true);
+      service.findPlan();
       return "OK";
     //}
     //return "NOK";

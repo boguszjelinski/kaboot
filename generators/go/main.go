@@ -163,14 +163,14 @@ func deliverPassengers(stops *[]model.Stop, usr string, legs []model.Task, cab m
 		// !! update leg here -> completed
 		// a route can be extended with new legs (but only these 'not started'), we have to read it again
 		route, err := utils.GetEntity[model.Route](usr, "/routes")
-		if err != nil { 
-			log.Printf("Could not update route, cab_id=%d\n", cab.Id)
-			break
+		if err != nil {
+			log.Printf("Could not check route for updates, cab_id=%d, err={}\n", cab.Id, err)
+		} else {
+            legs = route.Legs;
+            sort.Slice(legs[:], func(i, j int) bool {
+                return legs[i].Place < legs[j].Place
+            })
 		}
-		legs = route.Legs;
-		sort.Slice(legs[:], func(i, j int) bool {
-			return legs[i].Place < legs[j].Place
-		})
 	}
 }
 
@@ -189,6 +189,7 @@ func RunCustomer(custId int, dem model.Demand) {
 
 	log.Printf("Request cust_id=%d from=%d to=%d\n", custId, dem.From, dem.To)
 	dem.Status = "RECEIVED"
+	dem.Id = -1;
 	order, err := utils.SaveDemand("POST", usr, dem);
   
 	if err!=nil || order.Id == -1 {
@@ -304,13 +305,14 @@ func takeATrip(usr string, custId int, order model.Demand) string {
 					custId, order.Id, order.Cab.Id)
 	} else {
 		if order.InPool {
-			if duration/(60.0/CHECK_INTERVAL) > order.Distance * (1.0+ (order.MaxLoss/100.0)) + MAX_TRIP_LOSS {
+			var maxDuration = float64(order.Distance) * (1.0+ (float64(order.MaxLoss)/100.0)) + float64(MAX_TRIP_LOSS)
+			if float64(duration)/(60.0/CHECK_INTERVAL) > maxDuration {
 				// complain
 				str := " - duration: " + strconv.Itoa(duration/(60/CHECK_INTERVAL)) + 
 					", distance: " + strconv.Itoa(order.Distance) +
 					", maxLoss: " + strconv.Itoa(order.MaxLoss) +
 					", " + strconv.Itoa(duration/(60/CHECK_INTERVAL)) +
-					">" + strconv.Itoa(int(order.Distance * (1+ (order.MaxLoss/100)) + MAX_TRIP_LOSS))
+					">" + strconv.FormatFloat(maxDuration, 'E', -1, 64)
 				log.Printf("Duration in pool was too long, " + str + ", cust_id=%d, order_id=%d, cab_id=%d\n", 
 							custId, order.Id, order.Cab.Id)
 			}

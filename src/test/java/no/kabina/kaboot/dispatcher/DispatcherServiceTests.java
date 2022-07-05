@@ -338,7 +338,7 @@ public class DispatcherServiceTests {
 
     @Test
     public void testPlan1() {
-        service.findPlan(false);
+        service.findPlan();
         assertThat(service.hashCode()>0).isTrue();
     }
 
@@ -349,7 +349,7 @@ public class DispatcherServiceTests {
         Cab[] cabs = model.getSupply();
         given(orderRepo.findByStatus(any())).willReturn(Arrays.asList(orders));
         given(cabRepo.findByStatus(any())).willReturn(Arrays.asList(cabs));
-        service.findPlan(false);
+        service.findPlan();
         assertThat(service.hashCode()>0).isTrue();
     }
 

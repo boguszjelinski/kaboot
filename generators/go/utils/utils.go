@@ -15,14 +15,14 @@ import (
 	"time"
 )
 
-const host1 string = "192.168.10.176"
-const host2 string = "localhost"
+const host string = "http://localhost:5128" //"http://192.168.10.176"
+
 
 var client = &http.Client{ Timeout: time.Second * 30 }
 
 func GetEntity[N model.Cab | model.Demand | model.Route | []model.Stop ](usr string, path string) (N, error) {
 	var result N
-	body, err := SendReq(usr, "http://" + host1 + path, "GET", nil)
+	body, err := SendReq(usr, host + path, "GET", nil)
 	if err != nil {
 		return result, err
 	}
@@ -37,11 +37,12 @@ func GetEntity[N model.Cab | model.Demand | model.Route | []model.Stop ](usr str
 }
 
 func UpdateCab(usr string, cab_id int, stand int, status string) {
-	UpdateEntity(usr, "/cabs/", cab_id, map[string]string{"location": strconv.Itoa(stand), "status": status})
+	UpdateEntity(usr, "/cabs/", cab_id, 
+		map[string]string{"id": strconv.Itoa(cab_id), "location": strconv.Itoa(stand), "status": status})
 }
 
 func UpdateStatus(usr string, path string, id int, status string) {
-	UpdateEntity(usr, path, id, map[string]string{"status": status})
+	UpdateEntity(usr, path, id, map[string]string{"id": strconv.Itoa(id), "status": status})
 }
 
 func UpdateEntity(usr string, path string, id int, values map[string]string) {
@@ -50,7 +51,7 @@ func UpdateEntity(usr string, path string, id int, values map[string]string) {
 		fmt.Print(err.Error())
 		return
 	}
-	_, err = SendReq(usr, "http://" + host2 + path + strconv.Itoa(id),
+	_, err = SendReq(usr, host + path, // + strconv.Itoa(id),
 						 "PUT", bytes.NewReader(json_data))
 	if err != nil {
 		fmt.Print(err.Error())
@@ -61,7 +62,8 @@ func UpdateEntity(usr string, path string, id int, values map[string]string) {
 
 func SaveDemand(method string, usr string, dem model.Demand) (model.Demand, error) {
 	var result model.Demand
-	values := map[string]string{"fromStand": strconv.Itoa(dem.From), 
+	values := map[string]string{"id": strconv.Itoa(dem.Id),
+								"fromStand": strconv.Itoa(dem.From), 
 								"toStand": strconv.Itoa(dem.To), 
 								"status": dem.Status,
 								"maxWait": strconv.Itoa(dem.MaxWait),
@@ -72,10 +74,10 @@ func SaveDemand(method string, usr string, dem model.Demand) (model.Demand, erro
 		fmt.Print(err.Error())
 		return result, err
 	}
-	url := "http://" + host2 + "/orders/";
-	if method == "PUT" {
-		url += strconv.Itoa(dem.Id)
-	}
+	url := host + "/orders/";
+	//if method == "PUT" {
+	//	url += strconv.Itoa(dem.Id)
+	//}
 	body, err := SendReq(usr, url, method, bytes.NewReader(json_data))
 	if err != nil {
 		fmt.Print(err.Error())
