@@ -25,7 +25,7 @@ public class StatService {
   public Stat updateMaxIntVal(String key, int value) {
     Stat stat = statRepo.findByName(key);
     if (stat == null) {
-      Stat s = new Stat(key, value, 0);
+      Stat s = new Stat(key, value);
       return statRepo.save(s);
     }
     if (value > stat.getIntVal()) {
@@ -39,7 +39,7 @@ public class StatService {
   public Stat addToIntVal(String key, int value) {
     Stat stat = statRepo.findByName(key);
     if (stat == null) {
-      Stat s = new Stat(key, value, 0);
+      Stat s = new Stat(key, value);
       return statRepo.save(s);
     }
     stat.setIntVal(stat.getIntVal() + value);
@@ -49,7 +49,7 @@ public class StatService {
   public Stat updateIntVal(String key, int value) {
     Stat stat = statRepo.findByName(key);
     if (stat == null) {
-      Stat s = new Stat(key, value, 0);
+      Stat s = new Stat(key, value);
       return statRepo.save(s);
     }
     stat.setIntVal(value);
@@ -65,7 +65,7 @@ public class StatService {
   public Stat incrementIntVal(String key) {
     Stat stat = statRepo.findByName(key);
     if (stat == null) {
-      Stat s = new Stat(key, 1, 0);
+      Stat s = new Stat(key, 1);
       return statRepo.save(s);
     }
     stat.setIntVal(stat.getIntVal() + 1);

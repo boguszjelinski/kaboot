@@ -77,8 +77,8 @@ public class DispatcherServiceTests {
 
     @BeforeAll
     public void before() {
-        given(statRepo.findByName("key")).willReturn(new Stat("key",1,0));
-        given(statRepo.save(any())).willReturn(new Stat("key",2,0));
+        given(statRepo.findByName("key")).willReturn(new Stat("key",1));
+        given(statRepo.save(any())).willReturn(new Stat("key",2));
         //given(stopRepo.findAll()).willReturn(getAllStops());
         int numbOfStands = 50;
         //given(distanceService.getDistances()).willReturn(PoolUtil.setCosts(numbOfStands));

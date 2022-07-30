@@ -68,6 +68,9 @@ public class DispatcherService {
   @Value("${kaboot.consts.max-non-lcm}")
   private int maxSolverSize; // how big can a solver model be; 0 = no solver at all
 
+  @Value("${kaboot.consts.max-assignment-time}")
+  private int maxAssignTime;
+
   @Value("${kaboot.consts.max-stand}")
   private int maxNumbStands;
 
@@ -998,21 +1001,28 @@ public class DispatcherService {
     List<TaxiOrder> newDemand = new ArrayList<>();
 
     LocalDateTime now = LocalDateTime.now();
+    String ids = "";
     for (TaxiOrder o : demand) {
+      if (o.getCustomer() == null) {
+        continue; // TODO: how many such orders? the error comes from AddOrderAsync in API, update of Customer fails
+      }
       long minutesRcvd = Duration.between(o.getReceived(), now).getSeconds() / 60;
       long minutesAt = 0;
       if (o.getAtTime() != null) {
         minutesAt = Duration.between(o.getAtTime(), now).getSeconds() / 60;
       }
-      if ((o.getAtTime() == null && minutesRcvd > o.getMaxWait())
-          || (o.getAtTime() != null && minutesAt > o.getMaxWait())) {
+      if ((o.getAtTime() == null && minutesRcvd > maxAssignTime)
+          || (o.getAtTime() != null && minutesAt > maxAssignTime)) {
         // TASK: maybe scheduler should have its own, global MAX WAIT
-        logger.info("order_id={} refused, max wait exceeded", o.id);
+        ids += "order_id=" + o.id + ",";
         o.setStatus(TaxiOrder.OrderStatus.REFUSED);
         taxiOrderRepository.save(o);
       } else {
         newDemand.add(o);
       }
+    }
+    if (ids.length() > 0) {
+      logger.info("{} refused, max assignment time exceeded", ids);
     }
     return newDemand.toArray(new TaxiOrder[0]);
   }

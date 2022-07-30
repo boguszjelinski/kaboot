@@ -10,7 +10,6 @@ public class Stat {
   private String name;
 
   private int intVal;
-  private double dblVal;
 
   protected Stat() { }
 
@@ -18,12 +17,10 @@ public class Stat {
 
    * @param name key
    * @param intVal integer
-   * @param dblVal double
    */
-  public Stat(String name, int intVal, double dblVal) {
+  public Stat(String name, int intVal) {
     this.name = name;
     this.intVal = intVal;
-    this.dblVal = dblVal;
   }
 
   public String getName() {
@@ -42,11 +39,4 @@ public class Stat {
     this.intVal = intVal;
   }
 
-  public double getDblVal() {
-    return dblVal;
-  }
-
-  public void setDblVal(double dblVal) {
-    this.dblVal = dblVal;
-  }
 }

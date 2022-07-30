@@ -31,8 +31,8 @@ public class StatsTests {
     @Before
     public void before() {
         statService = new StatService(statRepo);
-        given(statRepo.findByName("key")).willReturn(new Stat("key",1,0));
-        given(statRepo.save(any())).willReturn(new Stat("key",2,0));
+        given(statRepo.findByName("key")).willReturn(new Stat("key",1));
+        given(statRepo.save(any())).willReturn(new Stat("key",2));
     }
 
     @Test
@@ -100,10 +100,8 @@ public class StatsTests {
         Stat stat = new Stat();
         stat.setName("name");
         stat.setIntVal(1);
-        stat.setDblVal(1.0);
         assertThat(stat.getName()).isEqualTo("name");
         assertThat(stat.getIntVal()).isEqualTo(1);
-        assertThat(stat.getDblVal()).isEqualTo(1.0);
     }
 
 }

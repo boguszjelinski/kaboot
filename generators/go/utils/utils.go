@@ -15,7 +15,7 @@ import (
 	"time"
 )
 
-const host string = "http://localhost:5128" //"http://192.168.10.176"
+const host string = "http://192.168.10.176" // "http://localhost:5128"//192.168.10.176
 
 
 var client = &http.Client{ Timeout: time.Second * 30 }
@@ -107,8 +107,13 @@ func SendReq(usr string, url string, method string, body io.Reader ) ([]byte, er
 	req.Header.Set("Content-Type", "application/json") // for POST 
 	resp, err := client.Do(req)
 	if err != nil {
-		fmt.Print(err.Error())
-		return nil, err
+		// try again
+		time.Sleep(2000 * time.Millisecond); // give the server some breath
+		resp, err = client.Do(req)
+		if err != nil {
+			fmt.Println("usr: "+ usr + "method" + method + ", url: " + url + ", err: " + err.Error())
+			return nil, err
+		}
 	}
 	defer resp.Body.Close()
 	respBody, err := ioutil.ReadAll(resp.Body) // response body is []byte
@@ -118,6 +123,8 @@ func SendReq(usr string, url string, method string, body io.Reader ) ([]byte, er
 	}
 	return respBody, nil
 }
+
+
 
 //================ BEGIN: DISTANCE SERVICE ==============
 func GetDistance(stops *[]model.Stop, from_id int, to_id int) int {

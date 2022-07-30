@@ -268,6 +268,8 @@ void rmFinalDuplicates(int inPool) {
               || constraintsMet(ptr, distCab)) {
         ptr->cab = cabIdx; // not supply[cabIdx].id as it is faster to reference it in Boot (than finding IDs)
         supply[ptr->cab].location = -1; // allocated
+        for (int o=0; o < ptr->ordNumb; o++) // ordNumb is pool*2 but 'if' would cost more
+           demand[ptr->ordIDs[o]].id = -1;
         if (retCount < retNumb) {
           *(retNode + retCount++) = *ptr; // TASK: maybe copy of pointers would do ? 
         }

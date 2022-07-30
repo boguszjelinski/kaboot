@@ -45,9 +45,10 @@ kaboot:
         max-pool4: 50
         max-pool3: 75
         max-stand: 3300
-        max-trip: 18
+        max-trip: 10
+        max-assignment-time: 3
     scheduler:
-        at-time-lag: 3
+        at-time-lag: 3000
         extend-margin: 1.05
         max-legs: 8
         max-angle: 120

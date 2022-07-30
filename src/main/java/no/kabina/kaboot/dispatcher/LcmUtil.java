@@ -40,7 +40,7 @@ public class LcmUtil {
 
   private static final Logger logger = LoggerFactory.getLogger(LcmUtil.class);
 
-  public static final int SCHEDULING_DURATION = 2; // scheduler runs once a minute
+  public static final int SCHEDULING_DURATION = 2;
   // + it takes one minute to compute + 1min to distribute the information
   public static final int BIG_COST = 250000;
 
